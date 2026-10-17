@@ -102,16 +102,6 @@ function findNextLessonDate(subjectKey, fromDate) {
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
 
-  // ---------- БУРГЕР ----------
-  const burger = document.getElementById('burger');
-  const nav = document.getElementById('nav');
-  if (burger && nav) {
-    burger.addEventListener('click', () => {
-      const open = nav.classList.toggle('open');
-      burger.classList.toggle('open', open);
-    });
-  }
-
   // ---------- ПРОФИЛЬ ----------
   const avatar = document.getElementById('avatar');
   const profilePop = document.getElementById('profilePop');
@@ -180,6 +170,136 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   renderProfile();
+
+    // ---------- ПОИСК И УВЕДОМЛЕНИЯ В ПРОФИЛЕ ----------
+  const searchToggle = document.getElementById('searchToggle');
+  const searchField = document.getElementById('searchField');
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  const notifyToggle = document.getElementById('notifyToggle');
+  const notifyList = document.getElementById('notifyList');
+  const notifyBadge = document.getElementById('notifyBadge');
+
+  function collectAllTopics() {
+    const all = [];
+    Object.entries(subjects).forEach(([key, s]) => {
+      s.topics.forEach(t => {
+        if (t.title === 'Раздел в разработке') return;
+        all.push({ ...t, key });
+      });
+    });
+    return all;
+  }
+
+  // --- Поиск ---
+  if (searchToggle && searchField && searchInput && searchResults) {
+    searchToggle.addEventListener('click', () => {
+      const willOpen = !searchField.classList.contains('is-open');
+      searchField.classList.toggle('is-open', willOpen);
+      if (willOpen) {
+        searchInput.value = '';
+        searchResults.innerHTML = '';
+        setTimeout(() => searchInput.focus(), 200);
+      }
+    });
+
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.trim().toLowerCase();
+      searchResults.innerHTML = '';
+      if (!q) return;
+
+      const found = collectAllTopics().filter(t => {
+        const hay = (t.title + ' ' + subjects[t.key].title + ' ' + (t.num || '')).toLowerCase();
+        return hay.includes(q);
+      }).slice(0, 12);
+
+      if (!found.length) {
+        searchResults.innerHTML = '<div class="pop-result--empty">Ничего не найдено</div>';
+        return;
+      }
+
+      found.forEach(t => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pop-result';
+        btn.innerHTML = `
+          <div class="pop-result__title">${t.num ? t.num + ' · ' : ''}${t.title}</div>
+          <div class="pop-result__meta">${subjects[t.key].title}</div>
+        `;
+        btn.addEventListener('click', () => {
+          profilePop.classList.remove('open');
+          showView('files');
+          setTimeout(() => openSubjectView(t.key, t.num), 50);
+        });
+        searchResults.appendChild(btn);
+      });
+    });
+  }
+
+  // --- Уведомления ---
+  if (notifyToggle && notifyList && notifyBadge) {
+    const SEEN_KEY = 'doro.seenTopics';
+    const seen = new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'));
+
+    const upcoming = collectAllTopics()
+      .filter(t => new Date(t.date).getTime() >= new Date().setHours(0, 0, 0, 0))
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(0, 8);
+
+    const topicId = t => `${t.key}:${t.num || t.title}`;
+
+    function updateBadge() {
+      const unseen = upcoming.filter(t => !seen.has(topicId(t))).length;
+      if (unseen > 0) {
+        notifyBadge.textContent = unseen;
+        notifyBadge.style.display = 'grid';
+      } else {
+        notifyBadge.style.display = 'none';
+      }
+    }
+
+    updateBadge();
+
+    function renderNotifyList() {
+      notifyList.innerHTML = '';
+
+      if (!upcoming.length) {
+        notifyList.innerHTML = '<div class="notify-item--empty">Пока нет ближайших тем</div>';
+        return;
+      }
+
+      upcoming.forEach(t => {
+        const id = topicId(t);
+        const dateStr = new Date(t.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'notify-item' + (seen.has(id) ? ' notify-item--seen' : '');
+        btn.innerHTML = `
+          <span class="notify-item__dot"></span>
+          <span class="notify-item__body">
+            <span class="notify-item__title">${t.title}</span>
+            <span class="notify-item__meta">${subjects[t.key].title} · ${dateStr}</span>
+          </span>
+        `;
+        btn.addEventListener('click', () => {
+          seen.add(id);
+          localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+          updateBadge();
+
+          profilePop.classList.remove('open');
+          showView('files');
+          setTimeout(() => openSubjectView(t.key, t.num), 50);
+        });
+        notifyList.appendChild(btn);
+      });
+    }
+
+    notifyToggle.addEventListener('click', () => {
+      const willOpen = !notifyList.classList.contains('is-open');
+      notifyList.classList.toggle('is-open', willOpen);
+      if (willOpen) renderNotifyList();
+    });
+  }
 
   // ---------- ДАТА ----------
   const greetDate = document.getElementById('greetDate');
@@ -349,7 +469,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderSections() {
     if (!subjectCards) return;
     subjectCards.innerHTML = '';
-    ['biochem','physio','histology','microbio','hygiene'].forEach(key => {
+    Object.keys(subjects)
+      .sort((a, b) => subjects[a].title.localeCompare(subjects[b].title, 'ru'))
+      .forEach(key => {
       const s = subjects[key];
       if (!s) return;
       const btn = document.createElement('button');
