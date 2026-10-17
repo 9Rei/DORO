@@ -11,11 +11,16 @@ jobs:
     permissions:
       contents: write
       issues: write
-
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install requests
 
       - name: Parse issue
         id: parse
@@ -28,7 +33,7 @@ jobs:
               const m = body.match(re);
               return m ? m[1].trim() : '';
             };
-            const subject = get('Предмет');
+            const subject = get('Предмет').toLowerCase();
             const num = get('Номер темы');
             const title = get('Название темы');
             const stepsRaw = get('Шаги подготовки');
@@ -39,93 +44,35 @@ jobs:
               return;
             }
 
-            const steps = stepsRaw.split('\n').map(s => s.trim()).filter(Boolean);
+            const steps = stepsRaw.split('\n').map(s => s.trim()).filter(Boolean).join('|');
             const attachments = [];
             const re = /\[([^\]]+)\]\((https:\/\/[^\)]+)\)/g;
             let m;
             while ((m = re.exec(filesRaw)) !== null) {
-              attachments.push({ name: m[1].trim(), url: m[2].trim() });
+              attachments.push(m[1].trim() + ":::" + m[2].trim());
             }
             if (!attachments.length) {
               const re2 = /(https:\/\/github\.com\/user-attachments\/[^\s\)]+)/g;
               while ((m = re2.exec(filesRaw)) !== null) {
-                attachments.push({ name: m[1].split('/').pop(), url: m[1] });
+                attachments.push(m[1].split('/').pop() + ":::" + m[1]);
               }
             }
-            core.setOutput('subject', subject.toLowerCase());
+
+            core.setOutput('subject', subject);
             core.setOutput('num', num);
             core.setOutput('title', title);
-            core.setOutput('steps', JSON.stringify(steps));
-            core.setOutput('attachments', JSON.stringify(attachments));
+            core.setOutput('steps', steps);
+            core.setOutput('attachments', attachments.join('|'));
 
-      - name: Download files
+      - name: Process issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ATTACHMENTS: ${{ steps.parse.outputs.attachments }}
-          SUBJECT: ${{ steps.parse.outputs.subject }}
-        run: |
-          python3 - <<'PY'
-          import json, os, requests
-          from pathlib import Path
-          subject = os.environ["SUBJECT"]
-          attachments = json.loads(os.environ["ATTACHMENTS"])
-          target = Path("files") / subject
-          target.mkdir(parents=True, exist_ok=True)
-          entries = []
-          headers = {"Authorization": f"Bearer {os.environ['GH_TOKEN']}"}
-          for a in attachments:
-              r = requests.get(a["url"], headers=headers)
-              if r.status_code != 200:
-                  r = requests.get(a["url"])
-              if r.status_code != 200:
-                  raise SystemExit(f"Не скачал {a['name']}: HTTP {r.status_code}")
-              safe = a["name"].replace("/", "_")
-              (target / safe).write_bytes(r.content)
-              entries.append({"name": safe, "url": f"files/{subject}/{safe}"})
-          Path("/tmp/entries.json").write_text(json.dumps(entries, ensure_ascii=False))
-          PY
-
-      - name: Patch script.js
-        env:
           SUBJECT: ${{ steps.parse.outputs.subject }}
           NUM: ${{ steps.parse.outputs.num }}
           TITLE: ${{ steps.parse.outputs.title }}
           STEPS: ${{ steps.parse.outputs.steps }}
-        run: |
-          python3 - <<'PY'
-          import json, os, re
-          from datetime import date
-          from pathlib import Path
-          SUBJECT = os.environ["SUBJECT"]
-          NUM = os.environ["NUM"]
-          TITLE = os.environ["TITLE"]
-          STEPS = json.loads(os.environ["STEPS"])
-          ENTRIES = json.loads(Path("/tmp/entries.json").read_text())
-          js_path = Path("script.js")
-          js = js_path.read_text(encoding="utf-8")
-          if re.search(rf'num:\s*"{re.escape(NUM)}"', js):
-              raise SystemExit(f"Тема с номером {NUM} уже есть")
-          pattern = rf'({re.escape(SUBJECT)}:\s*\{{[^}}]*?topics:\s*\[)'
-          if not re.search(pattern, js):
-              raise SystemExit(f"Раздел {SUBJECT} не найден в script.js")
-          steps_js = "[" + ", ".join(json.dumps(s, ensure_ascii=False) for s in STEPS) + "]"
-          files_js = ",\n".join(
-              f'          {{ name: {json.dumps(e["name"], ensure_ascii=False)}, url: {json.dumps(e["url"], ensure_ascii=False)} }}'
-              for e in ENTRIES
-          )
-          new_topic = f'''      {{
-        num: "{NUM}",
-        title: {json.dumps(TITLE, ensure_ascii=False)},
-        steps: {steps_js},
-        date: "{date.today().isoformat()}",
-        files: [
-{files_js}
-        ]
-      }},
-'''
-          js_new = re.sub(pattern, r'\1\n' + new_topic, js, count=1)
-          js_path.write_text(js_new, encoding="utf-8")
-          PY
+          ATTACHMENTS: ${{ steps.parse.outputs.attachments }}
+        run: python process_issue.py
 
       - name: Commit and Push
         run: |
