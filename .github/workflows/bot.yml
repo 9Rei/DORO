@@ -64,84 +64,23 @@ jobs:
             core.setOutput('steps', steps);
             core.setOutput('attachments', attachments.join('|'));
 
-      - name: Download files
+      - name: Process
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ATTACHMENTS: ${{ steps.parse.outputs.attachments }}
-          SUBJECT: ${{ steps.parse.outputs.subject }}
-        run: |
-          python3 - <<'PY'
-          import json, os, requests
-          from pathlib import Path
-          subject = os.environ["SUBJECT"]
-          attachments = os.environ.get("ATTACHMENTS", "").split("|") if os.environ.get("ATTACHMENTS") else []
-          target = Path("files") / subject
-          target.mkdir(parents=True, exist_ok=True)
-          entries = []
-          headers = {"Authorization": f"Bearer {os.environ.get('GH_TOKEN', '')}"}
-          for a in attachments:
-              if not a: continue
-              name, url = a.split(":::")
-              r = requests.get(url, headers=headers)
-              if r.status_code != 200:
-                  r = requests.get(url)
-              if r.status_code != 200:
-                  raise SystemExit(f"Не скачал {name}: HTTP {r.status_code}")
-              safe = name.replace("/", "_")
-              (target / safe).write_bytes(r.content)
-              entries.append({"name": safe, "url": f"files/{subject}/{safe}"})
-          Path("/tmp/entries.json").write_text(json.dumps(entries, ensure_ascii=False))
-          PY
-
-      - name: Patch script.js
-        env:
           SUBJECT: ${{ steps.parse.outputs.subject }}
           NUM: ${{ steps.parse.outputs.num }}
           TITLE: ${{ steps.parse.outputs.title }}
           STEPS: ${{ steps.parse.outputs.steps }}
-        run: |
-          python3 - <<'PY'
-          import json, os, re
-          from datetime import date
-          from pathlib import Path
-          SUBJECT = os.environ["SUBJECT"]
-          NUM = os.environ["NUM"]
-          TITLE = os.environ["TITLE"]
-          STEPS = os.environ.get("STEPS", "").split("|") if os.environ.get("STEPS") else []
-          ENTRIES = json.loads(Path("/tmp/entries.json").read_text())
-          
-          js_path = Path("script.js")
-          js = js_path.read_text(encoding="utf-8")
-          if re.search(rf'num:\s*"{re.escape(NUM)}"', js):
-              raise SystemExit(f"Тема с номером {NUM} уже есть")
-          
-          pattern = rf'({re.escape(SUBJECT)}:\s*\{{[^}}]*?topics:\s*\[)'
-          if not re.search(pattern, js):
-              raise SystemExit(f"Раздел {SUBJECT} не найден в script.js")
-          
-          steps_js = "[" + ", ".join(f'"{s}"' for s in STEPS) + "]"
-          files_js = ",\n".join(f'          {{ name: "{e["name"]}", url: "{e["url"]}" }}' for e in ENTRIES)
-          new_topic = f'''      {{
-            num: "{NUM}",
-            title: "{TITLE}",
-            steps: {steps_js},
-            date: "{date.today().isoformat()}",
-            files: [
-{files_js}
-            ]
-          }},
-'''
-          js_new = re.sub(pattern, r'\1\n' + new_topic, js, count=1)
-          js_path.write_text(js_new, encoding="utf-8")
-          PY
+          ATTACHMENTS: ${{ steps.parse.outputs.attachments }}
+        run: python process.py
 
-      - name: Commit and Push
+      - name: Commit
         run: |
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
           git add .
-          git commit -m "add ${{ steps.parse.outputs.subject }} ${{ steps.parse.outputs.num }}"
-          git push || echo "Нечего коммитить"
+          git commit -m "add ${{ steps.parse.outputs.subject }} ${{ steps.parse.outputs.num }}" || exit 0
+          git push
 
       - name: Close Issue
         uses: actions/github-script@v7
@@ -151,7 +90,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `✅ Тема **${{ steps.parse.outputs.num }}** добавлена на сайт!`
+              body: `✅ Тема **${{ steps.parse.outputs.num }}** добавлена.`
             });
             await github.rest.issues.update({
               owner: context.repo.owner,
