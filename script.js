@@ -40,7 +40,7 @@ const subjects = {
 
 const schedule = {
   "ПН": [
-    { time: "8:00–10:25", title: "Микробио", subjectKey: "microbio", room: "239 каб.", teacher: "Тимонов Андрей Викторович" },
+    { time: "8:00–10:25", title: "Микробио", subjectKey: "microbio", room: "239 каб.", teacher: "Бжитских Екатерина Евгеньевна" },
     { time: "10:40–13:05", title: "Биохимия", subjectKey: "biochem", room: "305 каб.", teacher: "Волобой Нина Леонидовна" }
   ],
   "ВТ": [
@@ -97,6 +97,17 @@ function findNextLessonDate(subjectKey, fromDate) {
   return null;
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// Локальная дата в формате YYYY-MM-DD (без UTC-сдвига)
+function toDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // ============================================================
 //  ИНИЦИАЛИЗАЦИЯ
 // ============================================================
@@ -104,6 +115,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------- ПРОФИЛЬ ----------
   const avatar = document.getElementById('avatar');
+    // ---------- БУРГЕР ----------
+  const burger = document.getElementById('burger');
+  const nav = document.getElementById('nav');
+  if (burger && nav) {
+    burger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = nav.classList.toggle('nav--open');
+      burger.classList.toggle('burger--open', open);
+      burger.setAttribute('aria-expanded', String(open));
+    });
+
+    // закрывать меню при клике на пункт
+    nav.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', () => {
+        nav.classList.remove('nav--open');
+        burger.classList.remove('burger--open');
+        burger.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    // закрывать меню при клике вне шапки
+    document.addEventListener('click', (e) => {
+      if (!nav.contains(e.target) && !burger.contains(e.target)) {
+        nav.classList.remove('nav--open');
+        burger.classList.remove('burger--open');
+        burger.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
   const profilePop = document.getElementById('profilePop');
   const profileView = document.getElementById('profileView');
   const profileEdit = document.getElementById('profileEdit');
@@ -115,20 +155,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let user = JSON.parse(localStorage.getItem('doro.user') || 'null');
 
-  function renderProfile() {
-    if (user && user.name) {
-      avatar.textContent = user.name.trim().split(/\s+/).map(w => w[0]?.toUpperCase() || '').slice(0, 2).join('');
-      greetTitle.textContent = `Привет, ${user.name.trim().split(/\s+/)[0]}!`;
-      profileNameDisplay.textContent = user.name;
-      profileView.style.display = 'flex';
-      profileEdit.style.display = 'none';
-    } else {
-      avatar.textContent = '?';
-      greetTitle.textContent = 'Привет!';
-      profileView.style.display = 'none';
-      profileEdit.style.display = 'flex';
-    }
+function renderProfile() {
+  if (user && user.name) {
+    const initials = user.name.trim().split(/\s+/).map(w => w[0]?.toUpperCase() || '').slice(0, 2).join('');
+    avatar.textContent = initials;
+    greetTitle.textContent = `Привет, ${user.name.trim().split(/\s+/)[0]}!`;
+    profileNameDisplay.textContent = user.name;
+    profileView.style.display = 'flex';
+    profileEdit.style.display = 'none';
+  } else {
+    avatar.textContent = '?';
+    greetTitle.textContent = 'Привет!';
+    profileView.style.display = 'none';
+    profileEdit.style.display = 'flex';
   }
+}
 
   if (avatar && profilePop) {
     avatar.addEventListener('click', (e) => {
@@ -171,7 +212,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderProfile();
 
-    // ---------- ПОИСК И УВЕДОМЛЕНИЯ В ПРОФИЛЕ ----------
+  // ---------- ДОМАШНИЕ ЗАДАНИЯ ----------
+  const HW_KEY = 'doro.homework';
+  let homework = JSON.parse(localStorage.getItem(HW_KEY) || '[]');
+
+  function saveHomework() {
+    localStorage.setItem(HW_KEY, JSON.stringify(homework));
+  }
+  function hwId() {
+    return 'hw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  }
+  function getHomeworkFor(subjectKey, dayKey, slot) {
+    return homework.filter(h =>
+      h.subjectKey === subjectKey &&
+      h.dayKey === dayKey &&
+      h.slot === slot
+    );
+  }
+
+  // ---------- ПОИСК И УВЕДОМЛЕНИЯ В ПРОФИЛЕ ----------
   const searchToggle = document.getElementById('searchToggle');
   const searchField = document.getElementById('searchField');
   const searchInput = document.getElementById('searchInput');
@@ -191,7 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return all;
   }
 
-  // --- Поиск ---
   if (searchToggle && searchField && searchInput && searchResults) {
     searchToggle.addEventListener('click', () => {
       const willOpen = !searchField.classList.contains('is-open');
@@ -236,7 +294,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- Уведомления ---
   if (notifyToggle && notifyList && notifyBadge) {
     const SEEN_KEY = 'doro.seenTopics';
     const seen = new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'));
@@ -257,17 +314,14 @@ document.addEventListener('DOMContentLoaded', () => {
         notifyBadge.style.display = 'none';
       }
     }
-
     updateBadge();
 
     function renderNotifyList() {
       notifyList.innerHTML = '';
-
       if (!upcoming.length) {
         notifyList.innerHTML = '<div class="notify-item--empty">Пока нет ближайших тем</div>';
         return;
       }
-
       upcoming.forEach(t => {
         const id = topicId(t);
         const dateStr = new Date(t.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
@@ -285,7 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
           seen.add(id);
           localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
           updateBadge();
-
           profilePop.classList.remove('open');
           showView('files');
           setTimeout(() => openSubjectView(t.key, t.num), 50);
@@ -341,10 +394,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
       const isToday = isSameMonth && today.getDate() === d;
       const isSelected = selectedDay === d && selectedMonth === month && selectedYear === year;
-      const cls = ['cal-day', isWeekend ? 'weekend' : '', isToday ? 'today' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
+      const dateKey = toDateKey(date);
+      const hasHw = homework.some(h => h.date === dateKey && !h.done);
+      const cls = [
+        'cal-day',
+        isWeekend ? 'weekend' : '',
+        isToday ? 'today' : '',
+        isSelected ? 'selected' : '',
+        hasHw && !isWeekend ? 'has-hw' : ''
+      ].filter(Boolean).join(' ');
       const disabled = isWeekend ? 'disabled' : '';
       const dataAttr = isWeekend ? '' : `data-day="${d}"`;
-      html += `<button type="button" class="${cls}" ${dataAttr} ${disabled}>${d}</button>`;
+      const dot = hasHw && !isWeekend ? '<span class="cal-hw-dot"></span>' : '';
+      html += `<button type="button" class="${cls}" ${dataAttr} ${disabled}>${d}${dot}</button>`;
     }
 
     const total = startOffset + daysInMonth;
@@ -371,6 +433,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         renderCalendar();
         updateTodayView();
+      });
+    });
+  }
+
+  // ---------- ГЛАВНАЯ: ПАРЫ И ДЗ ----------
+  function updateLessonBadge(lessonEl, subjectKey, dayKey, slot) {
+    const btn = lessonEl.querySelector('.lesson-hw-btn');
+    if (!btn) return;
+    const undone = getHomeworkFor(subjectKey, dayKey, slot).filter(h => !h.done).length;
+    btn.classList.toggle('has-undone', undone > 0);
+    let badge = btn.querySelector('.lesson-hw-badge');
+    if (undone > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'lesson-hw-badge';
+        btn.appendChild(badge);
+      }
+      badge.textContent = undone;
+    } else if (badge) {
+      badge.remove();
+    }
+  }
+
+  function bindLessonHw(lessonEl, subjectKey, dayKey, lessonDate, slot, lessonTitle) {
+    const btn = lessonEl.querySelector('.lesson-hw-btn');
+    const area = lessonEl.querySelector('.lesson-hw-area');
+    if (!btn || !area) return;
+
+    btn.addEventListener('click', () => {
+      if (!area.hidden) { area.hidden = true; area.innerHTML = ''; return; }
+      area.hidden = false;
+
+      area.innerHTML = `
+        <form class="hw-form">
+          <input type="text" class="hw-input" placeholder="Что нужно сделать?" maxlength="200" autocomplete="off">
+          <button type="submit" class="hw-save" title="Сохранить">Сохранить</button>
+        </form>
+      `;
+
+      const form = area.querySelector('.hw-form');
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inp = form.querySelector('.hw-input');
+        const text = inp.value.trim();
+        if (!text) return;
+        const dateStr = lessonDate ? toDateKey(lessonDate) : toDateKey(new Date());
+        homework.push({
+          id: hwId(),
+          subjectKey,
+          dayKey,
+          slot,
+          lessonTitle,
+          date: dateStr,
+          text,
+          done: false,
+          createdAt: Date.now()
+        });
+        saveHomework();
+        updateLessonBadge(lessonEl, subjectKey, dayKey, slot);
+        renderCalendar();
+        if (rendered.tasks) renderTasks();
+        area.hidden = true; area.innerHTML = '';
       });
     });
   }
@@ -409,8 +533,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    const daysOfWeek = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
-    titleEl.textContent = isToday ? 'Сегодня' : 'На ' + daysOfWeek[targetDate.getDay()];
+    const daysOfWeekAcc = ['воскресенье','понедельник','вторник','среду','четверг','пятницу','субботу'];
+    titleEl.textContent = isToday ? 'Сегодня' : 'На ' + daysOfWeekAcc[targetDate.getDay()];
 
     const dayKey = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'][targetDate.getDay()];
     const daySchedule = schedule[dayKey] || [];
@@ -424,15 +548,38 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    daySchedule.forEach(l => {
+    daySchedule.forEach((l, slot) => {
       const div = document.createElement('div');
       div.className = 'lesson';
       let details = '';
       if (l.room) details += l.room + ' · ';
       if (l.teacher) details += l.teacher;
       if (l.subgroups) details = 'Разделение на подгруппы';
-      div.innerHTML = `<div class="lesson-head"><time>${l.time}</time><div style="flex:1"><div class="lesson-title">${l.title}</div><div class="lesson-details">${details}</div></div></div>`;
+
+      const subjectKeyForHw = l.subjectKey || `slot_${dayKey}_${slot}`;
+      const undone = getHomeworkFor(subjectKeyForHw, dayKey, slot).filter(h => !h.done).length;
+      const badge = `<button type="button" class="lesson-hw-btn ${undone ? 'has-undone' : ''}" title="Задания по паре" data-slot="${slot}">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M9 11l3 3 8-8"></path>
+               <path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11"></path>
+             </svg>
+             ${undone ? `<span class="lesson-hw-badge">${undone}</span>` : ''}
+           </button>`;
+
+      div.innerHTML = `
+        <div class="lesson-head">
+          <time>${l.time}</time>
+          <div style="flex:1">
+            <div class="lesson-title">${l.title}</div>
+            <div class="lesson-details">${details}</div>
+          </div>
+          ${badge}
+        </div>
+        <div class="lesson-hw-area" hidden></div>
+      `;
       lessonsEl.appendChild(div);
+
+      bindLessonHw(div, subjectKeyForHw, dayKey, targetDate, slot, l.title);
 
       if (subjects[l.subjectKey]) {
         subjects[l.subjectKey].topics.forEach(t => {
@@ -459,7 +606,17 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.className = 'lesson-topic';
       btn.dataset.subject = t.key;
       btn.innerHTML = `<span class="lesson-topic__letter">${subjects[t.key].title[0]}</span><div class="lesson-topic__title">${t.title}</div>`;
-      btn.addEventListener('click', () => openSubjectView(t.key, t.num));
+      btn.addEventListener('click', () => {
+        showView('files');
+        setTimeout(() => {
+          const card = document.querySelector(`.card[data-subject="${t.key}"]`);
+          if (card) {
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('is-active'));
+            card.classList.add('is-active');
+          }
+          openSubjectView(t.key, t.num);
+        }, 50);
+      });
       topicsList.appendChild(btn);
     });
   }
@@ -472,19 +629,19 @@ document.addEventListener('DOMContentLoaded', () => {
     Object.keys(subjects)
       .sort((a, b) => subjects[a].title.localeCompare(subjects[b].title, 'ru'))
       .forEach(key => {
-      const s = subjects[key];
-      if (!s) return;
-      const btn = document.createElement('button');
-      btn.className = 'card';
-      btn.dataset.subject = key;
-      btn.innerHTML = `<span class="card__letter">${s.title[0]}</span><span class="card__name">${s.title}</span>`;
-      btn.addEventListener('click', () => {
-        subjectCards.querySelectorAll('.card').forEach(c => c.classList.remove('is-active'));
-        btn.classList.add('is-active');
-        openSubjectView(key);
+        const s = subjects[key];
+        if (!s) return;
+        const btn = document.createElement('button');
+        btn.className = 'card';
+        btn.dataset.subject = key;
+        btn.innerHTML = `<span class="card__letter">${s.title[0]}</span><span class="card__name">${s.title}</span>`;
+        btn.addEventListener('click', () => {
+          subjectCards.querySelectorAll('.card').forEach(c => c.classList.remove('is-active'));
+          btn.classList.add('is-active');
+          openSubjectView(key);
+        });
+        subjectCards.appendChild(btn);
       });
-      subjectCards.appendChild(btn);
-    });
   }
 
   // ---------- ОКНО РАЗДЕЛА ----------
@@ -501,7 +658,6 @@ document.addEventListener('DOMContentLoaded', () => {
         today.setHours(0, 0, 0, 0);
         const aPast = da < today.getTime();
         const bPast = db < today.getTime();
-        // Будущие — сначала (по возрастанию даты), прошедшие — потом (по убыванию)
         if (aPast !== bPast) return aPast ? 1 : -1;
         return aPast ? db - da : da - db;
       });
@@ -554,69 +710,141 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTopic(initialIndex);
   }
 
-  // ---------- НЕДАВНИЕ ТЕМЫ ----------
-  function renderRecent() {
-    const listEl = document.getElementById('recent-list');
-    const sectionEl = document.getElementById('recent-section');
-    if (!listEl || !sectionEl) return;
+    function renderTasks() {
+    const listEl = document.getElementById('tasksList');
+    if (!listEl) return;
 
-    const all = [];
-    Object.entries(subjects).forEach(([key, s]) => {
-      s.topics.forEach(t => {
-        if (t.title === 'Раздел в разработке') return;
-        all.push({ ...t, key });
-      });
+    if (!homework.length) {
+      listEl.innerHTML = '<div class="tasks-empty">Пока ни одного задания. Добавьте значком у пары на главной.</div>';
+      return;
+    }
+
+    // Группировка по сохранённой дате
+    const groups = new Map();
+    homework.forEach(h => {
+      if (!h.date) return;
+      if (!groups.has(h.date)) {
+        groups.set(h.date, { date: new Date(h.date + 'T00:00:00'), items: [] });
+      }
+      groups.get(h.date).items.push(h);
     });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    if (!groups.size) {
+      listEl.innerHTML = '<div class="tasks-empty">Пока ни одного задания. Добавьте значком у пары на главной.</div>';
+      return;
+    }
 
-    all.sort((a, b) => {
-      const da = new Date(a.date).getTime();
-      const db = new Date(b.date).getTime();
-      const aPast = da < today.getTime();
-      const bPast = db < today.getTime();
-      if (aPast !== bPast) return aPast ? 1 : -1;
-      return aPast ? db - da : da - db;
-    });
+    const sortedDates = [...groups.keys()].sort((a, b) => a.localeCompare(b));
+    const today = new Date(); today.setHours(0, 0, 0, 0);
 
-    const recent = all.slice(0, 6);
+    const total = homework.length;
+    const done = homework.filter(h => h.done).length;
 
     listEl.innerHTML = '';
-    recent.forEach(t => {
-      const btn = document.createElement('button');
-      btn.className = 'recent-topic';
-      btn.dataset.subject = t.key;
 
-      const dateStr = new Date(t.date).toLocaleDateString('ru-RU', {
-        day: 'numeric', month: 'short'
-      });
+    // Сводка сверху
+    const summary = document.createElement('div');
+    summary.className = 'tasks-summary';
+    summary.innerHTML = `
+      <div class="tasks-summary__item">
+        <span class="tasks-summary__num">${total - done}</span>
+        <span class="tasks-summary__label">не выполнено</span>
+      </div>
+      <div class="tasks-summary__item">
+        <span class="tasks-summary__num">${done}</span>
+        <span class="tasks-summary__label">выполнено</span>
+      </div>
+      <div class="tasks-summary__item">
+        <span class="tasks-summary__num">${total}</span>
+        <span class="tasks-summary__label">всего</span>
+      </div>
+    `;
+    listEl.appendChild(summary);
 
-      btn.innerHTML = `
-        <span class="recent-topic__letter">${subjects[t.key].title[0]}</span>
-        <div class="recent-topic__body">
-          <div class="recent-topic__title">${t.title}</div>
-          <div class="recent-topic__meta">${subjects[t.key].title} · ${dateStr}</div>
+    sortedDates.forEach(dateKey => {
+      const g = groups.get(dateKey);
+      g.items.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+      const isToday = g.date.getTime() === today.getTime();
+      const isTomorrow = g.date.getTime() === today.getTime() + 86400000;
+      const isPast = g.date.getTime() < today.getTime();
+      const dowShort = ['вс','пн','вт','ср','чт','пт','сб'][g.date.getDay()];
+      const dayNum = g.date.getDate();
+      const monthShort = g.date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '');
+      const undoneCount = g.items.filter(h => !h.done).length;
+
+      const block = document.createElement('div');
+      block.className = 'tasks-day' + (isToday ? ' tasks-day--today' : '') + (isPast ? ' tasks-day--past' : '');
+
+      // Листик-дата
+      block.innerHTML = `
+        <div class="tasks-day__date">
+          <span class="tasks-day__dow">${dowShort}</span>
+          <span class="tasks-day__num">${dayNum}</span>
+          <span class="tasks-day__month">${monthShort}</span>
+        </div>
+        <div class="tasks-day__body">
+          <div class="tasks-day__top">
+            <span class="tasks-day__label">
+              ${isToday ? 'сегодня' : (isTomorrow ? 'завтра' : (isPast ? 'прошедшее' : 'задачи'))}
+            </span>
+            <span class="tasks-day__count">${undoneCount}/${g.items.length}</span>
+          </div>
+          <ul class="hw-list"></ul>
         </div>
       `;
-      btn.addEventListener('click', () => {
-        showView('files');
-        setTimeout(() => openSubjectView(t.key, t.num), 50);
+
+      const ul = block.querySelector('.hw-list');
+      g.items.forEach(h => {
+        const subjTitle = h.lessonTitle
+          ? h.lessonTitle
+          : (subjects[h.subjectKey] ? subjects[h.subjectKey].title : 'Без предмета');
+
+        const li = document.createElement('li');
+        li.className = 'hw-item' + (h.done ? ' hw-item--done' : '');
+        li.dataset.id = h.id;
+        li.innerHTML = `
+          <label class="hw-check">
+            <input type="checkbox" class="hw-toggle" ${h.done ? 'checked' : ''}>
+            <span class="hw-text">
+              <span class="hw-text__main">${escapeHtml(h.text)}</span>
+              <span class="hw-text__sub">${subjTitle}</span>
+            </span>
+          </label>
+          <button type="button" class="hw-remove" title="Удалить">×</button>
+        `;
+        li.querySelector('.hw-toggle').addEventListener('change', (e) => {
+          const item = homework.find(x => x.id === h.id);
+          if (!item) return;
+          item.done = e.target.checked;
+          saveHomework();
+          li.classList.toggle('hw-item--done', item.done);
+          renderCalendar();
+          renderTasks();
+          if (rendered.home) updateTodayView();
+        });
+        li.querySelector('.hw-remove').addEventListener('click', () => {
+          homework = homework.filter(x => x.id !== h.id);
+          saveHomework();
+          renderTasks();
+          renderCalendar();
+          if (rendered.home) updateTodayView();
+        });
+        ul.appendChild(li);
       });
-      listEl.appendChild(btn);
+
+      listEl.appendChild(block);
     });
-
-    sectionEl.style.display = recent.length ? 'block' : 'none';
   }
-
 
   // ---------- VIEWS ----------
   const views = {
     home:  document.getElementById('view-home'),
     files: document.getElementById('view-files'),
-    links: document.getElementById('view-links')
+    links: document.getElementById('view-links'),
+    tasks: document.getElementById('view-tasks')
   };
-  const rendered = { home: false, files: false, links: false };
+  const rendered = { home: false, files: false, links: false, tasks: false };
 
   function showView(name) {
     Object.values(views).forEach(v => { if (v) v.classList.remove('is-active'); });
@@ -631,6 +859,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!rendered[name]) {
       if (name === 'home') { renderCalendar(); updateTodayView(); }
       if (name === 'files') { renderSections(); }
+      if (name === 'tasks') { renderTasks(); }
       rendered[name] = true;
     }
 

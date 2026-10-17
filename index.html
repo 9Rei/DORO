@@ -23,9 +23,13 @@
         <a href="#" class="active" data-view="home">Главная</a>
         <a href="#" data-view="files">Разделы</a>
         <a href="#" data-view="links">Ссылки</a>
+        <a href="#" data-view="tasks">Задания</a>
       </nav>
 
       <div class="island-right">
+        <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
         <div class="avatar-wrap">
           <button class="avatar" id="avatar" title="Профиль">?</button>
 
@@ -141,6 +145,17 @@
             <div class="modal__dots" id="modal-dots" style="display: none;"></div>
           </div>
         </section>
+      </div>
+    </section>
+
+    <!-- VIEW: Задания -->
+    <section class="view" id="view-tasks">
+      <div class="quick-head">
+        <h2>Задания</h2>
+      </div>
+
+      <div class="tasks-panel">
+        <div class="tasks-list" id="tasksList"></div>
       </div>
     </section>
 
