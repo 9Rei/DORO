@@ -1,0 +1,9 @@
+name: Bot
+on:
+  issues:
+    types: [opened]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Ура!"
