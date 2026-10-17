@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>doro — всё для учёбы в медицинском</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="island-wrap">
+        <header class="island" id="island">
+      <!-- Надпись doro теперь вместо Главной -->
+      <a href="#" class="brand active" id="brand-logo">
+        <span class="brand-name">doro<span>.</span></span>
+      </a>
+
+      <nav class="nav" id="nav">
+        <a href="#files">Разделы</a>
+        <a href="#links">Ссылки</a>
+      </nav>
+
+      <div class="island-right">
+        <button class="icon-btn" title="Поиск" aria-label="Поиск">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+          </svg>
+        </button>
+        <button class="icon-btn" title="Уведомления" aria-label="Уведомления">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>
+          </svg>
+        </button>
+        <div class="avatar-wrap">
+          <button class="avatar" id="avatar" title="Профиль">?</button>
+          <div class="profile-pop" id="profilePop">
+            <label for="nameInput">Как тебя зовут?</label>
+            <input id="nameInput" type="text" placeholder="Например, Аня Котова" maxlength="40" autocomplete="off">
+            <button class="pop-save" id="saveName">Сохранить</button>
+          </div>
+        </div>
+        <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+  </div>
+    <main class="page">
+
+    <section class="greet">
+        <h1 id="greetTitle">Привет!</h1>
+        <p id="greetDate">Сегодня —</p>
+    </section>
+
+    <section class="today">
+        <div class="today-head">
+            <h2 id="today-title">Сегодня</h2>
+            <span class="today-badge">ЛД2511</span>
+        </div>
+
+        <div class="today-grid">
+            <!-- ЛЕВАЯ КОЛОНКА: Пары + Темы -->
+            <div class="today-left">
+            <div class="panel">
+                <h3 class="panel-title">Пары</h3>
+                <div class="lessons" id="lessons"></div>
+            </div>
+
+            <!-- Панель для тем -->
+            <div class="panel" id="topics-panel" style="display: none;">
+                <h3 class="panel-title">Темы на этот день</h3>
+                <div class="lesson-topics" id="topics-list"></div>
+            </div>
+            </div>
+
+            <!-- ПРАВАЯ КОЛОНКА: Календарь -->
+            <div class="panel">
+            <h3 class="panel-title">Календарь</h3>
+            <div class="calendar" id="calendar"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- РАЗДЕЛЫ (Главная секция) -->
+    <section class="workspace-section" id="files">
+      
+      <div class="quick-head">
+        <h2>Разделы</h2>
+      </div>
+
+      <div class="workspace">
+        <!-- ЛЕВАЯ КОЛОНКА (Окно с темой) -->
+        <div class="workspace__content">
+          <section class="subject-view" id="subject-view">
+            <div class="panel">
+              <div class="subject-view__top">
+                <div class="subject-view__title" id="subject-view-title"></div>
+              </div>
+              
+              <div class="subject-view__body" id="subject-view-body">
+                <div class="subject-view__placeholder" id="subject-placeholder">
+                  <div class="subject-view__icon">A</div>
+                  <h3>Выберите раздел</h3>
+                  <p>Нажмите на карточку справа или на тему в блоке «Сегодня».</p>
+                </div>
+              </div>
+              <div class="modal__dots" id="modal-dots" style="display: none;"></div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ПРАВАЯ КОЛОНКА (Список разделов) -->
+        <div class="workspace__sidebar">
+          <div class="cards" id="subject-cards">
+            <!-- Карточки сгенерируются через JS -->
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ПОЛЕЗНЫЕ ССЫЛКИ -->
+        <section class="quick" id="links" style="margin-top: 56px;">
+      <div class="quick-head">
+        <h2>Полезные ссылки</h2>
+      </div>
+      <div class="links-grid">
+        <a href="https://webinar.asmu.ru/" class="link-pill" target="_blank" rel="noopener">
+          <span class="link-pill__letter" style="color: #3b82f6; background: #dbeafe;">Л</span>
+          <span class="link-pill__text">
+            <span class="link-pill__title">Лекции</span>
+            <span class="link-pill__desc">Записи и презентации</span>
+          </span>
+        </a>
+        <a href="https://lk.asmu.ru/profile" class="link-pill" target="_blank" rel="noopener">
+          <span class="link-pill__letter" style="color: #16a34a; background: #dcfce7;">ЛК</span>
+          <span class="link-pill__text">
+            <span class="link-pill__title">Личный кабинет</span>
+            <span class="link-pill__desc">Студенческий портал</span>
+          </span>
+        </a>
+        <a href="https://grades.agmu.ru/student.php" class="link-pill" target="_blank" rel="noopener">
+          <span class="link-pill__letter" style="color: #ea580c; background: #ffedd5;">Б</span>
+          <span class="link-pill__text">
+            <span class="link-pill__title">Баллы</span>
+            <span class="link-pill__desc">Проверка успеваемости</span>
+          </span>
+        </a>
+        <a href="https://do.asmu.ru/my/" class="link-pill" target="_blank" rel="noopener">
+          <span class="link-pill__letter" style="color: #9333ea; background: #f3e8ff;">M</span>
+          <span class="link-pill__text">
+            <span class="link-pill__title">Moodle</span>
+            <span class="link-pill__desc">Задания и тесты</span>
+          </span>
+        </a>
+      </div>
+    </section>
+    </main>
+  <script src="script.js"></script>
+</body>
+</html>
