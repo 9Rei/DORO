@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: write
       issues: write
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,7 +52,6 @@ jobs:
                 attachments.push({ name: m[1].split('/').pop(), url: m[1] });
               }
             }
-
             core.setOutput('subject', subject.toLowerCase());
             core.setOutput('num', num);
             core.setOutput('title', title);
@@ -96,23 +96,18 @@ jobs:
           import json, os, re
           from datetime import date
           from pathlib import Path
-
           SUBJECT = os.environ["SUBJECT"]
           NUM = os.environ["NUM"]
           TITLE = os.environ["TITLE"]
           STEPS = json.loads(os.environ["STEPS"])
           ENTRIES = json.loads(Path("/tmp/entries.json").read_text())
-
           js_path = Path("script.js")
           js = js_path.read_text(encoding="utf-8")
-
           if re.search(rf'num:\s*"{re.escape(NUM)}"', js):
               raise SystemExit(f"Тема с номером {NUM} уже есть")
-
           pattern = rf'({re.escape(SUBJECT)}:\s*\{{[^}}]*?topics:\s*\[)'
           if not re.search(pattern, js):
               raise SystemExit(f"Раздел {SUBJECT} не найден в script.js")
-
           steps_js = "[" + ", ".join(json.dumps(s, ensure_ascii=False) for s in STEPS) + "]"
           files_js = ",\n".join(
               f'          {{ name: {json.dumps(e["name"], ensure_ascii=False)}, url: {json.dumps(e["url"], ensure_ascii=False)} }}'
