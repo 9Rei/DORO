@@ -1,5 +1,5 @@
 // ============================================================
-//  ДАННЫЕ ПРЕДМЕТОВ
+//  ДАННЫЕ
 // ============================================================
 const subjects = {
   biochem: {
@@ -38,9 +38,6 @@ const subjects = {
   }
 };
 
-// ============================================================
-//  РАСПИСАНИЕ
-// ============================================================
 const schedule = {
   "ПН": [
     { time: "8:00–10:25", title: "Микробио", subjectKey: "microbio", room: "239 каб.", teacher: "Тимонов Андрей Викторович" },
@@ -67,34 +64,55 @@ const schedule = {
 // ============================================================
 //  ВСПОМОГАТЕЛЬНЫЕ
 // ============================================================
-function daysSince(dateInput) {
-  const then = new Date(dateInput).getTime();
-  if (isNaN(then)) return 999;
-  return Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24));
-}
-const NEW_DAYS = 2;
+function findNextLessonDate(subjectKey, fromDate) {
+  const dayMap = {
+    1: schedule["ПН"] || [], 2: schedule["ВТ"] || [], 3: schedule["СР"] || [],
+    4: schedule["ЧТ"] || [], 5: schedule["ПТ"] || []
+  };
+  const start = new Date(fromDate);
+  start.setHours(0, 0, 0, 0);
 
-function getAccentColor(key) {
-  const colors = { biochem: '#16a34a', physio: '#2563eb', histology: '#9333ea', microbio: '#ea580c', hygiene: '#0891b2' };
-  return colors[key] || '#3b82f6';
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue;
+    const lessons = dayMap[dow] || [];
+    if (!lessons.some(l => l.subjectKey === subjectKey)) continue;
+
+    if (i === 0) {
+      const now = new Date();
+      const lesson = lessons.find(l => l.subjectKey === subjectKey);
+      const parts = lesson.time.split(/[–-]/);
+      const endPart = parts[1] ? parts[1].trim() : '';
+      const m = endPart.match(/(\d{1,2}):(\d{2})/);
+      if (m) {
+        const endDate = new Date(d);
+        endDate.setHours(parseInt(m[1], 10), parseInt(m[2], 10), 0, 0);
+        if (now > endDate) continue;
+      }
+    }
+    return d;
+  }
+  return null;
 }
 
 // ============================================================
 //  ИНИЦИАЛИЗАЦИЯ
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-  // --- БУРГЕР ---
+
+  // ---------- БУРГЕР ----------
   const burger = document.getElementById('burger');
   const nav = document.getElementById('nav');
   if (burger && nav) {
     burger.addEventListener('click', () => {
       const open = nav.classList.toggle('open');
       burger.classList.toggle('open', open);
-      burger.setAttribute('aria-expanded', open);
     });
   }
 
-  // --- ПРОФИЛЬ ---
+  // ---------- ПРОФИЛЬ ----------
   const avatar = document.getElementById('avatar');
   const profilePop = document.getElementById('profilePop');
   const profileView = document.getElementById('profileView');
@@ -120,21 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
       profileView.style.display = 'none';
       profileEdit.style.display = 'flex';
     }
+  }
 
-    // Если имени нет — автоматически открываем поповер при первом заходе
-      if (!user || !user.name) {
-        if (avatar && profilePop) {
-          // Небольшая задержка, чтобы шапка успела отрисоваться
-          setTimeout(() => {
-            profilePop.classList.add('open');
-            renderProfile();
-            if (nameInput) nameInput.focus();
-          }, 300);
-        }
-      }
-    }
-
-  // Открытие/закрытие поповера
   if (avatar && profilePop) {
     avatar.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -143,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Кнопка "Изменить"
   if (editNameBtn) {
     editNameBtn.addEventListener('click', () => {
       profileView.style.display = 'none';
@@ -153,7 +157,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Сохранение
   if (saveNameBtn) {
     saveNameBtn.addEventListener('click', () => {
       const val = nameInput.value.trim();
@@ -170,7 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Закрытие при клике вне поповера
   document.addEventListener('click', (e) => {
     if (!profilePop || !avatar) return;
     if (profilePop.contains(e.target) || avatar.contains(e.target)) return;
@@ -179,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderProfile();
 
-  // --- ДАТА ---
+  // ---------- ДАТА ----------
   const greetDate = document.getElementById('greetDate');
   if (greetDate) {
     const now = new Date();
@@ -188,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     greetDate.textContent = dateStr;
   }
 
-  // --- КАЛЕНДАРЬ И ПАРЫ ---
+  // ---------- КАЛЕНДАРЬ ----------
   const calendarEl = document.getElementById('calendar');
   const lessonsEl = document.getElementById('lessons');
   const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -208,9 +210,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     const isSameMonth = today.getFullYear() === year && today.getMonth() === month;
 
-    let html = `<div class="cal-head"><span class="cal-month">${MONTHS[month]} ${year}</span><div class="cal-nav"><button data-nav="-1">‹</button><button data-nav="1">›</button></div></div><div class="cal-grid">${DOW.map(d => `<div class="cal-dow">${d}</div>`).join('')}`;
+    let html = `<div class="cal-head"><span class="cal-month">${MONTHS[month]} ${year}</span><div class="cal-nav"><button type="button" data-nav="-1">‹</button><button type="button" data-nav="1">›</button></div></div><div class="cal-grid">${DOW.map(d => `<div class="cal-dow">${d}</div>`).join('')}`;
 
-    for (let i = 0; i < startOffset; i++) html += `<button type="button" class="cal-day other" disabled>${daysInPrev - startOffset + i + 1}</button>`;
+    for (let i = 0; i < startOffset; i++) {
+      html += `<button type="button" class="cal-day other" disabled>${daysInPrev - startOffset + i + 1}</button>`;
+    }
 
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(year, month, d);
@@ -230,19 +234,25 @@ document.addEventListener('DOMContentLoaded', () => {
     html += '</div>';
     calendarEl.innerHTML = html;
 
-    calendarEl.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => {
-      calDate.setMonth(calDate.getMonth() + Number(b.dataset.nav));
-      renderCalendar();
-    }));
+    calendarEl.querySelectorAll('[data-nav]').forEach(b => {
+      b.addEventListener('click', () => {
+        calDate.setMonth(calDate.getMonth() + Number(b.dataset.nav));
+        renderCalendar();
+      });
+    });
 
-    calendarEl.querySelectorAll('[data-day]').forEach(b => b.addEventListener('click', () => {
-      selectedDay = Number(b.dataset.day);
-      selectedMonth = month;
-      selectedYear = year;
-      if (isSameMonth && today.getDate() === selectedDay) { selectedDay = null; selectedMonth = null; selectedYear = null; }
-      renderCalendar();
-      updateTodayView();
-    }));
+    calendarEl.querySelectorAll('[data-day]').forEach(b => {
+      b.addEventListener('click', () => {
+        selectedDay = Number(b.dataset.day);
+        selectedMonth = month;
+        selectedYear = year;
+        if (isSameMonth && today.getDate() === selectedDay) {
+          selectedDay = null; selectedMonth = null; selectedYear = null;
+        }
+        renderCalendar();
+        updateTodayView();
+      });
+    });
   }
 
   function updateTodayView() {
@@ -304,23 +314,15 @@ document.addEventListener('DOMContentLoaded', () => {
       div.innerHTML = `<div class="lesson-head"><time>${l.time}</time><div style="flex:1"><div class="lesson-title">${l.title}</div><div class="lesson-details">${details}</div></div></div>`;
       lessonsEl.appendChild(div);
 
-        
-            if (subjects[l.subjectKey]) {
+      if (subjects[l.subjectKey]) {
         subjects[l.subjectKey].topics.forEach(t => {
           if (t.title === 'Раздел в разработке') return;
           const tDate = new Date(t.date);
           tDate.setHours(0, 0, 0, 0);
           const lDate = new Date(targetDate);
           lDate.setHours(0, 0, 0, 0);
-
-          // Если тема добавлена ПОСЛЕ этой пары — она к ней не относится
-          if (tDate > lDate) return;
-
-          // Находим, к какой паре по этому предмету тема относится
-          const nextLessonDate = findNextLessonDate(l.subjectKey, tDate);
-
-          // Тема показывается только если ближайшая пара по предмету — это именно сегодня
-          if (nextLessonDate && nextLessonDate.getTime() === lDate.getTime()) {
+          const next = findNextLessonDate(l.subjectKey, tDate);
+          if (next && next.getTime() === lDate.getTime()) {
             allTopics.push({ ...t, key: l.subjectKey });
           }
         });
@@ -329,6 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!topicsPanel || !topicsList) return;
     if (!allTopics.length) { topicsPanel.style.display = 'none'; return; }
+
     topicsPanel.style.display = 'block';
     topicsList.innerHTML = '';
     allTopics.forEach(t => {
@@ -341,13 +344,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- РАЗДЕЛЫ ---
+  // ---------- РАЗДЕЛЫ ----------
   const subjectCards = document.getElementById('subject-cards');
   function renderSections() {
     if (!subjectCards) return;
     subjectCards.innerHTML = '';
-    const order = ['biochem','physio','histology','microbio','hygiene'];
-    order.forEach(key => {
+    ['biochem','physio','histology','microbio','hygiene'].forEach(key => {
       const s = subjects[key];
       if (!s) return;
       const btn = document.createElement('button');
@@ -363,51 +365,63 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- ОКНО РАЗДЕЛА ---
+  // ---------- ОКНО РАЗДЕЛА ----------
   function openSubjectView(key, topicNum = null) {
     const subject = subjects[key];
     if (!subject || !subject.topics.length) return;
-    const valid = subject.topics.filter(t => t.title !== 'Раздел в разработке');
+    const valid = subject.topics
+      .filter(t => t.title !== 'Раздел в разработке')
+      .slice()
+      .sort((a, b) => {
+        const da = new Date(a.date).getTime();
+        const db = new Date(b.date).getTime();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const aPast = da < today.getTime();
+        const bPast = db < today.getTime();
+        // Будущие — сначала (по возрастанию даты), прошедшие — потом (по убыванию)
+        if (aPast !== bPast) return aPast ? 1 : -1;
+        return aPast ? db - da : da - db;
+      });
     if (!valid.length) return;
 
     let initialIndex = 0;
     if (topicNum) {
-      const found = valid.findIndex(t => t.num === topicNum);
-      if (found !== -1) initialIndex = found;
+      const f = valid.findIndex(t => t.num === topicNum);
+      if (f !== -1) initialIndex = f;
     }
 
-    const viewSection = document.getElementById('subject-view');
     const titleEl = document.getElementById('subject-view-title');
     const bodyEl = document.getElementById('subject-view-body');
     const dotsEl = document.getElementById('modal-dots');
     const placeholder = document.getElementById('subject-placeholder');
-    if (!titleEl || !bodyEl || !dotsEl || !viewSection) return;
+    if (!titleEl || !bodyEl || !dotsEl) return;
 
     titleEl.textContent = subject.title;
     if (placeholder) placeholder.style.display = 'none';
 
-    function renderTopic(index) {
-      const t = valid[index];
+    function renderTopic(i) {
+      const t = valid[i];
       bodyEl.innerHTML = `
         <div class="modal__num">${t.num || ''}</div>
         <h4 class="modal__title">${t.title}</h4>
         <div class="modal__prep">
           <div class="modal__prep-title">Для подготовки</div>
-          <ol class="modal__steps">${(t.steps||[]).map(s=>`<li>${s}</li>`).join('')}</ol>
+          <ol class="modal__steps">${(t.steps || []).map(s => `<li>${s}</li>`).join('')}</ol>
         </div>
         <h4 class="modal__subtitle">Материалы</h4>
-        <ul class="modal__files">${(t.files||[]).map(f=>f.url==='#'?`<li><span class="mfile disabled">${f.name}</span></li>`:`<li><a href="${f.url}" target="_blank">${f.name}</a></li>`).join('')}</ul>
+        <ul class="modal__files">${(t.files || []).map(f => f.url === '#' ? `<li><span class="mfile disabled">${f.name}</span></li>` : `<li><a href="${f.url}" target="_blank">${f.name}</a></li>`).join('')}</ul>
       `;
-      dotsEl.querySelectorAll('.modal__dot').forEach((d,i)=>d.classList.toggle('modal__dot--active', i===index));
+      dotsEl.querySelectorAll('.modal__dot').forEach((d, idx) => d.classList.toggle('modal__dot--active', idx === i));
     }
 
     dotsEl.innerHTML = '';
     if (valid.length > 1) {
       dotsEl.style.display = 'flex';
-      valid.forEach((t,i) => {
+      valid.forEach((t, i) => {
         const btn = document.createElement('button');
-        btn.className = 'modal__dot' + (i===initialIndex?' modal__dot--active':'');
-        btn.textContent = t.num || String(i+1).padStart(2,'0');
+        btn.className = 'modal__dot' + (i === initialIndex ? ' modal__dot--active' : '');
+        btn.textContent = t.num || String(i + 1).padStart(2, '0');
         btn.addEventListener('click', () => renderTopic(i));
         dotsEl.appendChild(btn);
       });
@@ -416,84 +430,102 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     renderTopic(initialIndex);
-    setTimeout(() => {
-      const y = viewSection.getBoundingClientRect().top + window.pageYOffset - 100;
-      window.scrollTo({ top: y, behavior: 'smooth' });
-    }, 50);
   }
 
-  // --- ИНИЦИАЛИЗАЦИЯ ---
-  renderCalendar();
-  updateTodayView();
-  renderSections();
+  // ---------- НЕДАВНИЕ ТЕМЫ ----------
+  function renderRecent() {
+    const listEl = document.getElementById('recent-list');
+    const sectionEl = document.getElementById('recent-section');
+    if (!listEl || !sectionEl) return;
 
-  // Клик по лого наверх
-  const brandLogo = document.getElementById('brand-logo');
-  if (brandLogo) brandLogo.addEventListener('click', (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-
-  // Подсветка меню
-  const brand = document.getElementById('brand-logo');
-  const navLinks = document.querySelectorAll('.nav a');
-  const sections = [
-    { el: document.querySelector('.today'), link: brand },
-    { el: document.querySelector('#files'), link: document.querySelector('.nav a[href="#files"]') },
-    { el: document.querySelector('#links'), link: document.querySelector('.nav a[href="#links"]') }
-  ];
-
-  const navObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        brand.classList.remove('active');
-        navLinks.forEach(l => l.classList.remove('active'));
-        const found = sections.find(s => s.el === entry.target);
-        if (found && found.link) found.link.classList.add('active');
-      }
+    const all = [];
+    Object.entries(subjects).forEach(([key, s]) => {
+      s.topics.forEach(t => {
+        if (t.title === 'Раздел в разработке') return;
+        all.push({ ...t, key });
+      });
     });
-  }, { rootMargin: "-45% 0px -45% 0px", threshold: 0 });
 
-  sections.forEach(s => { if (s.el) navObserver.observe(s.el); });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  // Сжатие шапки
-  const islandHeader = document.getElementById('island');
-  if (islandHeader) {
-    let ticking = false;
-    window.addEventListener('scroll', () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          islandHeader.classList.toggle('compact', window.scrollY > 100);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    }, { passive: true });
+    all.sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      const aPast = da < today.getTime();
+      const bPast = db < today.getTime();
+      if (aPast !== bPast) return aPast ? 1 : -1;
+      return aPast ? db - da : da - db;
+    });
+
+    const recent = all.slice(0, 6);
+
+    listEl.innerHTML = '';
+    recent.forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = 'recent-topic';
+      btn.dataset.subject = t.key;
+
+      const dateStr = new Date(t.date).toLocaleDateString('ru-RU', {
+        day: 'numeric', month: 'short'
+      });
+
+      btn.innerHTML = `
+        <span class="recent-topic__letter">${subjects[t.key].title[0]}</span>
+        <div class="recent-topic__body">
+          <div class="recent-topic__title">${t.title}</div>
+          <div class="recent-topic__meta">${subjects[t.key].title} · ${dateStr}</div>
+        </div>
+      `;
+      btn.addEventListener('click', () => {
+        showView('files');
+        setTimeout(() => openSubjectView(t.key, t.num), 50);
+      });
+      listEl.appendChild(btn);
+    });
+
+    sectionEl.style.display = recent.length ? 'block' : 'none';
   }
-});
 
-// Находит ближайшую дату (день), когда есть пара по данному предмету,
-// начиная с даты темы (включая саму дату темы).
-// Учитывает только рабочие дни (ПН–ПТ).
-function findNextLessonDate(subjectKey, fromDate) {
-  const dayMap = {
-    1: schedule["ПН"] || [],
-    2: schedule["ВТ"] || [],
-    3: schedule["СР"] || [],
-    4: schedule["ЧТ"] || [],
-    5: schedule["ПТ"] || []
+
+  // ---------- VIEWS ----------
+  const views = {
+    home:  document.getElementById('view-home'),
+    files: document.getElementById('view-files'),
+    links: document.getElementById('view-links')
   };
+  const rendered = { home: false, files: false, links: false };
 
-  const start = new Date(fromDate);
-  start.setHours(0, 0, 0, 0);
+  function showView(name) {
+    Object.values(views).forEach(v => { if (v) v.classList.remove('is-active'); });
+    const v = views[name];
+    if (!v) return;
+    v.classList.add('is-active');
 
-  for (let i = 0; i < 60; i++) {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
-    const dow = d.getDay();
-    if (dow === 0 || dow === 6) continue;
+    document.querySelectorAll('.nav a[data-view]').forEach(a => {
+      a.classList.toggle('active', a.dataset.view === name);
+    });
 
-    const lessons = dayMap[dow] || [];
-    const hasLesson = lessons.some(l => l.subjectKey === subjectKey);
-    if (hasLesson) return d;
+    if (!rendered[name]) {
+      if (name === 'home') { renderCalendar(); updateTodayView(); }
+      if (name === 'files') { renderSections(); }
+      rendered[name] = true;
+    }
+
+    window.scrollTo({ top: 0 });
   }
 
-  return null;
-}
+  document.querySelectorAll('.nav a[data-view]').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      showView(a.dataset.view);
+    });
+  });
+
+  document.getElementById('brand-logo').addEventListener('click', (e) => {
+    e.preventDefault();
+    showView('home');
+  });
+
+  showView('home');
+});
