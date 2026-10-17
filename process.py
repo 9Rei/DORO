@@ -5,7 +5,15 @@ import requests
 from datetime import date
 from pathlib import Path
 
-SUBJECT = os.environ["SUBJECT"]
+SUBJECT_MAP = {
+    "биохимия": "biochem",
+    "физиология": "physio",
+    "гистология": "histology",
+    "микробиология": "microbio",
+    "гигиена": "hygiene"
+}
+SUBJECT_RAW = os.environ["SUBJECT"]
+SUBJECT = SUBJECT_MAP.get(SUBJECT_RAW, SUBJECT_RAW)
 NUM = os.environ["NUM"]
 TITLE = os.environ["TITLE"]
 STEPS = os.environ.get("STEPS", "").split("|") if os.environ.get("STEPS") else []
