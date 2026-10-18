@@ -37,7 +37,7 @@ body::before {
     radial-gradient(ellipse 70% 60% at 50% 100%, rgba(147, 51, 234, 0.08), transparent 60%),
     linear-gradient(160deg, #eef2f8 0%, #e3e9f2 40%, #d6dee9 100%);
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 
 /* ================= ISLAND HEADER ================= */
@@ -2490,4 +2490,810 @@ body::before {
 }
 .cal-day.selected.has-colloquium {
   background: rgba(37, 99, 235, 0.12);
+}
+
+/* ============================================================
+   ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ В ПРОФИЛЕ — ТРИ ПОЛОЖЕНИЯ
+   ============================================================ */
+
+.pop-theme {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pop-theme__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  text-align: left;
+  padding: 0 2px;
+}
+
+/* Сегментированный переключатель */
+.theme-seg {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  background: var(--bg-soft);
+  border: 1px solid var(--island-border);
+  border-radius: 12px;
+  position: relative;
+}
+
+.theme-seg__btn {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: color .2s ease, background .25s ease;
+  white-space: nowrap;
+}
+.theme-seg__btn svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+.theme-seg__btn:hover {
+  color: var(--text);
+}
+.theme-seg__btn[aria-selected="true"] {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(20, 40, 80, 0.10);
+}
+.theme-seg__btn[aria-selected="true"] svg {
+  opacity: 1;
+}
+
+/* Тёмная тема */
+[data-theme="dark"] .theme-seg {
+  background: #14170f;
+  border-color: #2c3220;
+}
+[data-theme="dark"] .theme-seg__btn {
+  color: var(--text-soft);
+}
+[data-theme="dark"] .theme-seg__btn:hover {
+  color: var(--text);
+}
+[data-theme="dark"] .theme-seg__btn[aria-selected="true"] {
+  background: rgba(163, 230, 53, 0.15);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(163, 230, 53, 0.4), 0 2px 10px -4px rgba(163, 230, 53, 0.5);
+}
+
+/* Мобильная версия */
+@media (max-width: 560px) {
+  .theme-seg__btn {
+    padding: 7px 4px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .theme-seg__btn svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* ============================================================
+   ТЁМНАЯ ТЕМА — палитра в стиле присланного CSS
+   ============================================================ */
+[data-theme="dark"] {
+  --bg: #0d0f0c;
+  --bg-soft: #14170f;
+  --bg-elevated: #1a1e14;
+  --island: rgba(20, 23, 15, 0.78);
+  --island-border: rgba(163, 230, 53, 0.14);
+  --text: #e8ead9;
+  --text-soft: #9aa085;
+  --accent: #a3e635;
+  --accent-2: #84cc16;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Фон страницы: глубокий, со свечением и сеткой ---------- */
+[data-theme="dark"] body {
+  background-color: #0a0c08;
+}
+
+/* ---------- ФОН: «аврора» + виньетка (тёмная тема) ---------- */
+[data-theme="dark"] body {
+  background-color: #090b07;
+}
+
+/* Слой 1: диагональная аврора из 4 мягких полос + виньетка */
+[data-theme="dark"] body::before {
+  background:
+    /* виньетка — затемняет края, фокус на центр */
+    radial-gradient(ellipse 120% 100% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.55) 100%),
+    /* верхняя лаймовая полоса — «свет из-за угла» */
+    radial-gradient(ellipse 90% 55% at 15% -10%, rgba(163, 230, 53, 0.20), transparent 55%),
+    /* холодный бирюзовый «хвост» справа */
+    radial-gradient(ellipse 70% 50% at 110% 30%, rgba(45, 212, 191, 0.10), transparent 60%),
+    /* тёплый жёлто-зелёный отсвет снизу */
+    radial-gradient(ellipse 80% 45% at 30% 115%, rgba(132, 204, 22, 0.12), transparent 60%),
+    /* базовый диагональный градиент — «глубина» */
+    linear-gradient(155deg, #0d1008 0%, #0a0c07 40%, #070905 70%, #090b07 100%);
+}
+
+
+/* Контент выше фоновых слоёв */
+[data-theme="dark"] .page { position: relative; z-index: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="dark"] .page::before { animation: none; }
+}
+
+/* ---------- Шапка-остров ---------- */
+[data-theme="dark"] .island {
+  background: var(--island);
+  border-color: var(--island-border);
+}
+[data-theme="dark"] .island:hover {
+  box-shadow: 0 20px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(163,230,53,0.10);
+}
+[data-theme="dark"] .brand,
+[data-theme="dark"] .brand-name { color: var(--text); }
+[data-theme="dark"] .brand.active,
+[data-theme="dark"] .brand.active .brand-name,
+[data-theme="dark"] .brand.active .brand-name span { color: var(--accent); }
+
+[data-theme="dark"] .nav a { color: var(--text-soft); }
+[data-theme="dark"] .nav a:hover { color: var(--text); background: rgba(163,230,53,0.06); }
+[data-theme="dark"] .nav a.active { color: var(--accent); background: rgba(163,230,53,0.12); }
+
+[data-theme="dark"] .island-right { border-left-color: var(--island-border); }
+[data-theme="dark"] .avatar {
+  background: linear-gradient(135deg, rgba(163,230,53,0.20), rgba(132,204,22,0.10));
+  border-color: rgba(163,230,53,0.45);
+  color: var(--accent);
+}
+[data-theme="dark"] .avatar:hover { box-shadow: 0 0 0 2px var(--accent); }
+[data-theme="dark"] .avatar-dot { border-color: #14170f; background: var(--accent); box-shadow: 0 0 0 1px rgba(163,230,53,0.5); }
+
+[data-theme="dark"] .burger span { background: var(--accent); }
+[data-theme="dark"] .burger:hover { background: rgba(163,230,53,0.10); }
+[data-theme="dark"] .burger--open { background: rgba(163,230,53,0.16); }
+[data-theme="dark"] .burger--open span { background: var(--accent); }
+
+/* ---------- Профиль ---------- */
+[data-theme="dark"] .profile-pop {
+  background: #16190f;
+  border-color: var(--island-border);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(163,230,53,0.06) inset;
+}
+[data-theme="dark"] .profile-view__label { color: var(--text-soft); }
+[data-theme="dark"] .profile-view__name { color: var(--text); }
+[data-theme="dark"] .profile-edit label { color: var(--text-soft); }
+[data-theme="dark"] .profile-edit input,
+[data-theme="dark"] .pop-search__field input {
+  background: #1a1e14;
+  border-color: #2c3220;
+  color: var(--text);
+}
+[data-theme="dark"] .profile-edit input:focus,
+[data-theme="dark"] .pop-search__field input:focus {
+  border-color: var(--accent);
+  background: #1f2417;
+}
+[data-theme="dark"] .btn-pop {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #0d0f0c;
+}
+[data-theme="dark"] .profile-actions { border-top-color: var(--island-border); }
+[data-theme="dark"] .profile-action { color: var(--text); }
+[data-theme="dark"] .profile-action:hover { background: rgba(163,230,53,0.06); }
+[data-theme="dark"] .profile-action svg { color: var(--text-soft); }
+
+[data-theme="dark"] .profile-name { color: var(--text); }
+[data-theme="dark"] .profile-edit-btn {
+  background: #1a1e14;
+  border-color: #2c3220;
+  color: var(--text-soft);
+}
+[data-theme="dark"] .profile-edit-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(163,230,53,0.08);
+}
+
+/* ---------- Кнопки в профиле ---------- */
+[data-theme="dark"] .pop-btn {
+  background: #1a1e14;
+  border-color: #2c3220;
+  color: var(--text);
+}
+[data-theme="dark"] .pop-btn:hover {
+  background: #232819;
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+}
+[data-theme="dark"] .pop-btn__icon { color: var(--accent); }
+[data-theme="dark"] .pop-btn__badge { background: var(--accent); color: #0d0f0c; }
+
+[data-theme="dark"] .pop-result:hover,
+[data-theme="dark"] .notify-item:hover { background: rgba(163,230,53,0.06); }
+[data-theme="dark"] .pop-result__title,
+[data-theme="dark"] .notify-item__title { color: var(--text); }
+[data-theme="dark"] .pop-result__meta,
+[data-theme="dark"] .notify-item__meta,
+[data-theme="dark"] .pop-result--empty,
+[data-theme="dark"] .notify-item--empty { color: var(--text-soft); }
+[data-theme="dark"] .notify-item__dot { background: var(--accent); }
+[data-theme="dark"] .notify-item--seen .notify-item__dot { background: var(--text-soft); }
+
+[data-theme="dark"] .pop-lecture__subject { color: var(--text); }
+[data-theme="dark"] .pop-lecture__meta { color: var(--text-soft); }
+[data-theme="dark"] .pop-lecture__when {
+  color: var(--accent);
+  background: rgba(163,230,53,0.12);
+}
+[data-theme="dark"] .pop-lecture__empty { color: var(--text-soft); }
+
+/* ---------- Панели / главная ---------- */
+[data-theme="dark"] .panel {
+  background: #1a1e14;
+  border-color: #2c3220;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+[data-theme="dark"] .panel-title { color: var(--text-soft); }
+
+[data-theme="dark"] .lesson { background: #14170f; }
+[data-theme="dark"] .lesson-head time { color: var(--accent); }
+[data-theme="dark"] .lesson-title { color: var(--text); }
+[data-theme="dark"] .lesson-details { color: var(--text-soft); }
+
+[data-theme="dark"] .lesson-hw-btn {
+  background: #1a1e14;
+  border-color: #2c3220;
+  color: var(--text-soft);
+}
+[data-theme="dark"] .lesson-hw-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(163,230,53,0.08);
+}
+[data-theme="dark"] .lesson-hw-btn.has-undone {
+  color: var(--accent);
+  border-color: rgba(163,230,53,0.45);
+  background: rgba(163,230,53,0.10);
+}
+[data-theme="dark"] .lesson-hw-badge { background: var(--accent); color: #0d0f0c; }
+
+[data-theme="dark"] .hw-input {
+  background: #1a1e14;
+  border-color: #2c3220;
+  color: var(--text);
+}
+[data-theme="dark"] .hw-input:focus { border-color: var(--accent); }
+[data-theme="dark"] .hw-save {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #0d0f0c;
+}
+[data-theme="dark"] .hw-empty { color: var(--text-soft); }
+
+/* ---------- Календарь ---------- */
+[data-theme="dark"] .cal-month { color: var(--text); }
+[data-theme="dark"] .cal-nav button {
+  background: #1a1e14;
+  border-color: #2c3220;
+  color: var(--text-soft);
+}
+[data-theme="dark"] .cal-nav button:hover { background: #232819; color: var(--accent); }
+
+[data-theme="dark"] .cal-dow { color: var(--text-soft); }
+[data-theme="dark"] .cal-day { color: var(--text); }
+[data-theme="dark"] .cal-day:hover { background: rgba(163,230,53,0.08); }
+[data-theme="dark"] .cal-day.other { color: #4a5140; }
+[data-theme="dark"] .cal-day.other:hover { background: transparent; }
+[data-theme="dark"] .cal-day.weekend {
+  background: rgba(255,255,255,0.02);
+  color: #6b7360;
+}
+[data-theme="dark"] .cal-day.weekend:hover { background: rgba(255,255,255,0.02); color: #6b7360; }
+[data-theme="dark"] .cal-day.today {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #0d0f0c;
+}
+[data-theme="dark"] .cal-day.selected { outline-color: var(--accent); }
+[data-theme="dark"] .cal-day.selected:hover { background: transparent; }
+
+[data-theme="dark"] .cal-day.has-topics { background: rgba(163,230,53,0.07); }
+[data-theme="dark"] .cal-day.has-topics:hover { background: rgba(163,230,53,0.13); }
+[data-theme="dark"] .cal-day.today.has-topics {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+[data-theme="dark"] .cal-day.selected.has-topics { background: rgba(163,230,53,0.07); }
+[data-theme="dark"] .cal-day.has-colloquium { background: rgba(163,230,53,0.14); }
+[data-theme="dark"] .cal-day.has-colloquium:hover { background: rgba(163,230,53,0.22); }
+[data-theme="dark"] .cal-day.selected.has-colloquium { background: rgba(163,230,53,0.14); }
+[data-theme="dark"] .cal-hw-dot { background: var(--accent); }
+[data-theme="dark"] .cal-day.today.has-hw .cal-hw-dot { background: #0d0f0c; }
+
+/* ---------- Темы на день ---------- */
+[data-theme="dark"] .lesson-topic {
+  background: #1a1e14;
+  border-color: #2c3220;
+}
+[data-theme="dark"] .lesson-topic:hover {
+  border-color: var(--topic-accent);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+}
+[data-theme="dark"] .lesson-topic__title { color: var(--text-soft); }
+[data-theme="dark"] .lesson-topic:hover .lesson-topic__title { color: var(--text); }
+
+/* ---------- Ссылки ---------- */
+[data-theme="dark"] .link-pill {
+  background: #1a1e14;
+  border-color: #2c3220;
+}
+[data-theme="dark"] .link-pill:hover {
+  border-color: var(--accent);
+  box-shadow: 0 16px 40px -16px rgba(163,230,53,0.35);
+}
+[data-theme="dark"] .link-pill__title { color: var(--text); }
+[data-theme="dark"] .link-pill__desc { color: var(--text-soft); }
+[data-theme="dark"] .link-pill:hover .link-pill__desc { color: var(--text); }
+[data-theme="dark"] .link-pill::before {
+  background: linear-gradient(135deg, rgba(163,230,53,0.08) 0%, rgba(132,204,22,0.05) 50%, transparent 100%);
+}
+
+/* ---------- Разделы: боковые карточки ---------- */
+[data-theme="dark"] .card {
+  background: #1a1e14;
+  border-color: #2c3220;
+}
+[data-theme="dark"] .card:hover {
+  border-color: var(--card-accent);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+}
+[data-theme="dark"] .card.is-active {
+  background: var(--card-soft);
+  border-color: var(--card-accent);
+}
+[data-theme="dark"] .card__name { color: var(--text); }
+[data-theme="dark"] .card__letter { background: var(--card-soft); color: var(--card-accent); }
+
+/* ---------- Панель темы ---------- */
+[data-theme="dark"] .subject-view__panel {
+  background: #1a1e14;
+  border-color: #2c3220;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3);
+}
+[data-theme="dark"] .subject-view__title {
+  background: color-mix(in srgb, var(--subject-accent, var(--accent)) 18%, transparent);
+  color: var(--subject-accent, var(--accent));
+}
+[data-theme="dark"] .subject-view__placeholder h3 { color: var(--text); }
+[data-theme="dark"] .subject-view__placeholder p { color: var(--text-soft); }
+[data-theme="dark"] .subject-view__icon { background: #232819; color: var(--text-soft); }
+
+[data-theme="dark"] .modal__num { color: color-mix(in srgb, var(--subject-accent, var(--accent)) 70%, var(--text-soft)); }
+[data-theme="dark"] .modal__title { color: color-mix(in srgb, var(--subject-accent, var(--accent)) 70%, var(--text)); }
+[data-theme="dark"] .modal__prep {
+  background: color-mix(in srgb, var(--subject-accent, var(--accent)) 10%, #14170f);
+  border-color: color-mix(in srgb, var(--subject-accent, var(--accent)) 22%, transparent);
+}
+[data-theme="dark"] .modal__prep-title { color: color-mix(in srgb, var(--subject-accent, var(--accent)) 80%, var(--text)); }
+[data-theme="dark"] .modal__steps li { color: var(--text); }
+[data-theme="dark"] .modal__steps li::before { color: var(--subject-accent, var(--accent)); }
+[data-theme="dark"] .modal__subtitle { color: color-mix(in srgb, var(--subject-accent, var(--accent)) 60%, var(--text-soft)); }
+[data-theme="dark"] .modal__files a,
+[data-theme="dark"] .mfile.disabled {
+  background: #14170f;
+  border-color: #2c3220;
+  color: var(--text);
+}
+[data-theme="dark"] .modal__files a:hover {
+  border-color: var(--subject-accent, var(--accent));
+  color: var(--subject-accent, var(--accent));
+}
+[data-theme="dark"] .mfile.disabled { background: #232819; color: var(--text-soft); border-color: transparent; }
+
+[data-theme="dark"] .modal__dot {
+  background: #1a1e14;
+  border-color: #2c3220;
+  color: var(--text-soft);
+}
+[data-theme="dark"] .modal__dot:hover { color: var(--text); border-color: var(--subject-accent, var(--accent)); }
+[data-theme="dark"] .modal__dot--active {
+  background: var(--subject-accent, var(--accent));
+  border-color: var(--subject-accent, var(--accent));
+  color: #0d0f0c;
+}
+
+/* ---------- Задания ---------- */
+[data-theme="dark"] .tasks-summary__item {
+  background: #1a1e14;
+  border-color: #2c3220;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+}
+[data-theme="dark"] .tasks-summary__num { color: var(--text); }
+[data-theme="dark"] .tasks-summary__item:nth-child(1) .tasks-summary__num { color: var(--accent); }
+[data-theme="dark"] .tasks-summary__label { color: var(--text-soft); }
+
+[data-theme="dark"] .tasks-day__date {
+  background: #1a1e14;
+  border-color: #2c3220;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+}
+[data-theme="dark"] .tasks-day__dow { color: var(--accent); }
+[data-theme="dark"] .tasks-day__num { color: var(--text); }
+[data-theme="dark"] .tasks-day__month { color: var(--text-soft); }
+[data-theme="dark"] .tasks-day--today .tasks-day__date {
+  border-color: rgba(163,230,53,0.5);
+  background: linear-gradient(180deg, rgba(163,230,53,0.12), #1a1e14);
+}
+[data-theme="dark"] .tasks-day--today .tasks-day__num { color: var(--accent); }
+
+[data-theme="dark"] .tasks-day__body {
+  background: #1a1e14;
+  border-color: #2c3220;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+}
+[data-theme="dark"] .tasks-day__body:hover {
+  border-color: rgba(163,230,53,0.30);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.45);
+}
+[data-theme="dark"] .tasks-day--today .tasks-day__body { border-color: rgba(163,230,53,0.45); }
+[data-theme="dark"] .tasks-day__label { color: var(--text-soft); }
+[data-theme="dark"] .tasks-day--today .tasks-day__label { color: var(--accent); }
+[data-theme="dark"] .tasks-day__count { color: var(--text-soft); background: #232819; }
+
+[data-theme="dark"] .hw-item:hover { background: rgba(163,230,53,0.05); }
+[data-theme="dark"] .hw-text__main { color: var(--text); }
+[data-theme="dark"] .hw-item--done .hw-text__main { color: var(--text-soft); }
+[data-theme="dark"] .hw-text__sub { color: var(--text-soft); }
+[data-theme="dark"] .hw-toggle { accent-color: var(--accent); }
+[data-theme="dark"] .hw-remove { color: var(--text-soft); }
+[data-theme="dark"] .hw-remove:hover { background: rgba(239,68,68,0.14); color: #f87171; }
+
+[data-theme="dark"] .tasks-empty {
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(163,230,53,0.06), transparent 70%),
+    #14170f;
+  border-color: rgba(163,230,53,0.20);
+  color: var(--text-soft);
+}
+
+/* ---------- Модалки QR и синхронизации ---------- */
+[data-theme="dark"] .qr-modal { background: rgba(0,0,0,0.72); }
+[data-theme="dark"] .qr-modal__box {
+  background: #16190f;
+  border: 1px solid #2c3220;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+}
+[data-theme="dark"] .qr-modal__title { color: var(--text); }
+[data-theme="dark"] .qr-modal__sub { color: var(--text-soft); }
+[data-theme="dark"] .qr-modal__canvas {
+  background: #fff; /* QR должен остаться на белом */
+  border-color: #2c3220;
+}
+[data-theme="dark"] .qr-modal__close {
+  background: #1a1e14;
+  border-color: #2c3220;
+  color: var(--text);
+}
+[data-theme="dark"] .qr-modal__close:hover { background: #232819; border-color: var(--accent); }
+[data-theme="dark"] #syncInfoContinue {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)) !important;
+  color: #0d0f0c !important;
+  border-color: transparent !important;
+}
+[data-theme="dark"] .sync-info-list li { color: var(--text); }
+[data-theme="dark"] .sync-info-list li::before { background: var(--accent); }
+
+/* ---------- Мобильное меню ---------- */
+@media (max-width: 860px) {
+  [data-theme="dark"] .island {
+    background: var(--island);
+    border-color: var(--island-border);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+  }
+  [data-theme="dark"] .nav {
+    background: rgba(20, 23, 15, 0.96);
+    border-color: #2c3220;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.35);
+  }
+  [data-theme="dark"] .nav a { color: var(--text); }
+  [data-theme="dark"] .nav a:hover { background: rgba(163,230,53,0.08); }
+  [data-theme="dark"] .nav a.active { color: var(--accent); background: rgba(163,230,53,0.12); }
+}
+
+/* ---------- Дополнительно: акценты разделов в тёмной теме ---------- */
+[data-theme="dark"] .card[data-subject="biochem"]   { --card-accent: #a3e635; --card-soft: rgba(163,230,53,0.14); }
+[data-theme="dark"] .card[data-subject="physio"]    { --card-accent: #38bdf8; --card-soft: rgba(56,189,248,0.14); }
+[data-theme="dark"] .card[data-subject="histology"] { --card-accent: #e879f9; --card-soft: rgba(232,121,249,0.14); }
+[data-theme="dark"] .card[data-subject="microbio"]  { --card-accent: #fb923c; --card-soft: rgba(251,146,60,0.14); }
+[data-theme="dark"] .card[data-subject="hygiene"]   { --card-accent: #2dd4bf; --card-soft: rgba(45,212,191,0.14); }
+
+[data-theme="dark"] .lesson-topic[data-subject="biochem"]   { --topic-accent: #a3e635; --topic-soft: rgba(163,230,53,0.14); }
+[data-theme="dark"] .lesson-topic[data-subject="physio"]    { --topic-accent: #38bdf8; --topic-soft: rgba(56,189,248,0.14); }
+[data-theme="dark"] .lesson-topic[data-subject="histology"] { --topic-accent: #e879f9; --topic-soft: rgba(232,121,249,0.14); }
+[data-theme="dark"] .lesson-topic[data-subject="microbio"]  { --topic-accent: #fb923c; --topic-soft: rgba(251,146,60,0.14); }
+[data-theme="dark"] .lesson-topic[data-subject="hygiene"]   { --topic-accent: #2dd4bf; --topic-soft: rgba(45,212,191,0.14); }
+
+/* Акценты в панели темы */
+[data-theme="dark"] .subject-view__panel[data-accent="biochem"]   { --subject-accent: #a3e635; }
+[data-theme="dark"] .subject-view__panel[data-accent="physio"]    { --subject-accent: #38bdf8; }
+[data-theme="dark"] .subject-view__panel[data-accent="histology"] { --subject-accent: #e879f9; }
+[data-theme="dark"] .subject-view__panel[data-accent="microbio"]  { --subject-accent: #fb923c; }
+[data-theme="dark"] .subject-view__panel[data-accent="hygiene"]   { --subject-accent: #2dd4bf; }
+
+/* ============================================================
+   УСИЛЕННОЕ СВЕЧЕНИЕ (только тёмная тема)
+   ============================================================ */
+
+/* Шапка-остров — мягкий лаймовый ореол вокруг */
+[data-theme="dark"] .island {
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(163, 230, 53, 0.10),
+    0 0 40px -8px rgba(163, 230, 53, 0.30);
+}
+[data-theme="dark"] .island:hover {
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(163, 230, 53, 0.18),
+    0 0 60px -6px rgba(163, 230, 53, 0.45);
+}
+
+/* Активный пункт меню светится */
+[data-theme="dark"] .nav a.active {
+  box-shadow: 0 0 18px -4px rgba(163, 230, 53, 0.55);
+}
+
+/* Аватар — тёплое свечение */
+[data-theme="dark"] .avatar {
+  box-shadow: 0 0 20px -4px rgba(163, 230, 53, 0.55);
+}
+[data-theme="dark"] .avatar:hover {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 24px -2px rgba(163, 230, 53, 0.75);
+}
+
+/* Кнопка темы */
+[data-theme="dark"] .theme-toggle:hover {
+  box-shadow: 0 0 18px -2px rgba(163, 230, 53, 0.6);
+}
+
+/* Профиль-попап */
+[data-theme="dark"] .profile-pop {
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(163, 230, 53, 0.10) inset,
+    0 0 50px -12px rgba(163, 230, 53, 0.30);
+}
+
+/* Кнопки в профиле */
+[data-theme="dark"] .pop-btn:hover {
+  box-shadow: 0 0 22px -6px rgba(163, 230, 53, 0.55);
+}
+
+/* Панели на главной — подсветка сверху + мягкая тень */
+[data-theme="dark"] .panel {
+  position: relative;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 30px -14px rgba(163, 230, 53, 0.25);
+}
+[data-theme="dark"] .panel::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(163, 230, 53, 0.5), transparent);
+  pointer-events: none;
+}
+
+/* Сегодняшний день в календаре — пульсирующее свечение */
+[data-theme="dark"] .cal-day.today {
+  box-shadow:
+    0 0 0 1px rgba(163, 230, 53, 0.5),
+    0 0 22px -2px rgba(163, 230, 53, 0.75);
+  animation: today-glow 3.6s ease-in-out infinite;
+}
+@keyframes today-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(163,230,53,0.5), 0 0 18px -2px rgba(163,230,53,0.6); }
+  50%      { box-shadow: 0 0 0 1px rgba(163,230,53,0.8), 0 0 30px 0px rgba(163,230,53,0.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="dark"] .cal-day.today { animation: none; }
+}
+
+/* Дни с темами/коллоквиумом — лёгкий внутренний glow */
+[data-theme="dark"] .cal-day.has-topics {
+  box-shadow: inset 0 0 0 1px rgba(163, 230, 53, 0.14);
+}
+[data-theme="dark"] .cal-day.has-colloquium {
+  box-shadow: inset 0 0 0 1px rgba(163, 230, 53, 0.35), 0 0 14px -4px rgba(163, 230, 53, 0.45);
+}
+
+/* Карточки предметов при наведении — свечение в цвет акцента */
+[data-theme="dark"] .card:hover {
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.5),
+    0 0 26px -8px var(--card-accent);
+}
+[data-theme="dark"] .card.is-active {
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.4),
+    0 0 0 1px var(--card-accent),
+    0 0 28px -8px var(--card-accent);
+}
+
+/* Панель темы — крупное свечение в акценте раздела */
+[data-theme="dark"] .subject-view__panel {
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset,
+    0 0 60px -20px var(--subject-accent, #a3e635);
+}
+
+/* Кнопки номеров тем */
+[data-theme="dark"] .modal__dot--active {
+  box-shadow: 0 4px 16px -2px color-mix(in srgb, var(--subject-accent, #a3e635) 60%, transparent);
+}
+
+/* Темы на день */
+[data-theme="dark"] .lesson-topic:hover {
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.5),
+    0 0 26px -8px var(--topic-accent);
+}
+
+/* Ссылки */
+[data-theme="dark"] .link-pill:hover {
+  box-shadow:
+    0 16px 40px -16px rgba(0, 0, 0, 0.6),
+    0 0 32px -10px rgba(163, 230, 53, 0.45);
+}
+[data-theme="dark"] .link-pill:hover .link-pill__letter {
+  box-shadow: 0 6px 22px -4px currentColor;
+}
+
+/* Сводка заданий — тёплое свечение у первой цифры */
+[data-theme="dark"] .tasks-summary__item:nth-child(1) .tasks-summary__num {
+  text-shadow: 0 0 22px rgba(163, 230, 53, 0.55);
+}
+
+/* Сегодняшний листик в заданиях */
+[data-theme="dark"] .tasks-day--today .tasks-day__date {
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.4),
+    0 0 26px -8px rgba(163, 230, 53, 0.55);
+}
+
+/* QR-модалка — лаймовый ореол вокруг */
+[data-theme="dark"] .qr-modal__box {
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.65),
+    0 0 70px -20px rgba(163, 230, 53, 0.40);
+}
+
+/* Мобильное меню */
+@media (max-width: 860px) {
+  [data-theme="dark"] .nav.nav--open {
+    box-shadow:
+      0 24px 60px rgba(0, 0, 0, 0.65),
+      0 0 50px -18px rgba(163, 230, 53, 0.40);
+  }
+}
+
+/* ============================================================
+   ПРИВЕТСТВИЕ — ЛАЙМОВЫЙ АКЦЕНТ В ТЁМНОЙ ТЕМЕ
+   ============================================================ */
+[data-theme="dark"] .greet h1 {
+  color: var(--accent);            /* #a3e635 */
+  text-shadow: 0 0 30px rgba(163, 230, 53, 0.35);
+}
+
+[data-theme="dark"] .greet p {
+  color: var(--accent-soft);       /* #84cc16 — чуть темнее, чтобы дата не спорила с именем */
+  opacity: 0.85;
+}
+
+/* ============================================================
+   ЗНАЧКИ ССЫЛОК — ЦВЕТА И ТЁМНАЯ ТЕМА
+   ============================================================ */
+
+/* Светлая тема (то, что раньше было в inline-стилях) */
+.link-pill:nth-child(1) .link-pill__letter { color: #3b82f6; background: #dbeafe; }
+.link-pill:nth-child(2) .link-pill__letter { color: #16a34a; background: #dcfce7; }
+.link-pill:nth-child(3) .link-pill__letter { color: #ea580c; background: #ffedd5; }
+.link-pill:nth-child(4) .link-pill__letter { color: #9333ea; background: #f3e8ff; }
+
+/* Тёмная тема — приглушённые заливки + свечение в цвет значка */
+[data-theme="dark"] .link-pill__letter {
+  transition: background .25s, color .25s, box-shadow .3s, transform .25s;
+}
+
+[data-theme="dark"] .link-pill:nth-child(1) .link-pill__letter {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.14);
+  box-shadow: 0 0 18px -6px rgba(56, 189, 248, 0.55);
+}
+[data-theme="dark"] .link-pill:nth-child(2) .link-pill__letter {
+  color: #a3e635;
+  background: rgba(163, 230, 53, 0.14);
+  box-shadow: 0 0 18px -6px rgba(163, 230, 53, 0.55);
+}
+[data-theme="dark"] .link-pill:nth-child(3) .link-pill__letter {
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.14);
+  box-shadow: 0 0 18px -6px rgba(251, 146, 60, 0.55);
+}
+[data-theme="dark"] .link-pill:nth-child(4) .link-pill__letter {
+  color: #e879f9;
+  background: rgba(232, 121, 249, 0.14);
+  box-shadow: 0 0 18px -6px rgba(232, 121, 249, 0.55);
+}
+
+/* При наведении — свечение усиливается */
+[data-theme="dark"] .link-pill:hover:nth-child(1) .link-pill__letter { box-shadow: 0 6px 26px -4px rgba(56, 189, 248, 0.85); }
+[data-theme="dark"] .link-pill:hover:nth-child(2) .link-pill__letter { box-shadow: 0 6px 26px -4px rgba(163, 230, 53, 0.85); }
+[data-theme="dark"] .link-pill:hover:nth-child(3) .link-pill__letter { box-shadow: 0 6px 26px -4px rgba(251, 146, 60, 0.85); }
+[data-theme="dark"] .link-pill:hover:nth-child(4) .link-pill__letter { box-shadow: 0 6px 26px -4px rgba(232, 121, 249, 0.85); }
+
+/* ============================================================
+   ПЕРЕХОД ТЕМЫ — ЗАЛИВКА ШАПКИ (ЗЕЛЁНАЯ / СИНЯЯ)
+   ============================================================ */
+
+/* Только на десктопе — relative нужен для ::after, overflow НЕ ставим */
+@media (min-width: 861px) {
+  .island {
+    position: relative;
+  }
+}
+
+.island {
+  transition: box-shadow .3s ease, background-color .3s ease;
+}
+
+.island::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transform-origin: left center;
+  opacity: 0;
+  z-index: 0;
+}
+
+/* ---------- Зелёная заливка (светлая → тёмная) ---------- */
+.island.is-switching-green::after {
+  background: linear-gradient(90deg, #22c55e 0%, #86efac 50%, #22c55e 100%);
+  animation: header-fill 1.2s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+/* ---------- Синяя заливка (тёмная → светлая) ---------- */
+.island.is-switching-blue::after {
+  background: linear-gradient(90deg, #3b82f6 0%, #93c5fd 50%, #3b82f6 100%);
+  animation: header-fill 1.2s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+@keyframes header-fill {
+  0%   { clip-path: inset(0 100% 0 0);   opacity: 0.9; }
+  50%  { clip-path: inset(0 0 0 0);      opacity: 0.9; }
+  100% { clip-path: inset(0 0 0 0);      opacity: 0;   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .island.is-switching-green::after,
+  .island.is-switching-blue::after { animation: none; }
 }

@@ -1,6 +1,56 @@
 // ============================================================
-//  ДАННЫЕ
+//  ДЕРЗКИЕ ПРИВЕТСТВИЯ (тёмная тема) — РАЗ В ДЕНЬ
 // ============================================================
+const DARK_GREETINGS = [
+  "О, {name}. Наконец-то.",
+  "Темно. Уютно. {name}.",
+  "{name}, ты в теме.",
+  "Ш-ш-ш, {name}…"
+];
+
+const DARK_GREET_KEY = 'doro.darkGreeting';
+
+// Возвращает текущую сохранённую фразу (или создаёт новую, если нет)
+function getCurrentDarkGreeting() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(DARK_GREET_KEY) || 'null');
+  } catch (e) { saved = null; }
+
+  if (saved && typeof saved === 'object' && typeof saved.idx === 'number' && DARK_GREETINGS[saved.idx]) {
+    return DARK_GREETINGS[saved.idx];
+  }
+
+  // Первый раз — просто случайная
+  const idx = Math.floor(Math.random() * DARK_GREETINGS.length);
+  localStorage.setItem(DARK_GREET_KEY, JSON.stringify({ idx }));
+  return DARK_GREETINGS[idx];
+}
+
+// Принудительно выбирает новую (для переключения темы)
+function pickNewDarkGreeting() {
+  let lastIdx = -1;
+  try {
+    const saved = JSON.parse(localStorage.getItem(DARK_GREET_KEY) || 'null');
+    if (saved && typeof saved === 'object' && typeof saved.idx === 'number') {
+      lastIdx = saved.idx;
+    }
+  } catch (e) { /* ignore */ }
+
+  let newIdx = Math.floor(Math.random() * DARK_GREETINGS.length);
+  if (newIdx === lastIdx && DARK_GREETINGS.length > 1) {
+    newIdx = (newIdx + 1 + Math.floor(Math.random() * (DARK_GREETINGS.length - 1))) % DARK_GREETINGS.length;
+  }
+
+  localStorage.setItem(DARK_GREET_KEY, JSON.stringify({ idx: newIdx }));
+  return DARK_GREETINGS[newIdx];
+}
+
+function pickDarkGreeting(name) {
+  const tpl = getCurrentDarkGreeting();
+  return tpl.replace(/\{name\}/g, name || "друг");
+}
+
 const subjects = {
   biochem: {
     num: "01", title: "Биохимия",
@@ -206,22 +256,174 @@ document.addEventListener('DOMContentLoaded', () => {
   const greetTitle = document.getElementById('greetTitle');
 
   let user = JSON.parse(localStorage.getItem('doro.user') || 'null');
-function renderProfile() {
-  if (user && user.name) {
-    avatar.textContent = user.name[0].toUpperCase();
-    greetTitle.textContent = `Привет, ${user.name}!`;
-    profileNameDisplay.textContent = user.name;
-    nameInput.value = user.name;
-    profileNameRow.style.display = 'flex';
-    profileEdit.style.display = 'none';
-  } else {
-    avatar.textContent = '?';
-    greetTitle.textContent = 'Привет!';
-    nameInput.value = '';
-    profileNameRow.style.display = 'none';
-    profileEdit.style.display = 'flex';
+
+  // ---------- ТЕМА ----------
+  const THEME_KEY = 'doro.theme';
+  const THEME_MODE_KEY = 'doro.themeMode'; // 'auto' | 'light' | 'dark'
+
+  // Авто-тема по времени: 9:00–18:00 светлая, иначе тёмная
+  function getAutoTheme() {
+    const h = new Date().getHours();
+    return (h >= 9 && h < 18) ? 'light' : 'dark';
   }
-}
+
+  function getThemeMode() {
+    const m = localStorage.getItem(THEME_MODE_KEY);
+    return (m === 'light' || m === 'dark' || m === 'auto') ? m : 'auto';
+  }
+
+  function setThemeMode(mode) {
+    localStorage.setItem(THEME_MODE_KEY, mode);
+  }
+
+  function resolveTheme(mode) {
+    return mode === 'auto' ? getAutoTheme() : mode;
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(THEME_KEY, theme);
+    updateGreetingByTheme(theme);
+  }
+
+  function updateGreetingByTheme(theme) {
+    const el = document.getElementById('greetTitle');
+    if (!el) return;
+
+    if (theme === 'dark') {
+      const name = user && user.name ? user.name : null;
+      el.textContent = pickDarkGreeting(name);
+    } else {
+      el.textContent = user && user.name ? `Привет, ${user.name}!` : 'Привет!';
+    }
+  }
+
+  // Инициализация темы
+  (function initTheme() {
+    const mode = getThemeMode();
+    const theme = resolveTheme(mode);
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(THEME_KEY, theme);
+  })();
+
+  (function syncGreetingWithTheme() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'light';
+    updateGreetingByTheme(theme);
+  })();
+
+  // Авто-смена, если режим auto
+  (function scheduleAutoTheme() {
+    let lastAuto = getAutoTheme();
+
+    function tick() {
+      if (getThemeMode() !== 'auto') return;
+      const auto = getAutoTheme();
+      if (auto !== lastAuto) {
+        lastAuto = auto;
+        if (document.documentElement.getAttribute('data-theme') !== auto) {
+          applyTheme(auto);
+        }
+      }
+    }
+
+    setInterval(tick, 60000);
+    tick();
+  })();
+
+  // ---------- ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ (3 положения) ----------
+  const themeSegBtns = document.querySelectorAll('.theme-seg__btn');
+
+  function syncThemeSeg() {
+    const mode = getThemeMode();
+    themeSegBtns.forEach(btn => {
+      const isActive = btn.dataset.mode === mode;
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+
+  themeSegBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const nextMode = btn.dataset.mode;
+      if (!nextMode) return;
+
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+      const nextTheme = resolveTheme(nextMode);
+
+      setThemeMode(nextMode);
+      syncThemeSeg();
+
+      if (nextTheme === 'dark' && currentTheme !== 'dark') {
+        pickNewDarkGreeting();
+      }
+
+      if (currentTheme !== nextTheme) {
+        runSnakeTransition(nextTheme);
+      } else {
+        // Тема уже та — просто применим (на случай, если настройки рассинхронизировались)
+        applyTheme(nextTheme);
+      }
+    });
+  });
+
+  syncThemeSeg();
+
+  let snakeTimers = { theme: null, cleanup: null };
+
+  function runSnakeTransition(nextTheme) {
+    const island = document.getElementById('island');
+    if (!island) return;
+
+    // Сбрасываем предыдущую анимацию, если она ещё идёт
+    if (snakeTimers.theme) clearTimeout(snakeTimers.theme);
+    if (snakeTimers.cleanup) clearTimeout(snakeTimers.cleanup);
+    island.classList.remove('is-switching-green', 'is-switching-blue');
+
+    const dirClass = nextTheme === 'dark'
+      ? 'is-switching-green'
+      : 'is-switching-blue';
+
+    // Принудительный reflow — чтобы анимация стартовала заново
+    void island.offsetWidth;
+
+    island.classList.add(dirClass);
+
+    // Тема меняется в середине
+    snakeTimers.theme = setTimeout(() => {
+      applyTheme(nextTheme);
+    }, 600);
+
+    // Уборка
+    snakeTimers.cleanup = setTimeout(() => {
+      island.classList.remove(dirClass);
+      snakeTimers.theme = null;
+      snakeTimers.cleanup = null;
+    }, 1250);
+  }
+
+  function renderProfile() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+    if (user && user.name) {
+      avatar.textContent = user.name[0].toUpperCase();
+
+      if (isDark) {
+        greetTitle.textContent = pickDarkGreeting(user.name);
+      } else {
+        greetTitle.textContent = `Привет, ${user.name}!`;
+      }
+
+      profileNameDisplay.textContent = user.name;
+      nameInput.value = user.name;
+      profileNameRow.style.display = 'flex';
+      profileEdit.style.display = 'none';
+    } else {
+      avatar.textContent = '?';
+      greetTitle.textContent = isDark ? pickDarkGreeting(null) : 'Привет!';
+      nameInput.value = '';
+      profileNameRow.style.display = 'none';
+      profileEdit.style.display = 'flex';
+    }
+  }
 
   if (avatar && profilePop) {
     avatar.addEventListener('click', (e) => {
@@ -783,7 +985,14 @@ function renderProfile() {
 
     // Прокидываем акцентный цвет раздела в панель
     const panelEl = document.querySelector('.subject-view__panel');
-    const accentMap = {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const accentMap = isDark ? {
+      biochem:   '#a3e635',
+      physio:    '#38bdf8',
+      histology: '#e879f9',
+      microbio:  '#fb923c',
+      hygiene:   '#2dd4bf'
+    } : {
       biochem:   '#16a34a',
       physio:    '#2563eb',
       histology: '#9333ea',

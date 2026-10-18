@@ -29,7 +29,6 @@
         <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
           <span></span><span></span><span></span>
         </button>
-
         <div class="avatar-wrap">
           <button class="avatar" id="avatar" title="Профиль">
             ?
@@ -106,6 +105,33 @@
                 <span class="pop-btn__text">Ближайшая лекция</span>
               </button>
               <div class="pop-lecture__info" id="lectureInfo"></div>
+            </div>
+
+            <!-- Тема -->
+            <div class="pop-theme" id="popTheme">
+              <div class="pop-theme__label">Ты любишь змей?</div>
+              <div class="theme-seg" role="tablist" aria-label="Тема">
+                <button type="button" class="theme-seg__btn" data-mode="auto" role="tab" aria-selected="false">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-3-6.7"></path>
+                    <polyline points="21 3 21 9 15 9"></polyline>
+                  </svg>
+                  Авто
+                </button>
+                <button type="button" class="theme-seg__btn" data-mode="light" role="tab" aria-selected="false">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                  </svg>
+                  Нет
+                </button>
+                <button type="button" class="theme-seg__btn" data-mode="dark" role="tab" aria-selected="false">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                  </svg>
+                  Да
+                </button>
+              </div>
             </div>
 
             <!-- Уведомления -->
@@ -212,19 +238,19 @@
       </div>
       <div class="links-grid">
         <a href="https://webinar.asmu.ru/" class="link-pill" target="_blank" rel="noopener">
-          <span class="link-pill__letter" style="color: #3b82f6; background: #dbeafe;">Л</span>
+          <span class="link-pill__letter">Л</span>
           <span class="link-pill__text"><span class="link-pill__title">Лекции</span><span class="link-pill__desc">Записи и презентации</span></span>
         </a>
         <a href="https://lk.asmu.ru/profile" class="link-pill" target="_blank" rel="noopener">
-          <span class="link-pill__letter" style="color: #16a34a; background: #dcfce7;">ЛК</span>
+          <span class="link-pill__letter">ЛК</span>
           <span class="link-pill__text"><span class="link-pill__title">Личный кабинет</span><span class="link-pill__desc">Студенческий портал</span></span>
         </a>
         <a href="https://grades.agmu.ru/student.php" class="link-pill" target="_blank" rel="noopener">
-          <span class="link-pill__letter" style="color: #ea580c; background: #ffedd5;">Б</span>
+          <span class="link-pill__letter">Б</span>
           <span class="link-pill__text"><span class="link-pill__title">Баллы</span><span class="link-pill__desc">Проверка успеваемости</span></span>
         </a>
         <a href="https://do.asmu.ru/my/" class="link-pill" target="_blank" rel="noopener">
-          <span class="link-pill__letter" style="color: #9333ea; background: #f3e8ff;">M</span>
+          <span class="link-pill__letter">M</span>
           <span class="link-pill__text"><span class="link-pill__title">Moodle</span><span class="link-pill__desc">Задания и тесты</span></span>
         </a>
       </div>
