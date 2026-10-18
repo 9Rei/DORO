@@ -2481,3 +2481,13 @@ body::before {
   .pop-lecture__empty { font-size: 12px; }
 }
 
+/* ===== Подложка для дней с коллоквиумом ===== */
+.cal-day.has-colloquium {
+  background: rgba(37, 99, 235, 0.12);
+}
+.cal-day.has-colloquium:hover {
+  background: rgba(37, 99, 235, 0.20);
+}
+.cal-day.selected.has-colloquium {
+  background: rgba(37, 99, 235, 0.12);
+}

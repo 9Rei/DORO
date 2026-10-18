@@ -433,13 +433,17 @@ function renderProfile() {
 
   // Проверяет, есть ли на конкретную дату темы —
   // по той же логике, что и в updateTodayView()
-  function dayHasTopics(targetDate) {
+    // Возвращает { hasTopics, hasColloq } для конкретной даты
+  function getDayTopicsInfo(targetDate) {
     const dayKey = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'][targetDate.getDay()];
     const daySchedule = schedule[dayKey] || [];
-    if (!daySchedule.length) return false;
+    if (!daySchedule.length) return { hasTopics: false, hasColloq: false };
 
     const lDate = new Date(targetDate);
     lDate.setHours(0, 0, 0, 0);
+
+    let hasTopics = false;
+    let hasColloq = false;
 
     for (const l of daySchedule) {
       if (!subjects[l.subjectKey]) continue;
@@ -453,10 +457,13 @@ function renderProfile() {
         );
         tDate.setHours(0, 0, 0, 0);
         const next = findNextLessonDate(l.subjectKey, tDate);
-        if (next && next.getTime() === lDate.getTime()) return true;
+        if (next && next.getTime() === lDate.getTime()) {
+          hasTopics = true;
+          if (/коллоквиум/i.test(t.title)) hasColloq = true;
+        }
       }
     }
-    return false;
+    return { hasTopics, hasColloq };
   }
 
   function renderCalendar() {
@@ -482,7 +489,8 @@ function renderProfile() {
       const isSelected = selectedDay === d && selectedMonth === month && selectedYear === year;
       const dateKey = toDateKey(date);
       const hasHw = homework.some(h => h.date === dateKey && !h.done);
-      const hasTopics = dayHasTopics(date);
+      const dayInfo = getDayTopicsInfo(date);
+      const hasTopics = dayInfo.hasTopics;
 
       const cls = [
         'cal-day',
@@ -490,7 +498,8 @@ function renderProfile() {
         isToday ? 'today' : '',
         isSelected ? 'selected' : '',
         hasHw && !isWeekend ? 'has-hw' : '',
-        hasTopics && !isWeekend ? 'has-topics' : ''
+        hasTopics && !isWeekend ? 'has-topics' : '',
+        hasTopics && dayInfo.hasColloq && !isWeekend ? 'has-colloquium' : ''
       ].filter(Boolean).join(' ');
       const disabled = isWeekend ? 'disabled' : '';
       const dataAttr = isWeekend ? '' : `data-day="${d}"`;
