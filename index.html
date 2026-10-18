@@ -11,8 +11,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <!-- ШАПКА -->
+  <!-- ================= ШАПКА ================= -->
   <div class="island-wrap">
     <header class="island" id="island">
       <a href="#" class="brand active" id="brand-logo">
@@ -30,19 +29,27 @@
         <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
           <span></span><span></span><span></span>
         </button>
+
         <div class="avatar-wrap">
           <button class="avatar" id="avatar" title="Профиль">?</button>
 
-                    <div class="profile-pop" id="profilePop">
-            <div class="profile-view" id="profileView" style="display: none;">
-              <div class="profile-view__label">Твой профиль</div>
-              <div class="profile-view__name" id="profileNameDisplay"></div>
-              <button class="btn-pop" id="editNameBtn">Изменить имя</button>
+          <div class="profile-pop" id="profilePop">
+
+            <!-- Просмотр имени -->
+            <div class="profile-name-row" id="profileNameRow" style="display: none;">
+              <span class="profile-name" id="profileNameDisplay"></span>
+              <button type="button" class="profile-edit-btn" id="editNameBtn" title="Изменить имя" aria-label="Изменить имя">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+              </button>
             </div>
 
+            <!-- Редактирование имени -->
             <div class="profile-edit" id="profileEdit">
-              <label for="nameInput">Как тебя зовут?</label>
-              <input id="nameInput" type="text" placeholder="Например, Аня Котова" maxlength="40" autocomplete="off">
+              <label for="nameInput">Твоё имя</label>
+              <input id="nameInput" type="text" placeholder="Например, Аня" maxlength="30" autocomplete="off">
               <button class="btn-pop" id="saveNameBtn">Сохранить</button>
             </div>
 
@@ -73,13 +80,39 @@
               </button>
               <div class="pop-notify__list" id="notifyList"></div>
             </div>
-          </div>
-        </div>
-      </div>
-    </header>
-  </div>
 
-  <!-- КОНТЕНТ -->
+                       <!-- QR-синхронизация -->
+            <div class="pop-sync" id="popSync">
+              <button type="button" class="pop-btn" id="qrShowBtn">
+                <svg class="pop-btn__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                <span class="pop-btn__text">Принять ДЗ (показать QR)</span>
+              </button>
+
+              <button type="button" class="pop-btn" id="qrScanBtn">
+                <svg class="pop-btn__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                  <line x1="7" y1="12" x2="17" y2="12"></line>
+                </svg>
+                <span class="pop-btn__text">Отдать ДЗ (сканировать QR)</span>
+              </button>
+            </div>
+
+          </div>          <!-- .profile-pop -->
+        </div>            <!-- .avatar-wrap -->
+      </div>              <!-- .island-right -->
+    </header>
+  </div>                  <!-- .island-wrap -->
+
+
+  <!-- ================= КОНТЕНТ ================= -->
   <main class="page">
 
     <!-- VIEW: Главная -->
@@ -121,12 +154,10 @@
       </div>
 
       <div class="workspace">
-        <!-- Слева: список предметов -->
         <aside class="workspace__sidebar">
           <div class="cards" id="subject-cards"></div>
         </aside>
 
-        <!-- Центр: окно темы -->
         <section class="subject-view" id="subject-view">
           <div class="subject-view__panel">
             <div class="subject-view__top">
@@ -141,7 +172,6 @@
               </div>
             </div>
 
-            <!-- Правая лента номеров тем -->
             <div class="modal__dots" id="modal-dots" style="display: none;"></div>
           </div>
         </section>
@@ -186,6 +216,34 @@
 
   </main>
 
+  <!-- ================= МОДАЛКИ QR ================= -->
+  <div class="qr-modal" id="qrShowModal">
+    <div class="qr-modal__box">
+      <h3 class="qr-modal__title">QR с заданиями</h3>
+      <p class="qr-modal__sub">Наведите камеру телефона на этот QR, чтобы передать задания на этот компьютер.</p>
+      <div class="qr-modal__canvas" id="qrCanvasWrap">
+        <canvas id="qrCanvas"></canvas>
+      </div>
+      <button type="button" class="qr-modal__close" id="qrShowClose">Закрыть</button>
+    </div>
+  </div>
+
+  <div class="qr-modal" id="qrScanModal">
+    <div class="qr-modal__box">
+      <h3 class="qr-modal__title">Сканировать QR</h3>
+      <p class="qr-modal__sub">Наведите камеру на QR-код с компьютера, чтобы отправить туда задания.</p>
+      <div class="qr-modal__video">
+        <video id="qrVideo" playsinline></video>
+      </div>
+      <div class="qr-modal__actions">
+        <button type="button" class="qr-modal__close" id="qrScanClose">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= СКРИПТЫ ================= -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

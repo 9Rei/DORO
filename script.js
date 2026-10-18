@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   const profilePop = document.getElementById('profilePop');
-  const profileView = document.getElementById('profileView');
+  const profileNameRow = document.getElementById('profileNameRow');
   const profileEdit = document.getElementById('profileEdit');
   const profileNameDisplay = document.getElementById('profileNameDisplay');
   const nameInput = document.getElementById('nameInput');
@@ -165,19 +165,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const greetTitle = document.getElementById('greetTitle');
 
   let user = JSON.parse(localStorage.getItem('doro.user') || 'null');
-
 function renderProfile() {
   if (user && user.name) {
-    const initials = user.name.trim().split(/\s+/).map(w => w[0]?.toUpperCase() || '').slice(0, 2).join('');
-    avatar.textContent = initials;
-    greetTitle.textContent = `Привет, ${user.name.trim().split(/\s+/)[0]}!`;
+    avatar.textContent = user.name[0].toUpperCase();
+    greetTitle.textContent = `Привет, ${user.name}!`;
     profileNameDisplay.textContent = user.name;
-    profileView.style.display = 'flex';
+    nameInput.value = user.name;
+    profileNameRow.style.display = 'flex';
     profileEdit.style.display = 'none';
   } else {
     avatar.textContent = '?';
     greetTitle.textContent = 'Привет!';
-    profileView.style.display = 'none';
+    nameInput.value = '';
+    profileNameRow.style.display = 'none';
     profileEdit.style.display = 'flex';
   }
 }
@@ -192,7 +192,7 @@ function renderProfile() {
 
   if (editNameBtn) {
     editNameBtn.addEventListener('click', () => {
-      profileView.style.display = 'none';
+      profileNameRow.style.display = 'none';
       profileEdit.style.display = 'flex';
       nameInput.value = user?.name || '';
       nameInput.focus();
@@ -201,10 +201,14 @@ function renderProfile() {
 
   if (saveNameBtn) {
     saveNameBtn.addEventListener('click', () => {
-      const val = nameInput.value.trim();
+      let val = nameInput.value.trim();
+      if (!val) return;
+      // Оставляем только первое слово — просто имя
+      val = val.split(/\s+/)[0];
       if (!val) return;
       user = { name: val };
       localStorage.setItem('doro.user', JSON.stringify(user));
+      nameInput.value = val;
       renderProfile();
     });
   }
@@ -222,7 +226,6 @@ function renderProfile() {
   });
 
   renderProfile();
-
   // ---------- ДОМАШНИЕ ЗАДАНИЯ ----------
   const HW_KEY = 'doro.homework';
   let homework = JSON.parse(localStorage.getItem(HW_KEY) || '[]');
@@ -888,6 +891,326 @@ function renderProfile() {
     e.preventDefault();
     showView('home');
   });
+
+  // ---------- QR-СИНХРОНИЗАЦИЯ ----------
+  const JSONBIN_KEY = '$2a$10$ueLrF0JVSgVVWPZgis5xC.1sLjPqGhq1tWOSypgHXo.HBWRQecrU6';
+  const JSONBIN_URL = 'https://api.jsonbin.io/v3/b';
+
+  const qrShowBtn = document.getElementById('qrShowBtn');
+  const qrScanBtn = document.getElementById('qrScanBtn');
+  const qrShowModal = document.getElementById('qrShowModal');
+  const qrScanModal = document.getElementById('qrScanModal');
+  const qrCanvas = document.getElementById('qrCanvas');
+  const qrVideo = document.getElementById('qrVideo');
+  const qrShowClose = document.getElementById('qrShowClose');
+  const qrScanClose = document.getElementById('qrScanClose');
+  const qrFileInput = document.getElementById('qrFileInput');
+
+  let qrStream = null;
+  let qrRafId = null;
+  let currentBinId = null;
+  let pollAbort = false;
+  let pollTimeoutHandle = null;
+  let pollActive = false;
+
+  // ---- Кнопки: телефон — только «Сканировать», ПК — только «Показать» ----
+  const isPhone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.innerWidth < 860;
+  if (isPhone) {
+    if (qrShowBtn) qrShowBtn.style.display = 'none';
+  } else {
+    if (qrScanBtn) qrScanBtn.style.display = 'none';
+  }
+
+  function stopPolling() {
+    pollActive = false;
+    if (pollTimeoutHandle) {
+      clearTimeout(pollTimeoutHandle);
+      pollTimeoutHandle = null;
+    }
+  }
+  function stopQrScanner() {
+    if (qrRafId) cancelAnimationFrame(qrRafId);
+    qrRafId = null;
+    if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+    if (qrVideo) qrVideo.srcObject = null;
+  }
+  function randomId() {
+    return 'doro_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+  async function deleteBin(binId) {
+    if (!binId) return;
+    try {
+      await fetch(`${JSONBIN_URL}/${binId}`, {
+        method: 'DELETE',
+        headers: { 'X-Master-Key': JSONBIN_KEY }
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  // ---- Функция опроса с нарастающей задержкой ----
+  async function pollBin(binId, onData, onTimeout) {
+    const startTime = Date.now();
+    const MAX_TOTAL = 15000; // 15 секунд
+    const delays = [1000, 2000, 4000, 8000]; // нарастающая задержка
+    let step = 0;
+
+    pollActive = true;
+    pollAbort = false;
+
+    while (pollActive && !pollAbort) {
+      const elapsed = Date.now() - startTime;
+      if (elapsed > MAX_TOTAL) {
+        pollActive = false;
+        if (onTimeout) onTimeout();
+        return;
+      }
+
+      try {
+        const r = await fetch(`${JSONBIN_URL}/${binId}/latest`, {
+          headers: { 'X-Master-Key': JSONBIN_KEY }
+        });
+        if (r.ok) {
+          const j = await r.json();
+          const rec = j.record;
+          if (rec && rec.t === 'doro-hw' && Array.isArray(rec.hw)) {
+            pollActive = false;
+            onData(rec);
+            return;
+          }
+        }
+      } catch (e) { /* продолжим */ }
+
+      // Ждём с нарастающей задержкой
+      const delay = delays[Math.min(step, delays.length - 1)];
+      step++;
+      await new Promise(res => {
+        pollTimeoutHandle = setTimeout(res, delay);
+      });
+    }
+  }
+
+  // ---- Пауза опроса, когда вкладка неактивна ----
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Вкладка ушла в фон — не опрашиваем
+      if (pollTimeoutHandle) clearTimeout(pollTimeoutHandle);
+      pollTimeoutHandle = null;
+    } else if (pollActive && currentBinId) {
+      // Вернулись — продолжаем с обычной задержкой
+      // (просто цикл продолжится сам, т.к. мы остановили только setTimeout)
+    }
+  });
+
+  // ===== ПК: показать QR — принять данные =====
+  if (qrShowBtn && qrShowModal && qrCanvas) {
+    qrShowBtn.addEventListener('click', async () => {
+      const sessionId = randomId();
+      qrCanvas.innerHTML = '<div style="padding:30px;color:#5a6678;font-size:13px;">Создаю сессию…</div>';
+      qrShowModal.classList.add('open');
+
+      let binId = null;
+      try {
+        const res = await fetch(JSONBIN_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_KEY,
+            'X-Bin-Name': 'session_' + sessionId,
+            'X-Bin-Private': 'true'
+          },
+          body: JSON.stringify({ t: 'doro-session', sid: sessionId, ready: false })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        binId = json.metadata.id;
+        currentBinId = binId;
+      } catch (e) {
+        qrCanvas.innerHTML = '<div style="padding:30px;color:#b91c1c;font-size:13px;">Ошибка создания сессии: ' + e.message + '</div>';
+        return;
+      }
+
+      const qrPayload = JSON.stringify({ t: 'doro-recv', bin: binId, sid: sessionId });
+      qrCanvas.innerHTML = '';
+      QRCode.toCanvas(qrCanvas, qrPayload, { width: 320, margin: 2, errorCorrectionLevel: 'M' }, (err) => {
+        if (err) alert('Ошибка генерации QR: ' + err.message);
+      });
+
+      // Опрос с нарастающей задержкой и таймаутом 15 секунд
+      pollBin(
+        binId,
+        (rec) => {
+          qrShowModal.classList.remove('open');
+          applyIncoming(rec);
+        },
+        () => {
+          // По таймауту: меняем подсказку
+          const hint = qrShowModal.querySelector('.qr-modal__sub');
+          if (hint) hint.textContent = 'Время ожидания истекло. Нажмите «Показать QR» ещё раз.';
+        }
+      );
+    });
+  }
+
+  if (qrShowClose) {
+    qrShowClose.addEventListener('click', () => {
+      qrShowModal.classList.remove('open');
+      stopPolling();
+    });
+  }
+  if (qrShowModal) {
+    qrShowModal.addEventListener('click', (e) => {
+      if (e.target === qrShowModal) { qrShowModal.classList.remove('open'); stopPolling(); }
+    });
+  }
+
+  // ===== Телефон: сканировать QR — отдать данные =====
+  async function sendToBin(binId, payload) {
+    try {
+      const res = await fetch(`${JSONBIN_URL}/${binId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': JSONBIN_KEY
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return true;
+    } catch (e) {
+      alert('Не удалось отправить данные: ' + e.message);
+      return false;
+    }
+  }
+
+  async function scanAndSend(text) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.t !== 'doro-recv' || !parsed.bin) {
+        alert('Это не QR от doro.');
+        return;
+      }
+      if (!homework.length) {
+        alert('У вас нет заданий для отправки.');
+        return;
+      }
+      const payload = {
+        t: 'doro-hw',
+        v: 1,
+        user: user?.name || null,
+        sid: parsed.sid,
+        hw: homework.map(h => ({
+          id: h.id, s: h.subjectKey, d: h.dayKey, sl: h.slot,
+          lt: h.lessonTitle || null, dt: h.date, tx: h.text, dn: h.done
+        }))
+      };
+      const ok = await sendToBin(parsed.bin, payload);
+      if (ok) {
+        alert('Отправлено заданий: ' + homework.length + '. ПК получит их в течение пары секунд.');
+        qrScanModal.classList.remove('open');
+      }
+    } catch (e) {
+      alert('Не удалось разобрать QR: ' + e.message);
+    }
+  }
+
+  if (qrScanBtn && qrScanModal && qrVideo) {
+    qrScanBtn.addEventListener('click', async () => {
+      qrScanModal.classList.add('open');
+      try {
+        qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        qrVideo.srcObject = qrStream;
+        await qrVideo.play();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        function tick() {
+          if (!qrVideo.videoWidth) { qrRafId = requestAnimationFrame(tick); return; }
+          canvas.width = qrVideo.videoWidth;
+          canvas.height = qrVideo.videoHeight;
+          ctx.drawImage(qrVideo, 0, 0, canvas.width, canvas.height);
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          if (window.jsQR) {
+            const code = jsQR(imgData.data, canvas.width, canvas.height);
+            if (code && code.data) {
+              stopQrScanner();
+              scanAndSend(code.data);
+              return;
+            }
+          }
+          qrRafId = requestAnimationFrame(tick);
+        }
+        tick();
+      } catch (err) {
+        alert('Не удалось получить доступ к камере: ' + err.message);
+        qrScanModal.classList.remove('open');
+        stopQrScanner();
+      }
+    });
+  }
+
+  if (qrFileInput) {
+    qrFileInput.addEventListener('change', () => {
+      const file = qrFileInput.files[0];
+      if (!file) return;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        if (window.jsQR) {
+          const code = jsQR(data.data, canvas.width, canvas.height);
+          if (code && code.data) {
+            scanAndSend(code.data);
+          } else {
+            alert('QR не распознан.');
+          }
+        }
+        qrFileInput.value = '';
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  if (qrScanClose) {
+    qrScanClose.addEventListener('click', () => {
+      qrScanModal.classList.remove('open');
+      stopQrScanner();
+    });
+  }
+  if (qrScanModal) {
+    qrScanModal.addEventListener('click', (e) => {
+      if (e.target === qrScanModal) { qrScanModal.classList.remove('open'); stopQrScanner(); }
+    });
+  }
+
+  // ---- Принять данные и удалить ящик ----
+  function applyIncoming(data) {
+    if (currentBinId) {
+      deleteBin(currentBinId);
+      currentBinId = null;
+    }
+
+    const current = JSON.parse(localStorage.getItem('doro.homework') || '[]');
+    const byId = new Map(current.map(h => [h.id, h]));
+    let added = 0;
+    data.hw.forEach(h => {
+      const mapped = {
+        id: h.id, subjectKey: h.s, dayKey: h.d, slot: h.sl,
+        lessonTitle: h.lt, date: h.dt, text: h.tx, done: !!h.dn,
+        createdAt: Date.now()
+      };
+      if (!byId.has(mapped.id)) { byId.set(mapped.id, mapped); added++; }
+    });
+    localStorage.setItem('doro.homework', JSON.stringify([...byId.values()]));
+    homework = JSON.parse(localStorage.getItem('doro.homework'));
+    saveHomework();
+    renderTasks();
+    renderCalendar();
+    if (rendered.home) updateTodayView();
+    alert('Получено заданий: ' + added);
+  }
 
   showView('home');
 });
