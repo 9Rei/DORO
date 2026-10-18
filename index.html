@@ -31,7 +31,10 @@
         </button>
 
         <div class="avatar-wrap">
-          <button class="avatar" id="avatar" title="Профиль">?</button>
+          <button class="avatar" id="avatar" title="Профиль">
+            ?
+            <span class="avatar-dot" id="avatarDot" hidden></span>
+          </button>
 
           <div class="profile-pop" id="profilePop">
 
@@ -67,20 +70,6 @@
                 <div class="pop-search__results" id="searchResults"></div>
               </div>
             </div>
-
-            <!-- Уведомления -->
-            <div class="pop-notify" id="popNotify">
-              <button type="button" class="pop-btn" id="notifyToggle">
-                <svg class="pop-btn__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                </svg>
-                <span class="pop-btn__text">Уведомления</span>
-                <span class="pop-btn__badge" id="notifyBadge" style="display: none;"></span>
-              </button>
-              <div class="pop-notify__list" id="notifyList"></div>
-            </div>
-
                        <!-- QR-синхронизация -->
             <div class="pop-sync" id="popSync">
               <button type="button" class="pop-btn" id="qrShowBtn">
@@ -103,6 +92,19 @@
                 </svg>
                 <span class="pop-btn__text">Отдать ДЗ (сканировать QR)</span>
               </button>
+            </div>
+
+            <!-- Уведомления -->
+            <div class="pop-notify" id="popNotify">
+              <button type="button" class="pop-btn" id="notifyToggle">
+                <svg class="pop-btn__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="pop-btn__text">Уведомления</span>
+                <span class="pop-btn__badge" id="notifyBadge" style="display: none;"></span>
+              </button>
+              <div class="pop-notify__list" id="notifyList"></div>
             </div>
 
           </div>          <!-- .profile-pop -->
@@ -216,7 +218,7 @@
 
   </main>
 
-  <!-- ================= МОДАЛКИ QR ================= -->
+  <!-- Модалка: показать QR -->
   <div class="qr-modal" id="qrShowModal">
     <div class="qr-modal__box">
       <h3 class="qr-modal__title">QR с заданиями</h3>
@@ -226,6 +228,7 @@
     </div>
   </div>
 
+  <!-- Модалка: сканировать QR -->
   <div class="qr-modal" id="qrScanModal">
     <div class="qr-modal__box">
       <h3 class="qr-modal__title">Сканировать QR</h3>
@@ -235,6 +238,24 @@
       </div>
       <div class="qr-modal__actions">
         <button type="button" class="qr-modal__close" id="qrScanClose">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка-предупреждение перед переносом -->
+  <div class="qr-modal" id="syncInfoModal">
+    <div class="qr-modal__box">
+      <h3 class="qr-modal__title">Перенос заданий</h3>
+      <p class="qr-modal__sub">Как это работает:</p>
+      <ul class="sync-info-list">
+        <li>Нажмите «Продолжить» — появится QR-код.</li>
+        <li>На телефоне откройте профиль → «Отдать ДЗ» и отсканируйте QR.</li>
+        <li>Задания с телефона появятся здесь, на этом устройстве.</li>
+      </ul>
+      <p class="qr-modal__sub" style="color: #b45309; font-weight: 600;">Перенос доступен один раз в день.</p>
+      <div class="qr-modal__actions">
+        <button type="button" class="qr-modal__close" id="syncInfoCancel">Отмена</button>
+        <button type="button" class="qr-modal__close" id="syncInfoContinue" style="background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent;">Продолжить</button>
       </div>
     </div>
   </div>

@@ -35,8 +35,7 @@ const subjects = {
   histology: {
     num: "03", title: "Гистология",
     topics: [
-      { num: "24", title: "Пищеварительная система. Морфологическая характеристика желудка.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-13", files: [{ name: "ГИСТА_24.pdf", url: "files/histology/ГИСТА_24.pdf" }] },
-      { num: "25", title: "Дыхательная система. Морфологическая характеристика.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-20", files: [{ name: "ГИСТА_25.pdf", url: "files/histology/ГИСТА_25.pdf" }] }
+      { num: "24", title: "Пищеварительная система. Морфологическая характеристика желудка.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-13", files: [{ name: "ГИСТА_24.pdf", url: "files/histology/ГИСТА_24.pdf" }] }
     ]
   },
   microbio: {
@@ -252,6 +251,7 @@ function renderProfile() {
   const notifyToggle = document.getElementById('notifyToggle');
   const notifyList = document.getElementById('notifyList');
   const notifyBadge = document.getElementById('notifyBadge');
+  const avatarDot = document.getElementById('avatarDot');
 
   function collectAllTopics() {
     const all = [];
@@ -324,8 +324,10 @@ function renderProfile() {
       if (unseen > 0) {
         notifyBadge.textContent = unseen;
         notifyBadge.style.display = 'grid';
+        if (avatarDot) avatarDot.hidden = false;
       } else {
         notifyBadge.style.display = 'none';
+        if (avatarDot) avatarDot.hidden = true;
       }
     }
     updateBadge();
@@ -1001,72 +1003,104 @@ function renderProfile() {
     }
   });
 
-  // ===== ПК: показать QR — принять данные =====
-  if (qrShowBtn && qrShowModal && qrCanvas) {
-    qrShowBtn.addEventListener('click', async () => {
+    // ===== ПК: показать QR — принять данные =====
+  const syncInfoModal = document.getElementById('syncInfoModal');
+  const syncInfoCancel = document.getElementById('syncInfoCancel');
+  const syncInfoContinue = document.getElementById('syncInfoContinue');
 
-      // --- Проверка «раз в день» ---
+  async function startQrSession() {
+    // Проверка «раз в день»
+    const LAST_SYNC_KEY = 'doro.lastSync';
+    const today = new Date().toISOString().slice(0, 10);
+    if (localStorage.getItem(LAST_SYNC_KEY) === today) {
+      alert('Сегодня вы уже переносили задания. Следующий перенос — завтра.');
+      return;
+    }
+
+    const sessionId = randomId();
+    qrCanvas.innerHTML = '<div style="padding:30px;color:#5a6678;font-size:13px;">Создаю сессию…</div>';
+    qrShowModal.classList.add('open');
+
+    let binId = null;
+    try {
+      const res = await fetch(JSONBIN_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': JSONBIN_KEY,
+          'X-Bin-Name': 'session_' + sessionId,
+          'X-Bin-Private': 'true'
+        },
+        body: JSON.stringify({ t: 'doro-session', sid: sessionId, ready: false })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      binId = json.metadata.id;
+      currentBinId = binId;
+    } catch (e) {
+      qrCanvas.innerHTML = '<div style="padding:30px;color:#b91c1c;font-size:13px;">Ошибка создания сессии: ' + e.message + '</div>';
+      return;
+    }
+
+    const qrPayload = JSON.stringify({ t: 'doro-recv', bin: binId, sid: sessionId });
+    qrCanvas.innerHTML = '';
+    try {
+      new QRCode(qrCanvas, {
+        text: qrPayload,
+        width: 320,
+        height: 320,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch (err) {
+      alert('Ошибка генерации QR: ' + err.message);
+    }
+
+    // Опрос с нарастающей задержкой и таймаутом 15 секунд
+    pollBin(
+      binId,
+      (rec) => {
+        qrShowModal.classList.remove('open');
+        applyIncoming(rec);
+      },
+      () => {
+        const hint = qrShowModal.querySelector('.qr-modal__sub');
+        if (hint) hint.textContent = 'Время ожидания истекло. Нажмите «Принять ДЗ» ещё раз.';
+      }
+    );
+  }
+
+  if (qrShowBtn) {
+    qrShowBtn.addEventListener('click', () => {
+      // Проверка «раз в день» — до всего остального
       const LAST_SYNC_KEY = 'doro.lastSync';
       const today = new Date().toISOString().slice(0, 10);
       if (localStorage.getItem(LAST_SYNC_KEY) === today) {
         alert('Сегодня вы уже переносили задания. Следующий перенос — завтра.');
         return;
       }
-      // ------------------------------
+      // Открываем предупреждение
+      syncInfoModal.classList.add('open');
+    });
+  }
 
-      const sessionId = randomId();
-      qrCanvas.innerHTML = '<div style="padding:30px;color:#5a6678;font-size:13px;">Создаю сессию…</div>';
-      qrShowModal.classList.add('open');
-
-      let binId = null;
-      try {
-        const res = await fetch(JSONBIN_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': JSONBIN_KEY,
-            'X-Bin-Name': 'session_' + sessionId,
-            'X-Bin-Private': 'true'
-          },
-          body: JSON.stringify({ t: 'doro-session', sid: sessionId, ready: false })
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
-        binId = json.metadata.id;
-        currentBinId = binId;
-      } catch (e) {
-        qrCanvas.innerHTML = '<div style="padding:30px;color:#b91c1c;font-size:13px;">Ошибка создания сессии: ' + e.message + '</div>';
-        return;
-      }
-
-      const qrPayload = JSON.stringify({ t: 'doro-recv', bin: binId, sid: sessionId });
-      qrCanvas.innerHTML = '';
-      try {
-        new QRCode(qrCanvas, {
-          text: qrPayload,
-          width: 320,
-          height: 320,
-          colorDark: "#000000",
-          colorLight: "#ffffff",
-          correctLevel: QRCode.CorrectLevel.M
-        });
-      } catch (err) {
-        alert('Ошибка генерации QR: ' + err.message);
-      }
-
-      // Опрос с нарастающей задержкой и таймаутом 15 секунд
-      pollBin(
-        binId,
-        (rec) => {
-          qrShowModal.classList.remove('open');
-          applyIncoming(rec);
-        },
-        () => {
-          // По таймауту: меняем подсказку
-          const hint = qrShowModal.querySelector('.qr-modal__sub');
-          if (hint) hint.textContent = 'Время ожидания истекло. Нажмите «Показать QR» ещё раз.';
-        }
-      );
+  if (syncInfoCancel) {
+    syncInfoCancel.addEventListener('click', () => {
+      syncInfoModal.classList.remove('open');
+    });
+  }
+  if (syncInfoContinue) {
+    syncInfoContinue.addEventListener('click', () => {
+      syncInfoModal.classList.remove('open');
+      setTimeout(() => {
+        startQrSession();
+      }, 300); // ← задержка, чтобы окно предупреждения успело закрыться
+    });
+  }
+  if (syncInfoModal) {
+    syncInfoModal.addEventListener('click', (e) => {
+      if (e.target === syncInfoModal) syncInfoModal.classList.remove('open');
     });
   }
 

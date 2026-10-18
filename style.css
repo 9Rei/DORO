@@ -404,33 +404,82 @@ body::before {
 
 /* ================= АНИМАЦИЯ РАЗДЕЛОВ ================= */
 #view-files.is-active .card {
-  animation: cardIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: cardIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-#view-files.is-active .card:nth-child(1) { animation-delay: 0.03s; }
-#view-files.is-active .card:nth-child(2) { animation-delay: 0.09s; }
-#view-files.is-active .card:nth-child(3) { animation-delay: 0.15s; }
-#view-files.is-active .card:nth-child(4) { animation-delay: 0.21s; }
-#view-files.is-active .card:nth-child(5) { animation-delay: 0.27s; }
+#view-files.is-active .card:nth-child(1) { animation-delay: 0.02s; }
+#view-files.is-active .card:nth-child(2) { animation-delay: 0.06s; }
+#view-files.is-active .card:nth-child(3) { animation-delay: 0.10s; }
+#view-files.is-active .card:nth-child(4) { animation-delay: 0.14s; }
+#view-files.is-active .card:nth-child(5) { animation-delay: 0.18s; }
 
 @keyframes cardIn {
-  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Панель темы — плавный подъём */
+#view-files.is-active .subject-view__panel {
+  animation: panelIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.08s;
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.995); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.subject-view__body {
-  animation: subjectBodyIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+/* Содержимое темы: номер, заголовок, шаги, файлы */
+.subject-view__body .modal__num,
+.subject-view__body .modal__title,
+.subject-view__body .modal__prep,
+.subject-view__body .modal__subtitle,
+.subject-view__body .modal__files {
+  animation: topicPartIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-@keyframes subjectBodyIn {
-  from { opacity: 0; transform: translateY(10px); }
+.subject-view__body .modal__num       { animation-delay: 0.02s; }
+.subject-view__body .modal__title     { animation-delay: 0.06s; }
+.subject-view__body .modal__prep      { animation-delay: 0.10s; }
+.subject-view__body .modal__subtitle  { animation-delay: 0.14s; }
+.subject-view__body .modal__files     { animation-delay: 0.18s; }
+
+@keyframes topicPartIn {
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.subject-view__title {
-  animation: subjectTitleIn 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+/* Лента номеров тем */
+#view-files.is-active .modal__dots .modal__dot {
+  animation: dotIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-@keyframes subjectTitleIn {
-  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+#view-files.is-active .modal__dots .modal__dot:nth-child(1) { animation-delay: 0.16s; }
+#view-files.is-active .modal__dots .modal__dot:nth-child(2) { animation-delay: 0.20s; }
+#view-files.is-active .modal__dots .modal__dot:nth-child(3) { animation-delay: 0.24s; }
+#view-files.is-active .modal__dots .modal__dot:nth-child(4) { animation-delay: 0.28s; }
+#view-files.is-active .modal__dots .modal__dot:nth-child(5) { animation-delay: 0.32s; }
+#view-files.is-active .modal__dots .modal__dot:nth-child(6) { animation-delay: 0.36s; }
+
+@keyframes dotIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Placeholder */
+#view-files.is-active .subject-view__placeholder {
+  animation: placeholderIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.12s;
+}
+@keyframes placeholderIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Буква на активной карточке */
+.card.is-active .card__letter {
+  animation: cardLetterPulse 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes cardLetterPulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
 }
 
 /* ================= АНИМАЦИЯ ГЛАВНОЙ ================= */
@@ -2028,7 +2077,7 @@ body::before {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  z-index: 999;
+  z-index: 10000;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
@@ -2223,4 +2272,54 @@ body::before {
   #view-tasks.is-active .hw-item:nth-child(3) { animation-delay: 0.50s; }
   #view-tasks.is-active .hw-item:nth-child(4) { animation-delay: 0.60s; }
   #view-tasks.is-active .hw-item:nth-child(5) { animation-delay: 0.70s; }
+}
+
+/* Синяя точка на аватаре при непрочитанных уведомлениях */
+.avatar {
+  position: relative;
+}
+.avatar-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
+  pointer-events: none;
+  animation: dotPulse 1.6s ease-in-out infinite;
+}
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.15); opacity: 0.7; }
+}
+
+/* Модалка-предупреждение о переносе */
+.sync-info-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.sync-info-list li {
+  position: relative;
+  padding-left: 26px;
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.sync-info-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
 }
