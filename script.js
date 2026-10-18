@@ -73,6 +73,47 @@ const schedule = {
 };
 
 // ============================================================
+//  ЛЕКЦИИ
+// ============================================================
+
+var LECTURE_YEAR = 2026;
+var LECTURE_TIME = "13:00";
+
+var lectureDates = {
+  "Биохимия": ["01.09", "22.09", "13.10", "03.11", "17.11", "01.12", "15.12", "22.12"],
+  "Микра":    ["08.09", "29.09", "20.10", "10.11"],
+  "Биоэтика": ["15.09", "06.10", "27.10"],
+  "Гигиена":  ["01.09", "22.09", "13.10", "27.10", "10.11", "24.11", "08.12", "22.12"],
+  "БЖД":      ["08.09", "29.09", "20.10", "03.11", "17.11", "01.12", "15.12"],
+  "Истмед":   ["12.09", "15.09", "26.09", "06.10", "10.10", "24.10", "07.11", "21.11", "29.12"],
+  "Н. физ":   ["02.09", "16.09", "30.09", "14.10", "28.10", "18.11", "02.12", "16.12", "30.12"],
+  "Гиста":    ["09.09", "07.10", "11.11", "09.12", "13.01"],
+  "ОМиПК":    ["23.09", "21.10", "25.11", "23.12"]
+};
+
+function getNextLecture() {
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var next = null;
+  Object.keys(lectureDates).forEach(function (subject) {
+    lectureDates[subject].forEach(function (dateStr) {
+      var parts = dateStr.split(".");
+      if (parts.length !== 2) return;
+      var day = parseInt(parts[0], 10);
+      var month = parseInt(parts[1], 10) - 1;
+      var d = new Date(LECTURE_YEAR, month, day);
+      d.setHours(0, 0, 0, 0);
+      if (d >= today) {
+        if (!next || d < next.date) {
+          next = { date: d, subject: subject, dateStr: dateStr };
+        }
+      }
+    });
+  });
+  return next;
+}
+
+// ============================================================
 //  ВСПОМОГАТЕЛЬНЫЕ
 // ============================================================
 function findNextLessonDate(subjectKey, fromDate) {
@@ -390,6 +431,34 @@ function renderProfile() {
   calDate.setDate(1);
   let selectedDay = null, selectedMonth = null, selectedYear = null;
 
+  // Проверяет, есть ли на конкретную дату темы —
+  // по той же логике, что и в updateTodayView()
+  function dayHasTopics(targetDate) {
+    const dayKey = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'][targetDate.getDay()];
+    const daySchedule = schedule[dayKey] || [];
+    if (!daySchedule.length) return false;
+
+    const lDate = new Date(targetDate);
+    lDate.setHours(0, 0, 0, 0);
+
+    for (const l of daySchedule) {
+      if (!subjects[l.subjectKey]) continue;
+      for (const t of subjects[l.subjectKey].topics) {
+        if (t.title === 'Раздел в разработке') continue;
+        const parts = t.date.split('-');
+        const tDate = new Date(
+          parseInt(parts[0], 10),
+          parseInt(parts[1], 10) - 1,
+          parseInt(parts[2], 10)
+        );
+        tDate.setHours(0, 0, 0, 0);
+        const next = findNextLessonDate(l.subjectKey, tDate);
+        if (next && next.getTime() === lDate.getTime()) return true;
+      }
+    }
+    return false;
+  }
+
   function renderCalendar() {
     if (!calendarEl) return;
     const year = calDate.getFullYear(), month = calDate.getMonth();
@@ -413,12 +482,15 @@ function renderProfile() {
       const isSelected = selectedDay === d && selectedMonth === month && selectedYear === year;
       const dateKey = toDateKey(date);
       const hasHw = homework.some(h => h.date === dateKey && !h.done);
+      const hasTopics = dayHasTopics(date);
+
       const cls = [
         'cal-day',
         isWeekend ? 'weekend' : '',
         isToday ? 'today' : '',
         isSelected ? 'selected' : '',
-        hasHw && !isWeekend ? 'has-hw' : ''
+        hasHw && !isWeekend ? 'has-hw' : '',
+        hasTopics && !isWeekend ? 'has-topics' : ''
       ].filter(Boolean).join(' ');
       const disabled = isWeekend ? 'disabled' : '';
       const dataAttr = isWeekend ? '' : `data-day="${d}"`;
@@ -601,7 +673,12 @@ function renderProfile() {
       if (subjects[l.subjectKey]) {
         subjects[l.subjectKey].topics.forEach(t => {
           if (t.title === 'Раздел в разработке') return;
-          const tDate = new Date(t.date);
+          const parts = t.date.split('-');
+          const tDate = new Date(
+            parseInt(parts[0], 10),
+            parseInt(parts[1], 10) - 1,
+            parseInt(parts[2], 10)
+          );
           tDate.setHours(0, 0, 0, 0);
           const lDate = new Date(targetDate);
           lDate.setHours(0, 0, 0, 0);
@@ -694,6 +771,19 @@ function renderProfile() {
 
     titleEl.textContent = subject.title;
     if (placeholder) placeholder.style.display = 'none';
+
+    // Прокидываем акцентный цвет раздела в панель
+    const panelEl = document.querySelector('.subject-view__panel');
+    const accentMap = {
+      biochem:   '#16a34a',
+      physio:    '#2563eb',
+      histology: '#9333ea',
+      microbio:  '#ea580c',
+      hygiene:   '#0891b2'
+    };
+    if (panelEl) {
+      panelEl.style.setProperty('--subject-accent', accentMap[key] || 'var(--accent)');
+    }
 
     function renderTopic(i) {
       const t = valid[i];
@@ -889,6 +979,54 @@ function renderProfile() {
       showView(a.dataset.view);
     });
   });
+
+  // ---------- БЛИЖАЙШАЯ ЛЕКЦИЯ В ПРОФИЛЕ ----------
+  const lectureToggle = document.getElementById('lectureToggle');
+  const lectureInfo = document.getElementById('lectureInfo');
+
+  function pluralDays(n, one, few, many) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+    return many;
+  }
+
+  function renderLectureInfo() {
+    if (!lectureInfo) return;
+
+    var next = getNextLecture();
+    if (!next) {
+      lectureInfo.innerHTML = '<div class="pop-lecture__empty">Все лекции этого семестра прошли</div>';
+      return;
+    }
+
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var diffDays = Math.round((next.date - today) / (1000 * 60 * 60 * 24));
+
+    var whenText;
+    if (diffDays === 0)      whenText = "сегодня";
+    else if (diffDays === 1) whenText = "завтра";
+    else if (diffDays === 2) whenText = "послезавтра";
+    else                     whenText = "через " + diffDays + " " + pluralDays(diffDays, "день", "дня", "дней");
+
+    var dayName = next.date.toLocaleDateString("ru-RU", { weekday: "long" });
+    dayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+    var dateFormatted = next.date.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+
+    lectureInfo.innerHTML =
+      '<div class="pop-lecture__subject">' + escapeHtml(next.subject) + '</div>' +
+      '<div class="pop-lecture__meta">' + dayName + ', ' + dateFormatted + ' · ' + LECTURE_TIME + '</div>' +
+      '<div class="pop-lecture__when">' + whenText + '</div>';
+  }
+
+  if (lectureToggle && lectureInfo) {
+    lectureToggle.addEventListener('click', () => {
+      const willOpen = !lectureInfo.classList.contains('is-open');
+      lectureInfo.classList.toggle('is-open', willOpen);
+      if (willOpen) renderLectureInfo();
+    });
+  }
 
   document.getElementById('brand-logo').addEventListener('click', (e) => {
     e.preventDefault();
