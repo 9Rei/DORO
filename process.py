@@ -40,46 +40,60 @@ for a in ATTACHMENTS:
 js_path = Path("script.js")
 js = js_path.read_text(encoding="utf-8")
 
-# Проверяем, нет ли уже такой темы ИМЕННО В ЭТОМ ПРЕДМЕТЕ
-# Ищем блок предмета
+# Находим начало нужного предмета
 start_marker = f"{SUBJECT}: {{"
 start_idx = js.find(start_marker)
 if start_idx == -1:
     print(f"Раздел {SUBJECT} не найден")
     exit(1)
 
-# Проверка на дубликат внутри блока (простая, по номеру темы)
-subject_block = js[start_idx:]
-if re.search(rf'num:\s*"{re.escape(NUM)}"', subject_block[:subject_block.find(']')]):
-    print(f"Тема {NUM} уже есть в предмете {SUBJECT}")
-    exit(0)
-
-# Формируем JS-код новой темы (в одну строчку, чтобы не ломать форматирование)
-steps_js = "[" + ", ".join(f'"{s}"' for s in STEPS) + "]"
-files_js = ", ".join(f'{{ name: "{e["name"]}", url: "{e["url"]}" }}' for e in entries)
-today = date.today().isoformat()
-
-new_topic = f'{{ num: "{NUM}", title: "{TITLE}", steps: {steps_js}, date: "{today}", files: [{files_js}] }}'
-
-# Ищем место, куда вставить новую тему
-# Нам нужно найти "topics: [" внутри блока предмета и добавить туда строку
-topics_idx = js.find("topics: [", start_idx)
-if topics_idx == -1:
+# Ищем начало массива topics внутри этого предмета
+topics_start = js.find("topics: [", start_idx)
+if topics_start == -1:
     print("Не найден массив topics")
     exit(1)
 
-# Находим закрывающую скобку массива topics
-bracket_idx = js.find("]", topics_idx)
-if bracket_idx == -1:
-    print("Не найдена закрывающая скобка массива topics")
+# Ищем, где заканчивается этот массив topics.
+# Мы идем от начала topics и считаем открывающие/закрывающие квадратные скобки,
+# чтобы найти именно ту, которая закрывает topics: [
+idx = topics_start + len("topics: [")
+balance = 1
+while idx < len(js) and balance > 0:
+    char = js[idx]
+    if char == '[':
+        balance += 1
+    elif char == ']':
+        balance -= 1
+    idx += 1
+
+if balance != 0:
+    print("Не удалось найти конец массива topics")
     exit(1)
 
-# Проверяем, пустой ли массив
-content_between = js[topics_idx + len("topics: ["):bracket_idx].strip()
-comma = "," if content_between else ""
+# idx теперь указывает на символ сразу после закрывающей скобки ]
+end_bracket_idx = idx - 1
 
-# Вставляем новую тему перед закрывающей скобкой
-js_new = js[:bracket_idx] + f"\n      {new_topic}{comma}\n    " + js[bracket_idx:]
+# Проверяем, нет ли уже такой темы в этом предмете
+subject_block = js[start_idx:end_bracket_idx]
+if re.search(rf'num:\s*"{re.escape(NUM)}"', subject_block):
+    print(f"Тема {NUM} уже есть в предмете {SUBJECT}")
+    exit(0)
+
+# Формируем новую тему
+steps_js = "[" + ", ".join(f'"{s}"' for s in STEPS) + "]"
+files_js = ", ".join(f'{{ name: "{e["name"]}", url: "{e["url"]}" }}' for e in entries)
+today = date.today().isoformat()
+new_topic = f'{{ num: "{NUM}", title: "{TITLE}", steps: {steps_js}, date: "{today}", files: [{files_js}] }}'
+
+# Проверяем, пустой ли массив (есть ли там уже темы)
+content_between = js[topics_start + len("topics: ["):end_bracket_idx].strip()
+
+if content_between:
+    # Если темы уже есть, ставим запятую после последней и добавляем новую
+    js_new = js[:end_bracket_idx] + f",\n      {new_topic}\n    " + js[end_bracket_idx:]
+else:
+    # Если массив пустой, просто вставляем новую
+    js_new = js[:end_bracket_idx] + f"\n      {new_topic}\n    " + js[end_bracket_idx:]
 
 js_path.write_text(js_new, encoding="utf-8")
 print("Успех!")
