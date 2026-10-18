@@ -1031,9 +1031,18 @@ function renderProfile() {
 
       const qrPayload = JSON.stringify({ t: 'doro-recv', bin: binId, sid: sessionId });
       qrCanvas.innerHTML = '';
-      QRCode.toCanvas(qrCanvas, qrPayload, { width: 320, margin: 2, errorCorrectionLevel: 'M' }, (err) => {
-        if (err) alert('Ошибка генерации QR: ' + err.message);
-      });
+      try {
+        new QRCode(qrCanvas, {
+          text: qrPayload,
+          width: 320,
+          height: 320,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch (err) {
+        alert('Ошибка генерации QR: ' + err.message);
+      }
 
       // Опрос с нарастающей задержкой и таймаутом 15 секунд
       pollBin(
