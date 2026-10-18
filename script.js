@@ -1004,6 +1004,16 @@ function renderProfile() {
   // ===== ПК: показать QR — принять данные =====
   if (qrShowBtn && qrShowModal && qrCanvas) {
     qrShowBtn.addEventListener('click', async () => {
+
+      // --- Проверка «раз в день» ---
+      const LAST_SYNC_KEY = 'doro.lastSync';
+      const today = new Date().toISOString().slice(0, 10);
+      if (localStorage.getItem(LAST_SYNC_KEY) === today) {
+        alert('Сегодня вы уже переносили задания. Следующий перенос — завтра.');
+        return;
+      }
+      // ------------------------------
+
       const sessionId = randomId();
       qrCanvas.innerHTML = '<div style="padding:30px;color:#5a6678;font-size:13px;">Создаю сессию…</div>';
       qrShowModal.classList.add('open');
@@ -1194,12 +1204,15 @@ function renderProfile() {
     });
   }
 
-  // ---- Принять данные и удалить ящик ----
   function applyIncoming(data) {
     if (currentBinId) {
       deleteBin(currentBinId);
       currentBinId = null;
     }
+
+    // --- Запоминаем дату переноса ---
+    localStorage.setItem('doro.lastSync', new Date().toISOString().slice(0, 10));
+    // --------------------------------
 
     const current = JSON.parse(localStorage.getItem('doro.homework') || '[]');
     const byId = new Map(current.map(h => [h.id, h]));
