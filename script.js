@@ -1714,14 +1714,15 @@ function openReaderSettings() {
   buildToc();
 }
 function closeReaderSettings() {
+  // Класс на body снимаем ВСЕГДА, даже если панели нет
+  document.body.classList.remove('reader-settings-open');
+
   if (!readerSettings) return;
   readerSettings.classList.remove('open');
-  document.body.classList.remove('reader-settings-open');
   readerSettings.setAttribute('aria-hidden', 'true');
   if (readerMenuBtn) readerMenuBtn.setAttribute('aria-expanded', 'false');
   if (readerSettingsBackdrop) readerSettingsBackdrop.classList.remove('is-visible');
 
-  // Сворачиваем содержание при закрытии
   if (tocWrap) tocWrap.classList.remove('is-open');
   if (tocToggle) tocToggle.setAttribute('aria-expanded', 'false');
 }

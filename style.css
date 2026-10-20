@@ -2227,7 +2227,10 @@ body.island-collapsed .island-wrap { top: 12px; }
 }
 body.reader-settings-open { overflow: hidden; }
 @media (max-width: 860px) {
-  body.reader-settings-open { overflow: hidden; touch-action: none; }
+  body.reader-settings-open {
+    overflow: hidden;
+    overscroll-behavior: contain; /* вместо touch-action: none */
+  }
 }
 
 /* ============================================================
