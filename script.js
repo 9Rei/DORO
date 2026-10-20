@@ -2212,26 +2212,28 @@ function openTocWrap() {
     }, 1400);
   }
 
-  function onScrollForIsland() {
-    if (!isReaderOpen()) {
-      setCollapsed(false);
-      lastScrollY = window.scrollY;
-      return;
-    }
-
-    const y = window.scrollY;
-    const diff = y - lastScrollY;
-
-    if (y < collapseThreshold) {
-      setCollapsed(false);
-    } else if (Math.abs(diff) > scrollDelta) {
-      if (diff > 0) setCollapsed(true);
-      else setCollapsed(false);
-    }
-
-    lastScrollY = y;
-    updateReadProgress();
+function onScrollForIsland() {
+  if (!isReaderOpen()) {
+    setCollapsed(false);
+    lastScrollY = window.scrollY;
+    return;
   }
+
+  const y = window.scrollY;
+
+  // Разворачиваем ТОЛЬКО у самого верха (не при любом движении вверх).
+  // Порог маленький, чтобы не дёргалось.
+  if (y < 60) {
+    setCollapsed(false);
+  } else if (y > collapseThreshold) {
+    // Как только ушли ниже порога — сворачиваем и держим свёрнутой.
+    // Направление скролла больше не влияет — проценты не скачут.
+    setCollapsed(true);
+  }
+
+  lastScrollY = y;
+  updateReadProgress();
+}
 
   // Пересчитываем при открытии темы
   window.addEventListener('scroll', onScrollForIsland, { passive: true });
