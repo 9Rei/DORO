@@ -617,13 +617,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // ---------- ОТКРЫТИЕ / ЗАКРЫТИЕ ПРОФИЛЯ ----------
+  const profileBackdrop = document.getElementById('profileBackdrop');
+  const profileCloseBtn = document.getElementById('profileCloseBtn');
+
+  function openProfile() {
+    if (!profilePop) return;
+    profilePop.classList.add('open');
+    profilePop.setAttribute('aria-hidden', 'false');
+    if (profileBackdrop) profileBackdrop.classList.add('is-visible');
+    document.body.style.overflow = 'hidden';
+    renderProfile();
+  }
+  function closeProfile() {
+    if (!profilePop) return;
+    profilePop.classList.remove('open');
+    profilePop.setAttribute('aria-hidden', 'true');
+    if (profileBackdrop) profileBackdrop.classList.remove('is-visible');
+    document.body.style.overflow = '';
+  }
+
   if (avatar && profilePop) {
     avatar.addEventListener('click', (e) => {
       e.stopPropagation();
-      profilePop.classList.toggle('open');
-      renderProfile();
+      if (profilePop.classList.contains('open')) closeProfile();
+      else openProfile();
     });
   }
+  if (profileCloseBtn) profileCloseBtn.addEventListener('click', closeProfile);
+  if (profileBackdrop) profileBackdrop.addEventListener('click', closeProfile);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && profilePop && profilePop.classList.contains('open')) {
+      closeProfile();
+    }
+  });
   if (editNameBtn) {
     editNameBtn.addEventListener('click', () => {
       profileNameRow.style.display = 'none';
@@ -725,65 +753,152 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (notifyToggle && notifyList && notifyBadge) {
-    const SEEN_KEY = 'doro.seenTopics';
-    const seen = new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]'));
-    const upcoming = collectAllTopics()
+  // ---------- УВЕДОМЛЕНИЯ (от разработчика + авто) ----------
+  // Разработчик пишет уведомления здесь. Появляются у всех пользователей.
+  // id должен быть уникальным и стабильным (не менять после публикации).
+  const DEV_NOTIFICATIONS = [
+    { id: 'n-2026-10-20-1', text: 'Поменялся формат файлов. Теперь они встроены в doro. Посмотри!' }
+  ];
+
+  const NOTIFY_SEEN_KEY = 'doro.seenTopics';
+  const NOTIFY_SEEN_DEV_KEY = 'doro.seenDevNotifications';
+
+  function getSeenTopics() {
+    try { return new Set(JSON.parse(localStorage.getItem(NOTIFY_SEEN_KEY) || '[]')); }
+    catch (e) { return new Set(); }
+  }
+  function saveSeenTopics(set) {
+    localStorage.setItem(NOTIFY_SEEN_KEY, JSON.stringify([...set]));
+  }
+
+  function getSeenDev() {
+    try { return new Set(JSON.parse(localStorage.getItem(NOTIFY_SEEN_DEV_KEY) || '[]')); }
+    catch (e) { return new Set(); }
+  }
+  function saveSeenDev(set) {
+    localStorage.setItem(NOTIFY_SEEN_DEV_KEY, JSON.stringify([...set]));
+  }
+
+  function getUpcomingTopics() {
+    return collectAllTopics()
       .filter(t => new Date(t.date).getTime() >= new Date().setHours(0, 0, 0, 0))
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .slice(0, 8);
-    const topicId = t => `${t.key}:${t.num || t.title}`;
+  }
 
-    function updateBadge() {
-      const unseen = upcoming.filter(t => !seen.has(topicId(t))).length;
-      if (unseen > 0) {
-        notifyBadge.textContent = unseen;
-        notifyBadge.style.display = 'grid';
-        if (avatarDot) avatarDot.hidden = false;
-      } else {
-        notifyBadge.style.display = 'none';
-        if (avatarDot) avatarDot.hidden = true;
-      }
+  function topicId(t) {
+    return `${t.key}:${t.num || t.title}`;
+  }
+
+  function updateNotifyBadge() {
+    if (!notifyBadge) return;
+    const seenTopics = getSeenTopics();
+    const seenDev = getSeenDev();
+    const upcoming = getUpcomingTopics();
+    const unseenAuto = upcoming.filter(t => !seenTopics.has(topicId(t))).length;
+    const unseenDev = DEV_NOTIFICATIONS.filter(n => !seenDev.has(n.id)).length;
+    const total = unseenAuto + unseenDev;
+
+    if (total > 0) {
+      notifyBadge.textContent = total;
+      notifyBadge.style.display = 'grid';
+      if (avatarDot) avatarDot.hidden = false;
+    } else {
+      notifyBadge.style.display = 'none';
+      if (avatarDot) avatarDot.hidden = true;
     }
-    updateBadge();
+  }
 
-    function renderNotifyList() {
-      notifyList.innerHTML = '';
-      if (!upcoming.length) {
-        notifyList.innerHTML = '<div class="notify-item--empty">Пока нет ближайших тем</div>';
-        return;
-      }
-      upcoming.forEach(t => {
-        const id = topicId(t);
-        const dateStr = new Date(t.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'notify-item' + (seen.has(id) ? ' notify-item--seen' : '');
-        btn.innerHTML = `
-          <span class="notify-item__dot"></span>
-          <span class="notify-item__body">
-            <span class="notify-item__title">${t.title}</span>
-            <span class="notify-item__meta">${subjects[t.key].title} · ${dateStr}</span>
-          </span>
-        `;
-        btn.addEventListener('click', () => {
-          seen.add(id);
-          localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
-          updateBadge();
-          profilePop.classList.remove('open');
-          showView('files');
-          setTimeout(() => openTopic(t.key, t.num), 50);
-        });
-        notifyList.appendChild(btn);
+  function renderDevNotifications() {
+    const listEl = document.getElementById('notifyDevList');
+    if (!listEl) return;
+    const seen = getSeenDev();
+    const items = DEV_NOTIFICATIONS
+      .slice()
+      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+    listEl.innerHTML = '';
+    if (!items.length) return;
+
+    items.forEach(n => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'notify-item notify-item--dev' + (seen.has(n.id) ? ' notify-item--seen' : '');
+      const dateStr = n.date
+        ? new Date(n.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+        : '';
+      btn.innerHTML = `
+        <span class="notify-item__dot"></span>
+        <span class="notify-item__body">
+          <span class="notify-item__title">${escapeHtml(n.text)}</span>
+          <span class="notify-item__meta">${dateStr ? 'обновление · ' + dateStr : 'обновление'}</span>
+        </span>
+      `;
+      btn.addEventListener('click', () => {
+        const s = getSeenDev();
+        s.add(n.id);
+        saveSeenDev(s);
+        updateNotifyBadge();
+        renderDevNotifications();
       });
+      listEl.appendChild(btn);
+    });
+  }
+
+  function renderAutoNotifications() {
+    const autoEl = document.getElementById('notifyAutoList');
+    if (!autoEl) return;
+    const seen = getSeenTopics();
+    const upcoming = getUpcomingTopics();
+
+    autoEl.innerHTML = '';
+    if (!upcoming.length) {
+      if (DEV_NOTIFICATIONS.length === 0) {
+        autoEl.innerHTML = '<div class="notify-item--empty">Пока нет ближайших тем</div>';
+      }
+      return;
     }
 
+    upcoming.forEach(t => {
+      const id = topicId(t);
+      const dateStr = new Date(t.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'notify-item' + (seen.has(id) ? ' notify-item--seen' : '');
+      btn.innerHTML = `
+        <span class="notify-item__dot"></span>
+        <span class="notify-item__body">
+          <span class="notify-item__title">${t.title}</span>
+          <span class="notify-item__meta">${subjects[t.key].title} · ${dateStr}</span>
+        </span>
+      `;
+      btn.addEventListener('click', () => {
+        const s = getSeenTopics();
+        s.add(id);
+        saveSeenTopics(s);
+        updateNotifyBadge();
+        profilePop.classList.remove('open');
+        showView('files');
+        setTimeout(() => openTopic(t.key, t.num), 50);
+      });
+      autoEl.appendChild(btn);
+    });
+  }
+
+  function renderNotifyList() {
+    renderDevNotifications();
+    renderAutoNotifications();
+  }
+
+  // Кнопка «Уведомления» — открыть/закрыть панель
+  if (notifyToggle && notifyList) {
     notifyToggle.addEventListener('click', () => {
       const willOpen = !notifyList.classList.contains('is-open');
       notifyList.classList.toggle('is-open', willOpen);
       if (willOpen) renderNotifyList();
     });
   }
+  updateNotifyBadge();
 
   // ---------- ДАТА ----------
   if (greetDate) {
@@ -883,12 +998,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     calendarEl.querySelectorAll('[data-day]').forEach(b => {
       b.addEventListener('click', () => {
-        selectedDay = Number(b.dataset.day);
-        selectedMonth = month;
-        selectedYear = year;
-        if (isSameMonth && today.getDate() === selectedDay) {
-          selectedDay = null; selectedMonth = null; selectedYear = null;
+        const day = Number(b.dataset.day);
+        const isTodayClick = isSameMonth && today.getDate() === day;
+
+        // Клик по реальному "сегодня" — всегда явный выбор сегодняшнего дня.
+        // Снятие выбора (возврат к авто) делаем только если сейчас НЕ после 15:00,
+        // потому что после 15:00 авто-режим = завтра, и пользователь хочет "сегодня".
+        if (isTodayClick) {
+          const now = new Date();
+          const afterSwitch = now.getHours() >= 15;
+          if (afterSwitch) {
+            selectedDay = day;
+            selectedMonth = month;
+            selectedYear = year;
+          } else {
+            selectedDay = null; selectedMonth = null; selectedYear = null;
+          }
+        } else {
+          selectedDay = day;
+          selectedMonth = month;
+          selectedYear = year;
         }
+
         renderCalendar();
         updateTodayView();
       });
@@ -959,17 +1090,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!selectedDay) {
       targetDate = new Date();
-      const dow = targetDate.getDay();
-      if (dow === 0 || dow === 6) {
-        targetDate.setDate(targetDate.getDate() + (dow === 6 ? 2 : 1));
+      // После 15:00 — сдвигаем на следующий день, как выходной на понедельник
+      if (targetDate.getHours() >= 15) {
+        targetDate.setDate(targetDate.getDate() + 1);
         selectedDay = targetDate.getDate();
         selectedMonth = targetDate.getMonth();
         selectedYear = targetDate.getFullYear();
         renderCalendar();
+        isToday = false;
       } else {
-        isToday = true;
+        const dow = targetDate.getDay();
+        if (dow === 0 || dow === 6) {
+          targetDate.setDate(targetDate.getDate() + (dow === 6 ? 2 : 1));
+          selectedDay = targetDate.getDate();
+          selectedMonth = targetDate.getMonth();
+          selectedYear = targetDate.getFullYear();
+          renderCalendar();
+          isToday = false;
+        } else {
+          isToday = true;
+        }
       }
     } else {
+      // Ручной выбор (или уже сдвинутый день) — никогда не "сегодня"
       targetDate = new Date(selectedYear, selectedMonth, selectedDay);
       const dow = targetDate.getDay();
       if (dow === 0 || dow === 6) {
@@ -981,6 +1124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedYear = targetDate.getFullYear();
         renderCalendar();
       }
+      isToday = false;
     }
 
     const daysOfWeekAcc = ['воскресенье','понедельник','вторник','среду','четверг','пятницу','субботу'];
@@ -1063,6 +1207,21 @@ document.addEventListener('DOMContentLoaded', () => {
       topicsList.appendChild(btn);
     });
   }
+    (function scheduleDaySwitch() {
+    const DAY_SWITCH_HOUR = 15;
+    function msUntilSwitch() {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(DAY_SWITCH_HOUR, 0, 0, 0);
+      if (next <= now) next.setDate(next.getDate() + 1);
+      return next - now;
+    }
+    function tick() {
+      if (selectedDay === null) updateTodayView();
+      setTimeout(tick, msUntilSwitch());
+    }
+    setTimeout(tick, msUntilSwitch());
+  })();
 
   // ---------- РАЗДЕЛЫ ----------
   function pluralTopics(n) {
@@ -1305,6 +1464,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     renderTopic(initialIndex);
+    // Запоминаем, что открыли эту тему
+    saveLastRead(key, valid[initialIndex].num);
   }
 
   if (readerBack) {
@@ -1581,7 +1742,7 @@ function closeReaderSettings() {
 
   // ---------- РАЗМЕР ШРИФТА (слайдер) ----------
   const FONT_KEY = 'doro.readerFontSize';
-  const FONT_SIZES = [11, 12, 13, 14, 15, 16, 17, 18, 20, 22];
+  const FONT_SIZES = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
   const fontRange = document.getElementById('fontRange');
 
   let fontIndex = FONT_SIZES.indexOf(parseInt(localStorage.getItem(FONT_KEY) || '16', 10));
@@ -1823,9 +1984,12 @@ function openTocWrap() {
   let pollTimeoutHandle = null;
   let pollActive = false;
 
-  const isPhone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.innerWidth < 860;
-  if (isPhone) { if (qrShowBtn) qrShowBtn.style.display = 'none'; }
-  else { if (qrScanBtn) qrScanBtn.style.display = 'none'; }
+const isPhone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+if (isPhone) {
+  if (qrShowBtn) qrShowBtn.style.display = 'none';
+} else {
+  if (qrScanBtn) qrScanBtn.style.display = 'none';
+}
 
   function stopPolling() {
     pollActive = false;
@@ -2267,12 +2431,16 @@ function onScrollForIsland() {
       window.open(files[idx - 1], '_blank', 'noopener');
     }
   }
-  // ============================================================
+// ============================================================
 //  ЗАЩИТА ОТ КОПИРОВАНИЯ — максимум 5 строк
 // ============================================================
 const MAX_LINES = 5;
 let copyToastTimer = null;
-let selectionGuardLock = false; // защита от рекурсии
+let selectionGuardLock = false;
+
+function isMobileReader() {
+  return window.innerWidth <= 860;
+}
 
 function showCopyToast(msg) {
   let toast = document.getElementById('copyToast');
@@ -2294,14 +2462,12 @@ function isInsideReader(el) {
   return !!(node && node.closest && node.closest('.reader__content'));
 }
 
-// Считаем «строки» выделения: группируем прямоугольники по top
 function countSelectionLines(sel) {
   if (!sel || !sel.rangeCount) return 0;
   const range = sel.getRangeAt(0);
   const rects = range.getClientRects();
   if (!rects.length) return 0;
 
-  // Собираем уникальные top (с округлением до 2px, чтобы склеить строки)
   const tops = [];
   for (let i = 0; i < rects.length; i++) {
     const r = rects[i];
@@ -2313,14 +2479,11 @@ function countSelectionLines(sel) {
   return tops.length;
 }
 
-// Обрезаем выделение до последних MAX_LINES строк
 function trimSelectionToMaxLines(sel) {
   if (!sel || !sel.rangeCount) return;
 
   const range = sel.getRangeAt(0);
-
-  // Собираем все текстовые узлы внутри диапазона с их «линиями»
-  const lines = []; // { top, nodes: [{node, start, end}] }
+  const lines = [];
   const walker = document.createTreeWalker(
     range.commonAncestorContainer.nodeType === 3
       ? range.commonAncestorContainer.parentNode
@@ -2334,7 +2497,6 @@ function trimSelectionToMaxLines(sel) {
     if (!range.intersectsNode(node)) continue;
     if (!isInsideReader(node)) continue;
 
-    // Разбиваем текстовый узел по строкам через Range.getClientRects
     const textLen = node.nodeValue.length;
     for (let i = 0; i < textLen; i++) {
       const r = document.createRange();
@@ -2358,8 +2520,6 @@ function trimSelectionToMaxLines(sel) {
   if (lines.length <= MAX_LINES) return;
 
   lines.sort((a, b) => a.top - b.top);
-
-  // Оставляем последние MAX_LINES строк
   const keep = lines.slice(-MAX_LINES);
   const first = keep[0];
   const last = keep[keep.length - 1];
@@ -2373,16 +2533,16 @@ function trimSelectionToMaxLines(sel) {
     sel.addRange(newRange);
     showCopyToast('Максимум ' + MAX_LINES + ' строк');
   } catch (e) {
-    // если не получилось — просто сбрасываем
     sel.removeAllRanges();
     showCopyToast('Максимум ' + MAX_LINES + ' строк');
   }
   selectionGuardLock = false;
 }
 
-// 1. Следим за выделением: если > 5 строк — обрезаем
+// 1. selectionchange — обрезаем ТОЛЬКО на ПК
 document.addEventListener('selectionchange', () => {
   if (selectionGuardLock) return;
+  if (isMobileReader()) return;
   const sel = window.getSelection();
   if (!sel || !sel.rangeCount || sel.isCollapsed) return;
   if (!isInsideReader(sel.anchorNode) && !isInsideReader(sel.focusNode)) return;
@@ -2393,7 +2553,7 @@ document.addEventListener('selectionchange', () => {
   }
 });
 
-// 2. Копирование: страховка
+// 2. copy — проверяем 5 строк ВЕЗДЕ (ПК + мобилка)
 document.addEventListener('copy', (e) => {
   const sel = window.getSelection();
   if (!sel || !sel.rangeCount) return;
@@ -2409,8 +2569,9 @@ document.addEventListener('copy', (e) => {
   }
 });
 
-// 3. beforecopy (мобилки)
+// 3. beforecopy — ТОЛЬКО ПК (на мобиле хватит copy, иначе двойной тост)
 document.addEventListener('beforecopy', (e) => {
+  if (isMobileReader()) return;
   const sel = window.getSelection();
   if (!sel) return;
   if (isInsideReader(sel.anchorNode) || isInsideReader(sel.focusNode)) {
@@ -2421,7 +2582,7 @@ document.addEventListener('beforecopy', (e) => {
   }
 });
 
-// 4. Вырезание
+// 4. cut — режем всегда
 document.addEventListener('cut', (e) => {
   if (isInsideReader(e.target)) {
     e.preventDefault();
@@ -2429,8 +2590,9 @@ document.addEventListener('cut', (e) => {
   }
 });
 
-// 5. Контекстное меню (десктоп)
+// 5. contextmenu — только ПК, на мобиле нативное меню
 document.addEventListener('contextmenu', (e) => {
+  if (isMobileReader()) return;
   if (isInsideReader(e.target)) {
     e.preventDefault();
     showCopyToast('Правая кнопка отключена. Выделяйте до ' + MAX_LINES + ' строк.');
@@ -2438,13 +2600,204 @@ document.addEventListener('contextmenu', (e) => {
   }
 });
 
-// 6. Ctrl+A — блок
+// 6. Ctrl+A — только ПК
 document.addEventListener('keydown', (e) => {
+  if (isMobileReader()) return;
   const isSelectAll = (e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A');
   if (isSelectAll && isInsideReader(document.activeElement)) {
     e.preventDefault();
     showCopyToast('Выделить всё в теме нельзя. Максимум ' + MAX_LINES + ' строк.');
   }
 });
+  // ---------- «ПРОДОЛЖИТЬ ЧТЕНИЕ» ----------
+  const LAST_READ_KEY = 'doro.lastRead';
+
+  function saveLastRead(subjectKey, topicNum) {
+    try {
+      const prev = JSON.parse(localStorage.getItem(LAST_READ_KEY) || 'null');
+      const same = prev &&
+                   prev.subjectKey === subjectKey &&
+                   prev.topicNum === topicNum;
+      localStorage.setItem(LAST_READ_KEY, JSON.stringify({
+        subjectKey,
+        topicNum,
+        scrollY: same ? (prev.scrollY || 0) : 0,
+        percent: same ? (prev.percent || 0) : 0,
+        updatedAt: Date.now()
+      }));
+      updateContinueTile();
+    } catch (e) { /* ignore */ }
+  }
+
+  // Обновляем scrollY и percent по мере чтения
+  let lastReadSaveTimer = null;
+  function scheduleLastReadUpdate() {
+    if (!isReaderOpen()) return;
+    if (!currentSubjectKey || !currentTopicMeta) return;
+    clearTimeout(lastReadSaveTimer);
+    lastReadSaveTimer = setTimeout(() => {
+      try {
+        const prev = JSON.parse(localStorage.getItem(LAST_READ_KEY) || 'null');
+        if (!prev) return;
+        if (prev.subjectKey !== currentSubjectKey) return;
+        if (prev.topicNum !== currentTopicMeta.num) return;
+        prev.scrollY = window.scrollY;
+        prev.percent = lastPercent;
+        prev.updatedAt = Date.now();
+        localStorage.setItem(LAST_READ_KEY, JSON.stringify(prev));
+        updateContinueTile();
+      } catch (e) { /* ignore */ }
+    }, 400);
+  }
+  window.addEventListener('scroll', scheduleLastReadUpdate, { passive: true });
+
+  function getLastRead() {
+    try {
+      const r = JSON.parse(localStorage.getItem(LAST_READ_KEY) || 'null');
+      if (!r || !r.subjectKey || !r.topicNum) return null;
+      if (!subjects[r.subjectKey]) return null;
+      const topic = subjects[r.subjectKey].topics.find(t => t.num === r.topicNum);
+      if (!topic || topic.title === 'Раздел в разработке') return null;
+      return r;
+    } catch (e) { return null; }
+  }
+
+  const continueBtn = document.getElementById('continueBtn');
+  const continueLabel = document.getElementById('continueLabel');
+
+  function updateContinueTile() {
+    if (!continueBtn) return;
+    const last = getLastRead();
+    if (!last) {
+      continueBtn.classList.add('is-hidden');
+      continueBtn.setAttribute('aria-hidden', 'true');
+      continueBtn.setAttribute('tabindex', '-1');
+      return;
+    }
+    const subjTitle = subjects[last.subjectKey]?.title || '';
+    const pct = last.percent || 0;
+    const label = pct > 0 ? `${subjTitle} · ${pct}%` : subjTitle;
+    if (continueLabel) continueLabel.textContent = label;
+    continueBtn.classList.remove('is-hidden');
+    continueBtn.setAttribute('aria-hidden', 'false');
+    continueBtn.removeAttribute('tabindex');
+  }
+
+  if (continueBtn) {
+    continueBtn.addEventListener('click', () => {
+      const last = getLastRead();
+      if (!last) return;
+      closeProfile();
+      showView('files');
+      setTimeout(async () => {
+        await openTopic(last.subjectKey, last.topicNum);
+        // Ждём отрисовки контента и скроллим
+        setTimeout(() => {
+          if (last.scrollY > 0) {
+            window.scrollTo({ top: last.scrollY, behavior: 'smooth' });
+          }
+        }, 250);
+      }, 50);
+    });
+  }
+
+  updateContinueTile();
+    // ---------- СЕРИЯ (как в Duolingo) ----------
+  const STREAK_KEY = 'doro.streak';
+  // { lastDate: 'YYYY-MM-DD', count: N }
+
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function yesterdayKey() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function getStreak() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(STREAK_KEY) || 'null');
+      if (!raw || typeof raw.count !== 'number' || typeof raw.lastDate !== 'string') {
+        return { count: 0, lastDate: null };
+      }
+      return raw;
+    } catch (e) {
+      return { count: 0, lastDate: null };
+    }
+  }
+
+  // Обновляем серию при каждом заходе
+  function updateStreakOnVisit() {
+    const today = todayKey();
+    const yest = yesterdayKey();
+    const s = getStreak();
+
+    // Уже заходил сегодня — ничего не меняем
+    if (s.lastDate === today) return s;
+
+    let newCount;
+    if (s.lastDate === yest) {
+      // Вчера заходил → серия продолжается
+      newCount = s.count + 1;
+    } else {
+      // Пропустил день (или первый раз) → серия = 1
+      newCount = 1;
+    }
+
+    const next = { lastDate: today, count: newCount };
+    localStorage.setItem(STREAK_KEY, JSON.stringify(next));
+    return next;
+  }
+
+  function renderStreakTile() {
+    const tile = document.getElementById('streakTile');
+    const label = document.getElementById('streakLabel');
+    if (!tile || !label) return;
+
+    const s = getStreak();
+    const count = s.count || 0;
+
+    if (count <= 0) {
+      label.textContent = 'Серия';
+      tile.classList.remove('is-hot');
+      return;
+    }
+
+    // Склонение: 1 день, 2 дня, 5 дней
+    const pluralDays = (n) => {
+      const m10 = n % 10, m100 = n % 100;
+      if (m10 === 1 && m100 !== 11) return 'день';
+      if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'дня';
+      return 'дней';
+    };
+    label.textContent = `${count} ${pluralDays(count)}`;
+
+    // Огонёк «горит», если серия ≥ 3
+    tile.classList.toggle('is-hot', count >= 3);
+  }
+
+  // Инициализация при загрузке
+  updateStreakOnVisit();
+  renderStreakTile();
+
+  // При клике — короткая подсказка (можно убрать)
+  const streakTile = document.getElementById('streakTile');
+  if (streakTile) {
+    streakTile.addEventListener('click', () => {
+      const s = getStreak();
+      if (s.count <= 0) {
+        showCopyToast('Заходи сегодня и завтра — начнётся серия');
+        return;
+      }
+      const isToday = s.lastDate === todayKey();
+      if (isToday) {
+        showCopyToast(`Серия: ${s.count}. Заходи завтра, чтобы не прервать!`);
+      } else {
+        showCopyToast('Серия прервана. Заходи сегодня — начнём заново!');
+      }
+    });
+  }
   showView('home');
 });
