@@ -93,31 +93,26 @@
 
       <!-- Экран 2: читалка -->
       <div class="reader-screen" id="reader-screen" style="display:none;">
-        <button type="button" class="reader-back" id="readerBack">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-          <span>Все разделы</span>
-        </button>
-
         <div class="reader" id="reader">
           <div class="reader__panel">
             <div class="reader__top">
+              <button type="button" class="reader-back" id="readerBack" aria-label="Все разделы" title="Все разделы">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="19" y1="12" x2="5" y2="12"></line>
+                  <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+              </button>
               <div class="reader__subject" id="reader-subject-title"></div>
-              <div class="reader__dots" id="reader-dots"></div>
 
               <button type="button" class="reader-menu-btn" id="readerMenuBtn" aria-label="Настройки чтения" aria-expanded="false">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="4" y1="6" x2="20" y2="6"></line>
-                  <line x1="4" y1="12" x2="20" y2="12"></line>
-                  <line x1="4" y1="18" x2="20" y2="18"></line>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
               </button>
             </div>
 
-            <article class="reader__article" id="reader-article"></article>
-          </div>
+<article class="reader__article" id="reader-article"></article>
         </div>
       </div>
     </section>
@@ -360,14 +355,26 @@
     </div>
   </div>
 
-  <!-- ================= НАСТРОЙКИ ЧТЕНИЯ ================= -->
-  <aside class="reader-settings" id="readerSettings" aria-hidden="true">
+  <div class="reader-pop" id="readerPop">
+    <!-- ================= ВСЕ ТЕМЫ (открывается вместе с настройками) ================= -->
+    <aside class="reader-topics" id="readerTopics" aria-hidden="true">
+      <div class="reader-topics__head">
+        <span class="reader-topics__title">Все темы</span>
+      </div>
+      <div class="reader-topics__body">
+        <div class="reader-topics__list" id="readerTopicsList"></div>
+      </div>
+    </aside>
+
+    <!-- ================= НАСТРОЙКИ ЧТЕНИЯ ================= -->
+    <aside class="reader-settings" id="readerSettings" aria-hidden="true">
     <div class="reader-settings__head">
       <span class="reader-settings__title">Настройки чтения</span>
       <button type="button" class="reader-settings__close" id="readerSettingsClose" aria-label="Закрыть">×</button>
     </div>
 
     <div class="reader-settings__body">
+
       <!-- Размер шрифта -->
       <div class="rs-section">
         <div class="rs-section__label">
@@ -420,21 +427,11 @@
         </div>
       </div>
 
-      <!-- Содержание -->
-      <div class="rs-section rs-section--collapsible">
-        <button type="button" class="rs-collapse-btn" id="tocToggle" aria-expanded="false" aria-controls="tocWrap">
-          <span>Содержание</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-        <div class="rs-toc-wrap" id="tocWrap">
-          <div class="rs-toc" id="tocList"></div>
-        </div>
-      </div>
     </div>
-  </aside>
+    </aside>
+  </div>
 
+  <!-- Бэкдроп настроек (нужен скрипту) -->
   <div class="reader-settings-backdrop" id="readerSettingsBackdrop"></div>
 
   <!-- ================= СКРИПТЫ ================= -->

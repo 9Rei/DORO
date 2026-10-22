@@ -54,6 +54,7 @@ function pickDarkGreeting(name) {
 const subjects = {
   biochem: {
     num: "01", title: "Биохимия",
+    author: "Кайгородов Антон",
     topics: [
       {
         num: "2.3",
@@ -73,6 +74,7 @@ const subjects = {
   },
   physio: {
     num: "02", title: "Физиология",
+    author: "Кайгородов Антон",
     topics: [
       {
         num: "1.5",
@@ -99,6 +101,7 @@ const subjects = {
   },
   histology: {
     num: "03", title: "Гистология",
+    author: "Мария Прокопьева",
     topics: [
        {
         num: "25",
@@ -119,6 +122,7 @@ const subjects = {
   },
   microbio: {
     num: "04", title: "Микробиология",
+    author: "Иванов Иван",
     topics: [
       {
         num: "06",
@@ -131,6 +135,7 @@ const subjects = {
   },
   hygiene: {
     num: "05", title: "Гигиена",
+    author: "Иванов Иван",
     topics: [
       {
         title: "Раздел в разработке",
@@ -254,29 +259,32 @@ function toDateKey(d) {
 // ============================================================
 //  MARKDOWN-РЕНДЕР ДЛЯ ТЕМ
 // ============================================================
+// ============================================================
+//  MARKDOWN-РЕНДЕР ДЛЯ ТЕМ (расширенный, без библиотек)
+// ============================================================
 function renderTopicContent(raw) {
   if (!raw) return '<p class="reader__empty">Файл темы пуст.</p>';
 
-  const looksLikeHtml = /<\w+[\s>]/.test(raw);
+  // Если файл — уже готовый HTML (легаси), отдаём как есть
+  const looksLikeHtml = /<\w+[\s>]/.test(raw) && !/^#{1,6}\s/m.test(raw) && !/^\s*[-*+]\s/m.test(raw);
   if (looksLikeHtml) return raw;
 
-  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  const lines = raw.replace(/\r\n?/g, '\n').split('\n');
   const out = [];
-  let inList = null;
+
+  // ---------- состояние парсера ----------
   let inCode = false;
   let codeBuf = [];
+  let codeLang = '';
+  let inList = null;            // 'ul' | 'ol' | null
+  let listStack = [];           // [{type, indent}]
   let para = [];
+  let blockquoteBuf = [];
+  let inBlockquote = false;
+  let refDefs = {};             // сноски: { '1': 'текст' }
+  let footnotesOrder = [];
 
-  function inlineMd(s) {
-    return s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, '<code>$1</code>')
-      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  }
+  // ---------- вспомогательные ----------
   const flushPara = () => {
     if (para.length) {
       out.push('<p>' + inlineMd(para.join(' ')) + '</p>');
@@ -284,42 +292,192 @@ function renderTopicContent(raw) {
     }
   };
   const flushList = () => {
-    if (inList) { out.push(`</${inList}>`); inList = null; }
+    while (listStack.length) out.push(`</${listStack.pop().type}>`);
+    inList = null;
   };
+  const flushBlockquote = () => {
+    if (!inBlockquote) return;
+    const text = blockquoteBuf.join('\n').trim();
+    if (text) {
+      // Внутри цитаты — рекурсивно рендерим как обычный markdown, но без <blockquote>
+      const inner = renderTopicContentInline(text);
+      out.push('<blockquote>' + inner + '</blockquote>');
+    }
+    blockquoteBuf = [];
+    inBlockquote = false;
+  };
+  const flushAll = () => { flushPara(); flushList(); flushBlockquote(); };
 
+  // ---------- inline-разметка ----------
+  function inlineMd(s) {
+    if (s == null) return '';
+
+    // 1. Прячем разрешённые HTML-теги в плейсхолдеры
+    const PH = {
+      BR:    '\u0000BR\u0000',
+      NBSP:  '\u0000NBSP\u0000',
+      SUB_O: '\u0000SUBO\u0000', SUB_C: '\u0000SUBC\u0000',
+      SUP_O: '\u0000SUPO\u0000', SUP_C: '\u0000SUPC\u0000',
+      MARK_O:'\u0000MARKO\u0000', MARK_C:'\u0000MARKC\u0000',
+      U_O:   '\u0000UO\u0000',   U_C:   '\u0000UC\u0000',
+      DEL_O: '\u0000DELO\u0000', DEL_C: '\u0000DELC\u0000',
+      KBD_O: '\u0000KBDO\u0000', KBD_C: '\u0000KBDC\u0000',
+      ABBR_O:'\u0000ABBRO\u0000', ABBR_C:'\u0000ABBRC\u0000',
+      ABBR_T:'\u0000ABBRT\u0000',
+      HR:    '\u0000HR\u0000'
+    };
+
+    s = s
+      .replace(/<br\s*\/?>/gi, PH.BR)
+      .replace(/&nbsp;/gi, PH.NBSP)
+      .replace(/<hr\s*\/?>/gi, PH.HR)
+      .replace(/<sub>/gi, PH.SUB_O).replace(/<\/sub>/gi, PH.SUB_C)
+      .replace(/<sup>/gi, PH.SUP_O).replace(/<\/sup>/gi, PH.SUP_C)
+      .replace(/<mark>/gi, PH.MARK_O).replace(/<\/mark>/gi, PH.MARK_C)
+      .replace(/<u>/gi, PH.U_O).replace(/<\/u>/gi, PH.U_C)
+      .replace(/<del>/gi, PH.DEL_O).replace(/<\/del>/gi, PH.DEL_C)
+      .replace(/<kbd>/gi, PH.KBD_O).replace(/<\/kbd>/gi, PH.KBD_C)
+      .replace(/<abbr\s+title="([^"]*)">/gi, (_, t) => PH.ABBR_T + t + '\u0000')
+      .replace(/<abbr>/gi, PH.ABBR_O + '\u0000' + PH.ABBR_C) // без title
+      .replace(/<\/abbr>/gi, PH.ABBR_C);
+
+    // 2. Экранируем всё остальное (XSS-защита)
+    s = s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // 3. Инлайн-код `...` — прячем, чтобы внутри не срабатывал markdown
+    const codeSpans = [];
+    s = s.replace(/`([^`]+)`/g, (_, code) => {
+      const idx = codeSpans.length;
+      codeSpans.push(code);
+      return `\u0000CODE${idx}\u0000`;
+    });
+
+    // 4. Markdown-разметка
+    s = s
+      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
+      .replace(/~~(.+?)~~/g, '<del>$1</del>')
+      .replace(/==(.+?)==/g, '<mark>$1</mark>');
+
+    // 5. Картинки → ссылки (картинки могут быть опасны; оставляем как ссылки)
+    s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">🖼 $1</a>');
+    // Обычные ссылки
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+    // 6. Сноски [^1]
+    s = s.replace(/\[\^([^\]]+)\]/g, (_, id) => {
+      if (!footnotesOrder.includes(id)) footnotesOrder.push(id);
+      const idx = footnotesOrder.indexOf(id) + 1;
+      return `<sup class="reader__footnote-ref" data-fn="${id}">[${idx}]</sup>`;
+    });
+
+    // 7. Возвращаем инлайн-код
+    s = s.replace(/\u0000CODE(\d+)\u0000/g, (_, i) => '<code>' + codeSpans[+i] + '</code>');
+
+    // 8. Возвращаем разрешённые теги
+    s = s
+      .replace(new RegExp(PH.BR, 'g'), '<br>')
+      .replace(new RegExp(PH.NBSP, 'g'), '&nbsp;')
+      .replace(new RegExp(PH.HR, 'g'), '<hr>')
+      .replace(new RegExp(PH.SUB_O, 'g'), '<sub>').replace(new RegExp(PH.SUB_C, 'g'), '</sub>')
+      .replace(new RegExp(PH.SUP_O, 'g'), '<sup>').replace(new RegExp(PH.SUP_C, 'g'), '</sup>')
+      .replace(new RegExp(PH.MARK_O, 'g'), '<mark>').replace(new RegExp(PH.MARK_C, 'g'), '</mark>')
+      .replace(new RegExp(PH.U_O, 'g'), '<u>').replace(new RegExp(PH.U_C, 'g'), '</u>')
+      .replace(new RegExp(PH.DEL_O, 'g'), '<del>').replace(new RegExp(PH.DEL_C, 'g'), '</del>')
+      .replace(new RegExp(PH.KBD_O, 'g'), '<kbd>').replace(new RegExp(PH.KBD_C, 'g'), '</kbd>');
+
+    // abbr с title — отдельно, т.к. формат сложнее
+    s = s.replace(/\u0000ABBRO\u0000\u0000ABBRT\u0000([^\u0000]*)\u0000/g,
+                  '<abbr title="$1">');
+    s = s.replace(new RegExp(PH.ABBR_O, 'g'), '<abbr>');
+    s = s.replace(new RegExp(PH.ABBR_C, 'g'), '</abbr>');
+
+    return s;
+  }
+
+  // Упрощённый inline-рендер для вложенных блоков (цитат)
+  function renderTopicContentInline(text) {
+    const subLines = text.split('\n');
+    const subOut = [];
+    for (let i = 0; i < subLines.length; i++) {
+      const l = subLines[i];
+      if (!l.trim()) continue;
+      let m = l.match(/^(#{1,4})\s+(.*)$/);
+      if (m) { subOut.push(`<h${m[1].length}>${inlineMd(m[2].trim())}</h${m[1].length}>`); continue; }
+      m = l.match(/^\s*[-*+]\s+(.*)$/);
+      if (m) { subOut.push('<ul><li>' + inlineMd(m[1]) + '</li></ul>'); continue; }
+      m = l.match(/^\s*\d+\.\s+(.*)$/);
+      if (m) { subOut.push('<ol><li>' + inlineMd(m[1]) + '</li></ol>'); continue; }
+      subOut.push('<p>' + inlineMd(l.trim()) + '</p>');
+    }
+    return subOut.join('\n');
+  }
+
+  // ============================================================
+  //  ГЛАВНЫЙ ЦИКЛ
+  // ============================================================
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
 
-    // Код-блок ```
-    if (/^```/.test(line)) {
+    // ---------- Код-блок ``` ----------
+    if (/^\s*```(\w*)\s*$/.test(line)) {
       if (inCode) {
-        out.push('<pre><code>' + codeBuf.join('\n') + '</code></pre>');
-        codeBuf = [];
-        inCode = false;
+        const cls = codeLang ? ` class="language-${codeLang}"` : '';
+        out.push('<pre><code' + cls + '>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>');
+        codeBuf = []; codeLang = ''; inCode = false;
       } else {
-        flushPara(); flushList();
+        flushAll();
         inCode = true;
+        codeLang = line.match(/^\s*```(\w*)/)[1] || '';
       }
       continue;
     }
     if (inCode) { codeBuf.push(line); continue; }
 
-    // Пустая строка
-    if (!line.trim()) {
-      flushPara(); flushList();
+    // ---------- Определения сносок: [^1]: текст ----------
+    let fnDef = line.match(/^\[\^([^\]]+)\]:\s*(.*)$/);
+    if (fnDef) {
+      flushAll();
+      refDefs[fnDef[1]] = fnDef[2];
       continue;
     }
 
-    // Горизонтальная линия --- → отступ
-    if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) {
+    // ---------- Пустая строка ----------
+    if (!line.trim()) {
+      flushAll();
+      continue;
+    }
+
+    // ---------- Цитата (многострочная) ----------
+    if (/^>\s?/.test(line)) {
       flushPara(); flushList();
+      if (!inBlockquote) { inBlockquote = true; blockquoteBuf = []; }
+      blockquoteBuf.push(line.replace(/^>\s?/, ''));
+      // Если следующая строка не цитата — закрываем блок
+      if (i + 1 >= lines.length || !/^>\s?/.test(lines[i + 1])) {
+        flushBlockquote();
+      }
+      continue;
+    } else if (inBlockquote) {
+      flushBlockquote();
+    }
+
+    // ---------- Горизонтальная линия ----------
+    if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) {
+      flushAll();
       out.push('<div class="reader__gap"></div>');
       continue;
     }
 
-    // Таблица Markdown
-    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1])) {
-      flushPara(); flushList();
+    // ---------- Таблица ----------
+    if (/^\s*\|.*\|\s*$/.test(line) &&
+        i + 1 < lines.length &&
+        /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1])) {
+      flushAll();
 
       const headerCells = line.trim().replace(/^\||\|$/g, '').split('|').map(s => s.trim());
       i += 2;
@@ -344,45 +502,87 @@ function renderTopicContent(raw) {
       continue;
     }
 
-    // Заголовки
-    let m = line.match(/^(#{1,4})\s+(.*)$/);
+    // ---------- Заголовки ----------
+    let m = line.match(/^(#{1,6})\s+(.*)$/);
     if (m) {
-      flushPara(); flushList();
+      flushAll();
       const lvl = m[1].length;
       out.push(`<h${lvl}>${inlineMd(m[2].trim())}</h${lvl}>`);
       continue;
     }
 
-    // Цитата
-    if (/^>\s?/.test(line)) {
-      flushPara(); flushList();
-      out.push('<blockquote>' + inlineMd(line.replace(/^>\s?/, '')) + '</blockquote>');
+    // ---------- Чек-бокс: - [ ] / - [x] ----------
+    m = line.match(/^(\s*)[-*+]\s+\[([ xX])\]\s+(.*)$/);
+    if (m) {
+      flushPara();
+      const indent = m[1].length;
+      const checked = m[2].toLowerCase() === 'x';
+      const text = m[3];
+      // Открываем ul, если нужно
+      if (listStack.length === 0) {
+        out.push('<ul class="reader__checklist">');
+        listStack.push({ type: 'ul', indent });
+      }
+      out.push(
+        `<li class="reader__checklist-item">` +
+        `<input type="checkbox" disabled ${checked ? 'checked' : ''}> ` +
+        inlineMd(text) +
+        `</li>`
+      );
       continue;
     }
 
-    // Списки
-    m = line.match(/^\s*[-*+]\s+(.*)$/);
+    // ---------- Списки (с вложенностью) ----------
+    m = line.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/);
     if (m) {
-      flushPara();
-      if (inList !== 'ul') { flushList(); out.push('<ul>'); inList = 'ul'; }
-      out.push('<li>' + inlineMd(m[1]) + '</li>');
-      continue;
-    }
-    m = line.match(/^\s*\d+\.\s+(.*)$/);
-    if (m) {
-      flushPara();
-      if (inList !== 'ol') { flushList(); out.push('<ol>'); inList = 'ol'; }
-      out.push('<li>' + inlineMd(m[1]) + '</li>');
-      continue;
-    }
+      flushPara(); flushBlockquote();
+      const indent = m[1].length;
+      const isOrdered = /^\d/.test(m[2]);
+      const type = isOrdered ? 'ol' : 'ul';
 
-    flushList();
+      // Закрываем списки, которые глубже текущего уровня
+      while (listStack.length && listStack[listStack.length - 1].indent > indent) {
+        out.push(`</${listStack.pop().type}>`);
+      }
+      // Если такого же типа/уровня ещё нет — открываем новый
+      const last = listStack[listStack.length - 1];
+      if (!last || last.indent < indent) {
+        // новый вложенный уровень
+        out.push(`<${type}>`);
+        listStack.push({ type, indent });
+      } else if (last.type !== type) {
+        // сменили тип на том же уровне
+        out.push(`</${listStack.pop().type}>`);
+        out.push(`<${type}>`);
+        listStack.push({ type, indent });
+      }
+
+      out.push('<li>' + inlineMd(m[3]) + '</li>');
+      continue;
+    }
+    // Строка не список — закрываем списки
+    if (listStack.length) flushList();
+
+    // ---------- Обычный параграф ----------
     para.push(line.trim());
   }
 
-  flushPara(); flushList();
+  // ---------- Финализация ----------
+  flushAll();
   if (inCode && codeBuf.length) {
-    out.push('<pre><code>' + codeBuf.join('\n') + '</code></pre>');
+    const cls = codeLang ? ` class="language-${codeLang}"` : '';
+    out.push('<pre><code' + cls + '>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>');
+  }
+
+  // ---------- Сноски внизу ----------
+  if (footnotesOrder.length) {
+    let fnHtml = '<div class="reader__footnotes"><hr><ol>';
+    footnotesOrder.forEach(id => {
+      const text = refDefs[id] || '—';
+      fnHtml += `<li id="fn-${id}">${inlineMd(text)}</li>`;
+    });
+    fnHtml += '</ol></div>';
+    out.push(fnHtml);
   }
 
   return out.join('\n') || '<p class="reader__empty">Файл темы пуст.</p>';
@@ -436,14 +636,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const readerPanel = document.querySelector('#reader .reader__panel');
   const readerArticle = document.getElementById('reader-article');
   const readerSubjectTitle = document.getElementById('reader-subject-title');
-  const readerDots = document.getElementById('reader-dots');
+  let readerTabs = document.getElementById('readerTabs');
 
   // Панель «Настройки чтения»
   const readerMenuBtn = document.getElementById('readerMenuBtn');
   const readerSettings = document.getElementById('readerSettings');
   const readerSettingsClose = document.getElementById('readerSettingsClose');
   const readerSettingsBackdrop = document.getElementById('readerSettingsBackdrop');
-  const tocList = document.getElementById('tocList');
   const fontMinus = document.getElementById('fontMinus');
   const fontPlus = document.getElementById('fontPlus');
   const fontValue = document.getElementById('fontValue');
@@ -460,7 +659,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let currentSubjectKey = null;
   let currentTopicMeta = null;
-  let tocObserver = null;
 
   // ---------- ПОЛЬЗОВАТЕЛЬ ----------
   let user = JSON.parse(localStorage.getItem('doro.user') || 'null');
@@ -996,34 +1194,16 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar();
       });
     });
-    calendarEl.querySelectorAll('[data-day]').forEach(b => {
-      b.addEventListener('click', () => {
-        const day = Number(b.dataset.day);
-        const isTodayClick = isSameMonth && today.getDate() === day;
-
-        // Клик по реальному "сегодня" — всегда явный выбор сегодняшнего дня.
-        // Снятие выбора (возврат к авто) делаем только если сейчас НЕ после 15:00,
-        // потому что после 15:00 авто-режим = завтра, и пользователь хочет "сегодня".
-        if (isTodayClick) {
-          const now = new Date();
-          const afterSwitch = now.getHours() >= 15;
-          if (afterSwitch) {
-            selectedDay = day;
-            selectedMonth = month;
-            selectedYear = year;
-          } else {
-            selectedDay = null; selectedMonth = null; selectedYear = null;
-          }
-        } else {
+      calendarEl.querySelectorAll('[data-day]').forEach(b => {
+        b.addEventListener('click', () => {
+          const day = Number(b.dataset.day);
           selectedDay = day;
           selectedMonth = month;
           selectedYear = year;
-        }
-
-        renderCalendar();
-        updateTodayView();
+          renderCalendar();
+          updateTodayView();
+        });
       });
-    });
   }
 
   // ---------- ПАРЫ И ДЗ НА ГЛАВНОЙ ----------
@@ -1263,6 +1443,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (readerEl) {
       readerEl.style.setProperty('--subject-accent', accent);
     }
+
+    // Акцент для окна «Все темы»
+    const topicsEl = document.getElementById('readerTopics');
+    if (topicsEl) topicsEl.style.setProperty('--subject-accent', accent);
   }
   function sortTopics(topics) {
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1331,7 +1515,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!valid.length) {
       if (readerSubjectTitle) readerSubjectTitle.textContent = subject.title;
-      if (readerDots) { readerDots.innerHTML = ''; readerDots.style.display = 'none'; }
       if (readerArticle) readerArticle.innerHTML = '<p class="reader__empty">Материалы появятся позже</p>';
       return;
     }
@@ -1362,6 +1545,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     if (readerSubjectTitle) readerSubjectTitle.textContent = subject.title;
+
     applySubjectAccent(readerPanel, key);
 
     // Закрываем панель настроек при смене темы
@@ -1386,29 +1570,77 @@ document.addEventListener('DOMContentLoaded', () => {
         return `Не удалось загрузить файл темы: ${topic.file}`;
       }
     }
-
     async function renderTopic(i) {
       const t = valid[i];
       if (!readerArticle) return;
       currentTopicMeta = t;
 
+      const authorInline = subject.author
+        ? `<span class="reader__author-inline"><span class="reader__author-by">made by</span><span class="reader__author-name">${escapeHtml(subject.author)}</span></span>`
+        : '';
+
       readerArticle.innerHTML = `
-        <div class="reader__num">${t.num ? 'Тема ' + t.num : ''}</div>
-        <h1 class="reader__heading">${t.title}</h1>
+        <div class="reader__num">${t.num ? 'Тема ' + t.num : ''}${authorInline}</div>
+        <h1 class="reader__heading" role="button" tabindex="0" aria-expanded="false">${t.title}</h1>
         ${t.steps && t.steps.length ? `<div class="reader__prep"><span class="reader__prep-label">Для подготовки</span><ul>${t.steps.map(s => `<li>${s}</li>`).join('')}</ul></div>` : ''}
+        <div class="reader__tabs" id="readerTabs" hidden>
+          <button type="button" class="reader__tab is-active" data-tab="theory">Теория</button>
+          <button type="button" class="reader__tab" data-tab="tests">Тесты</button>
+          <span class="reader__tab-indicator" id="readerTabIndicator"></span>
+        </div>
         <div class="reader__content"><p class="reader__empty">Загрузка темы…</p></div>
       `;
 
-      if (readerDots) {
-        readerDots.querySelectorAll('.reader__dot').forEach((d, idx) =>
-          d.classList.toggle('is-active', idx === i));
+      readerTabs = document.getElementById('readerTabs');
+
+      const headingEl = readerArticle.querySelector('.reader__heading');
+      if (headingEl) {
+        const toggleHeading = () => {
+          if (!window.matchMedia('(max-width: 640px)').matches) return;
+          const expanded = headingEl.classList.toggle('is-expanded');
+          headingEl.setAttribute('aria-expanded', String(expanded));
+        };
+        headingEl.addEventListener('click', toggleHeading);
+        headingEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleHeading();
+          }
+        });
       }
 
       const contentEl = readerArticle.querySelector('.reader__content');
       const raw = await loadTopicContent(t);
-      if (contentEl) contentEl.innerHTML = renderTopicContent(raw);
+      // ---- Разбиваем на теорию и тесты ----
+      const sections = splitTheoryAndTests(raw);
+      // Проверяем реальное содержимое в «Тестах»
+      const hasRealTests = (() => {
+        if (!sections.tests) return false;
+        const cleaned = sections.tests
+          .replace(/^#{1,3}\s+(Тесты|Тест|Тестирование)\s*$/mi, '')
+          .replace(/^\s*(---+|\*\*\*+|___+)\s*$/gm, '')
+          .replace(/<br\s*\/?>/gi, '')
+          .replace(/&nbsp;/gi, '')
+          .replace(/<hr\s*\/?>/gi, '')
+          .trim();
+        // Считаем «реальными тестами» только если есть вопросы
+        return /\*\*\d+\.\*\*|\d+\.\s|^\s*-\s/m.test(cleaned);
+      })();
+      if (sections.hasTabs && readerTabs && hasRealTests) {
+        readerTabs.hidden = false;
+        readerTabs.style.display = '';
+        setupTabs(sections);
+        showTab('theory', contentEl, sections);
+      } else {
+        // Нет тестов — прячем ВЕСЬ контейнер вкладок
+        if (readerTabs) {
+          readerTabs.hidden = true;
+          readerTabs.style.display = 'none';
+        }
+        contentEl.innerHTML = renderTopicContent(raw);
+      }
 
-      // Кнопка «Посмотреть доп. файлы» — только если в теме есть pdf
+      // ---- Кнопка «Посмотреть доп. файлы» ----
       if (contentEl && t.pdf) {
         const files = Array.isArray(t.pdf) ? t.pdf : [t.pdf];
         if (files.length) {
@@ -1424,42 +1656,17 @@ document.addEventListener('DOMContentLoaded', () => {
             </svg>
             <span>Посмотреть доп. файлы${files.length > 1 ? ' (' + files.length + ')' : ''}</span>
           `;
-          btn.addEventListener('click', () => {
-            openPdfModal(files, t.title || 'Доп. файлы');
-          });
+          btn.addEventListener('click', () => openPdfModal(files, t.title || 'Доп. файлы'));
           wrap.appendChild(btn);
           contentEl.appendChild(wrap);
         }
       }
-      document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
 
-      // Сбрасываем кэш TOC — тема сменилась
+      document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
       tocBuiltForArticle = null;
 
-      // Если панель уже открыта — пересобрать сразу
       if (readerSettings && readerSettings.classList.contains('open')) {
         buildToc();
-        const headingCount = contentEl
-          ? contentEl.querySelectorAll('h1, h2, h3, h4').length
-          : 0;
-        tocBuiltForArticle = (currentSubjectKey || '') + '::' + headingCount;
-      }
-    }
-
-    if (readerDots) {
-      readerDots.innerHTML = '';
-      if (valid.length > 1) {
-        readerDots.style.display = 'flex';
-        valid.forEach((t, i) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'reader__dot' + (i === initialIndex ? ' is-active' : '');
-          btn.textContent = t.num || String(i + 1).padStart(2, '0');
-          btn.addEventListener('click', () => renderTopic(i));
-          readerDots.appendChild(btn);
-        });
-      } else {
-        readerDots.style.display = 'none';
       }
     }
 
@@ -1704,28 +1911,59 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------- ПАНЕЛЬ «НАСТРОЙКИ ЧТЕНИЯ» ----------
   let tocBuiltForArticle = null;   // сигнатура последней темы, для которой строили TOC
 
-function openReaderSettings() {
-  if (!readerSettings) return;
-  readerSettings.classList.add('open');
-  document.body.classList.add('reader-settings-open');
-  readerSettings.setAttribute('aria-hidden', 'false');
-  if (readerMenuBtn) readerMenuBtn.setAttribute('aria-expanded', 'true');
-  if (readerSettingsBackdrop) readerSettingsBackdrop.classList.add('is-visible');
-  buildToc();
-}
-function closeReaderSettings() {
-  // Класс на body снимаем ВСЕГДА, даже если панели нет
-  document.body.classList.remove('reader-settings-open');
+  // «Все темы» — отдельное окно над настройками
+  const readerTopics = document.getElementById('readerTopics');
+  const readerTopicsList = document.getElementById('readerTopicsList');
 
-  if (!readerSettings) return;
-  readerSettings.classList.remove('open');
-  readerSettings.setAttribute('aria-hidden', 'true');
-  if (readerMenuBtn) readerMenuBtn.setAttribute('aria-expanded', 'false');
-  if (readerSettingsBackdrop) readerSettingsBackdrop.classList.remove('is-visible');
+  function buildTopicsList() {
+    if (!readerTopicsList) return;
+    readerTopicsList.innerHTML = '';
+    if (!currentSubjectKey || !subjects[currentSubjectKey]) return;
 
-  if (tocWrap) tocWrap.classList.remove('is-open');
-  if (tocToggle) tocToggle.setAttribute('aria-expanded', 'false');
-}
+    const valid = sortTopics(
+      subjects[currentSubjectKey].topics.filter(t => t.title !== 'Раздел в разработке')
+    );
+    valid.forEach(t => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'reader-topics__item' +
+        (currentTopicMeta && currentTopicMeta.num === t.num ? ' is-active' : '');
+      btn.innerHTML = `<span class="reader-topics__item-num">${t.num || '—'}</span>`;
+      btn.title = t.title;
+      btn.addEventListener('click', () => {
+        openTopic(currentSubjectKey, t.num);
+        closeReaderSettings();
+      });
+      readerTopicsList.appendChild(btn);
+    });
+  }
+
+  const readerPop = document.getElementById('readerPop');
+
+  function openReaderSettings() {
+    if (!readerSettings) return;
+    buildTopicsList();
+    if (readerPop) {
+      readerPop.classList.add('open');
+      readerPop.setAttribute('aria-hidden', 'false');
+    }
+    if (readerTopics) readerTopics.setAttribute('aria-hidden', 'false');
+    if (readerSettings) readerSettings.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('reader-settings-open');
+    if (readerMenuBtn) readerMenuBtn.setAttribute('aria-expanded', 'true');
+    if (readerSettingsBackdrop) readerSettingsBackdrop.classList.add('is-visible');
+  }
+  function closeReaderSettings() {
+    document.body.classList.remove('reader-settings-open');
+    if (readerPop) {
+      readerPop.classList.remove('open');
+      readerPop.setAttribute('aria-hidden', 'true');
+    }
+    if (readerTopics) readerTopics.setAttribute('aria-hidden', 'true');
+    if (readerSettings) readerSettings.setAttribute('aria-hidden', 'true');
+    if (readerMenuBtn) readerMenuBtn.setAttribute('aria-expanded', 'false');
+    if (readerSettingsBackdrop) readerSettingsBackdrop.classList.remove('is-visible');
+  }
   function toggleReaderSettings() {
     if (!readerSettings) return;
     if (readerSettings.classList.contains('open')) closeReaderSettings();
@@ -2296,7 +2534,116 @@ if (isPhone) {
   // На мобиле сворачиваем раньше, чтобы освободить место
   let collapseThreshold = window.innerWidth <= 860 ? 90 : 160;
   const scrollDelta = 6;
+  // ---------- ВКЛАДКИ «ТЕОРИЯ / ТЕСТЫ» ----------
+  function splitTheoryAndTests(raw) {
+    if (!raw) return { hasTabs: false };
+    const testsMatch = raw.match(/^#{1,3}\s+(Тесты|Тест|Тестирование)\s*$/mi);
+    if (!testsMatch) return { hasTabs: false };
+    const testsIndex = testsMatch.index;
+    const theoryMatch = raw.slice(0, testsIndex).match(/^#{1,3}\s+(Теория|Теория\.?)\s*$/mi);
+    if (!theoryMatch) {
+      return {
+        hasTabs: true,
+        theory: raw.slice(0, testsIndex).trim(),
+        tests: raw.slice(testsIndex).trim()
+      };
+    }
+    const theoryIndex = theoryMatch.index;
+    return {
+      hasTabs: true,
+      theory: raw.slice(theoryIndex + theoryMatch[0].length, testsIndex).trim(),
+      tests: raw.slice(testsIndex).trim()
+    };
+  }
 
+  let tabsResizeHandler = null;
+
+  function moveTabIndicator() {
+    if (!readerTabs) return;
+    const active = readerTabs.querySelector('.reader__tab.is-active');
+    const indicator = readerTabs.querySelector('.reader__tab-indicator');
+    if (!active || !indicator) return;
+    const rect = active.getBoundingClientRect();
+    const parentRect = readerTabs.getBoundingClientRect();
+    indicator.style.width = rect.width + 'px';
+    indicator.style.transform = `translateX(${rect.left - parentRect.left - 4}px)`;
+  }
+
+  function setupTabs(sections) {
+    if (!readerTabs) return;
+
+    const buttons = readerTabs.querySelectorAll('.reader__tab');
+
+    // Проверяем, есть ли реальное содержимое в каждой вкладке
+    const hasRealContent = (tab) => {
+      const raw = sections[tab];
+      if (!raw) return false;
+      const cleaned = raw
+        .replace(/^#{1,3}\s+(Тесты|Тест|Тестирование|Теория|Теория\.?)\s*$/mi, '')
+        .replace(/^\s*(---+|\*\*\*+|___+)\s*$/gm, '')
+        .replace(/<br\s*\/?>/gi, '')
+        .replace(/&nbsp;/gi, '')
+        .replace(/<hr\s*\/?>/gi, '')
+        .trim();
+      // Для «Тестов» — должны быть реальные вопросы
+      if (tab === 'tests') {
+        return /\*\*\d+\.\*\*|\d+\.\s|^\s*-\s/m.test(cleaned);
+      }
+      return cleaned.length > 0;
+    };
+    buttons.forEach(btn => {
+      const tab = btn.dataset.tab;
+      const hasContent = hasRealContent(tab);
+      btn.style.display = hasContent ? '' : 'none';
+      btn.disabled = !hasContent;
+    });
+
+    // Если «Тесты» пустые — принудительно показываем «Теорию»
+    const testsBtn = readerTabs.querySelector('.reader__tab[data-tab="tests"]');
+    const theoryBtn = readerTabs.querySelector('.reader__tab[data-tab="theory"]');
+    if (testsBtn && testsBtn.style.display === 'none' && theoryBtn) {
+      theoryBtn.classList.add('is-active');
+    }
+
+    buttons.forEach(btn => {
+      btn.onclick = () => {
+        if (btn.classList.contains('is-active')) return;
+        if (btn.disabled) return;
+        const tab = btn.dataset.tab;
+        const contentEl = readerArticle.querySelector('.reader__content');
+        showTab(tab, contentEl, sections);
+      };
+    });
+
+    requestAnimationFrame(moveTabIndicator);
+
+    if (tabsResizeHandler) window.removeEventListener('resize', tabsResizeHandler);
+    tabsResizeHandler = moveTabIndicator;
+    window.addEventListener('resize', tabsResizeHandler);
+  }
+
+  function showTab(tab, contentEl, sections) {
+    if (!contentEl || !readerTabs) return;
+
+    readerTabs.querySelectorAll('.reader__tab').forEach(b => {
+      b.classList.toggle('is-active', b.dataset.tab === tab);
+    });
+
+    moveTabIndicator();
+
+    contentEl.innerHTML = renderTopicContent(sections[tab] || '<p class="reader__empty">Раздел пуст</p>');
+
+    if (readerArticle) {
+      readerArticle.classList.remove('is-switching');
+      void readerArticle.offsetWidth;
+      readerArticle.classList.add('is-switching');
+    }
+
+    tocBuiltForArticle = null;
+    if (readerSettings && readerSettings.classList.contains('open')) buildToc();
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
   function isReaderOpen() {
     return document.getElementById('view-files')?.classList.contains('reader-open') === true;
   }
