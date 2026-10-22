@@ -18,10 +18,16 @@
         <span class="brand-name">doro<span>.</span></span>
       </a>
 
-      <!-- Прогресс чтения (показывается только в свёрнутой шапке) -->
+      <!-- Прогресс чтения (в свёрнутой шапке). При скролле вверх превращается в кнопку «наверх» -->
       <div class="island-progress" id="islandProgress" aria-hidden="true">
         <span class="island-progress__value" id="islandProgressValue">0%</span>
         <span class="island-progress__bar"><span class="island-progress__fill" id="islandProgressFill"></span></span>
+        <button type="button" class="island-progress__up" id="islandProgressUp" aria-label="Наверх" title="Наверх">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"></line>
+            <polyline points="5 12 12 5 19 12"></polyline>
+          </svg>
+        </button>
       </div>
 
       <nav class="nav" id="nav">
@@ -32,6 +38,12 @@
       </nav>
 
       <div class="island-right">
+        <button type="button" class="scroll-top" id="scrollTopBtn" aria-label="Наверх" title="Наверх">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"></line>
+            <polyline points="5 12 12 5 19 12"></polyline>
+          </svg>
+        </button>
         <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
           <span></span><span></span><span></span>
         </button>
@@ -224,7 +236,7 @@
           <span class="profile-tile__label">Отдать ДЗ</span>
         </button>
 
-        <!-- Ближайшая лекция -->
+        <!-- Лекции на неделю -->
         <button type="button" class="profile-tile" id="lectureToggle" data-tile="lecture">
           <span class="profile-tile__icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -234,7 +246,7 @@
               <line x1="3" y1="10" x2="21" y2="10"></line>
             </svg>
           </span>
-          <span class="profile-tile__label">Ближайшая лекция</span>
+          <span class="profile-tile__label">Лекции</span>
         </button>
 
         <!-- Уведомления -->
@@ -258,14 +270,16 @@
         </span>
         <span class="profile-tile__label" id="continueLabel">Продолжить</span>
       </button>
-      <!-- Серия -->
-      <button type="button" class="profile-tile" id="streakTile" data-tile="streak">
+      <!-- Архив -->
+      <button type="button" class="profile-tile" id="archiveTile" data-tile="archive">
         <span class="profile-tile__icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+            <polyline points="21 8 21 21 3 21 3 8"></polyline>
+            <rect x="1" y="3" width="22" height="5"></rect>
+            <line x1="10" y1="12" x2="14" y2="12"></line>
           </svg>
         </span>
-        <span class="profile-tile__label" id="streakLabel">Серия</span>
+        <span class="profile-tile__label">Архив</span>
       </button>
 
       </div>  <!-- .profile-grid -->
