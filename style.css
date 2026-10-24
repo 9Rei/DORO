@@ -1418,6 +1418,12 @@ body.island-collapsed .island-wrap { top: 12px; }
   line-height: 1.2;
   color: color-mix(in srgb, var(--subject-accent, var(--accent)) 75%, #1a1f2b);
   margin-bottom: 24px;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  hanging-punctuation: allow-end;
+  text-wrap: balance;
 }
 .reader__prep {
   background: color-mix(in srgb, var(--subject-accent, var(--accent)) 7%, #fff);
@@ -2622,7 +2628,15 @@ html.reader-compact .reader__table th { font-size: 11px; }
     max-width: 100%;
   }
   #view-files.reader-open .reader__num { font-size: 10px; margin-bottom: 6px; letter-spacing: .16em; }
-  #view-files.reader-open .reader__heading { line-height: 1.25; margin-bottom: 16px; }
+  #view-files.reader-open .reader__heading {
+    line-height: 1.25;
+    margin-bottom: 16px;
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    hanging-punctuation: allow-end;
+  }
   #view-files.reader-open .reader__prep { padding: 12px 14px; border-radius: 12px; margin-bottom: 18px; }
   #view-files.reader-open .reader__prep-label { font-size: 10px; margin-bottom: 6px; }
   #view-files.reader-open .reader__prep li { font-size: 13px; line-height: 1.45; padding-left: 20px; }
