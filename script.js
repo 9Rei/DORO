@@ -122,11 +122,25 @@ const subjects = {
     author: "Сюзи Петросян",
     topics: [
       {
+        num: "09",
+        title: "Реакция преципитации, ее варианты. Реакция флокуляции, нейтрализации токсина антитоксином, иммунофлюоресценции. Собственно иммунологический метод диагностики",
+        steps: ["Прочитать файлик", "Выполнить тест"],
+        date: "2026-11-01",
+        file: "content/microbio/09.md"
+      },
+      {
         num: "08",
         title: "Приобретенный иммунитет. Антигены. Гуморальный иммунный ответ . Антитела. Реакция агглютинации, ее варианты. Серологический метод диагностики инфекционных заболеваний",
         steps: ["Прочитать файлик", "Выполнить тест"],
-        date: "2026-10-10",
+        date: "2026-10-24",
         file: "content/microbio/08.md"
+      },
+      {
+        num: "07",
+        title: "Виды и формы иммунитета. Врожденный иммунитет. Факторы неспецифической защиты организма",
+        steps: ["Прочитать файлик", "Выполнить тест"],
+        date: "2026-10-10",
+        file: "content/microbio/07.md"
       },
       {
         num: "06",
@@ -134,6 +148,41 @@ const subjects = {
         steps: ["Прочитать файлик", "Выполнить тест"],
         date: "2026-10-10",
         file: "content/microbio/06.md"
+      },
+      {
+        num: "05",
+        title: "Коллоквиум по разделу: Морфология и физиология микроорганизмов",
+        steps: ["Прочитать файлик", "Выполнить тест"],
+        date: "2026-10-05",
+        file: "content/microbio/05.md"
+      },
+      {
+        num: "04",
+        title: "Бактериологический метод диагностики. Культуральные, морфологические, биохимические свойства. Дыхание бактерий. Культивирование анаэробных бактерий",
+        steps: ["Прочитать файлик", "Выполнить тест"],
+        date: "2026-09-28",
+        file: "content/microbio/04.md"
+      },
+      {
+        num: "03",
+        title: "Питание, рост и размножение бактерий. Питательные среды. Метод выделения чистых культур аэробных и анаэробных бактерий. Ферменты бактерий. Пигменты бактерий",
+        steps: ["Прочитать файлик", "Выполнить тест"],
+        date: "2026-09-21",
+        file: "content/microbio/03.md"
+      },
+      {
+        num: "02",
+        title: "Структура бактериальной клетки. Сложные методы окраски. Особенности строения микоплазм, риккетсий, хламидий, актиномицетов, спирохет. Морфология грибов",
+        steps: ["Прочитать файлик", "Выполнить тест"],
+        date: "2026-09-14",
+        file: "content/microbio/02.md"
+      },
+      {
+        num: "01",
+        title: "Устройство микробиологической лаборатории. Прокариоты и эукариоты. Морфология бактерий. Простые методы окраски",
+        steps: ["Прочитать файлик", "Выполнить тест"],
+        date: "2026-09-07",
+        file: "content/microbio/01.md"
       }
     ]
   },
@@ -1588,16 +1637,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (topicsEl) topicsEl.style.setProperty('--subject-accent', accent);
   }
   function sortTopics(topics) {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    return topics.slice().sort((a, b) => {
-      const da = new Date(a.date).getTime();
-      const db = new Date(b.date).getTime();
-      const aPast = da < today.getTime();
-      const bPast = db < today.getTime();
-      if (aPast !== bPast) return aPast ? 1 : -1;
-      return aPast ? db - da : da - db;
-    });
-  }
+  // По убыванию номера темы: 9 → 8 → 7 → …
+  // Темы без номера — в конце, между собой по дате (свежие выше).
+  return topics.slice().sort((a, b) => {
+    const na = parseFloat(String(a.num ?? '').replace(',', '.'));
+    const nb = parseFloat(String(b.num ?? '').replace(',', '.'));
+    const aHas = Number.isFinite(na);
+    const bHas = Number.isFinite(nb);
+
+    if (aHas && bHas) {
+      if (na !== nb) return nb - na;
+      return 0;
+    }
+    if (aHas !== bHas) return aHas ? -1 : 1;
+
+    const da = new Date(a.date).getTime() || 0;
+    const db = new Date(b.date).getTime() || 0;
+    return db - da;
+  });
+}
 
   function renderSections() {
     if (!subjectsCards) return;
@@ -1644,21 +1702,45 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   }
 
-  function openLatestTopic(key) {
-    const subject = subjects[key];
-    if (!subject) return;
-    const valid = sortTopics(subject.topics.filter(t => t.title !== 'Раздел в разработке'));
+function getCurrentTopic(valid) {
+  // valid отсортирован по убыванию номера (9 → 8 → 7 → …).
+  // Текущая — ближайшая по дате к сегодня (минимальная |date - today|).
+  // При равенстве (сегодня) — приоритет той, что ещё не началась/идёт,
+  // то есть более старший номер из пары.
+  if (!valid.length) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
 
-    if (subjectsCardsView) subjectsCardsView.style.display = 'none';
-    if (readerScreen) readerScreen.style.display = 'flex';
+  let best = null;
+  let bestDiff = Infinity;
 
-    if (!valid.length) {
-      if (readerSubjectTitle) readerSubjectTitle.textContent = subject.title;
-      if (readerArticle) readerArticle.innerHTML = '<p class="reader__empty">Материалы появятся позже</p>';
-      return;
+  for (const t of valid) {
+    const d = new Date(t.date + 'T00:00:00');
+    if (isNaN(d.getTime())) continue;
+    const diff = Math.abs(d.getTime() - today.getTime());
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = t;
     }
-    openTopic(key, valid[0].num);
   }
+  return best || valid[valid.length - 1];
+}
+
+function openLatestTopic(key) {
+  const subject = subjects[key];
+  if (!subject) return;
+  const valid = sortTopics(subject.topics.filter(t => t.title !== 'Раздел в разработке'));
+
+  if (subjectsCardsView) subjectsCardsView.style.display = 'none';
+  if (readerScreen) readerScreen.style.display = 'flex';
+
+  if (!valid.length) {
+    if (readerSubjectTitle) readerSubjectTitle.textContent = subject.title;
+    if (readerArticle) readerArticle.innerHTML = '<p class="reader__empty">Материалы появятся позже</p>';
+    return;
+  }
+  const current = getCurrentTopic(valid);
+  openTopic(key, current.num);
+}
 
   async function openTopic(key, topicNum = null) {
     const subject = subjects[key];
@@ -2087,12 +2169,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------- ПАНЕЛЬ «НАСТРОЙКИ ЧТЕНИЯ» ----------
   let tocBuiltForArticle = null;   // сигнатура последней темы, для которой строили TOC
 
-  // «Все темы» — отдельное окно над настройками
+  // «Все темы» — отдельное окно снизу
   const readerTopics = document.getElementById('readerTopics');
   const readerTopicsList = document.getElementById('readerTopicsList');
+
+  // ---------- РАЗВОРОТ «ВСЕ ТЕМЫ» НА МОБИЛЕ ----------
+  const readerTopicsExpand = document.getElementById('readerTopicsExpand');
+
+  function syncTopicsExpandBtn() {
+    if (!readerTopics || !readerTopicsExpand) return;
+    const expanded = readerTopics.classList.contains('is-expanded');
+    readerTopicsExpand.setAttribute('aria-expanded', String(expanded));
+    readerTopicsExpand.setAttribute('aria-label', expanded ? 'Скрыть темы' : 'Показать все темы');
+    readerTopicsExpand.title = expanded ? 'Скрыть темы' : 'Показать все темы';
+  }
+
+  if (readerTopicsExpand) {
+    readerTopicsExpand.addEventListener('click', () => {
+      if (!readerTopics) return;
+      const expanded = readerTopics.classList.toggle('is-expanded');
+      syncTopicsExpandBtn();
+      if (expanded) {
+        const active = readerTopics.querySelector('.reader-topics__item.is-active');
+        if (active) {
+          requestAnimationFrame(() => {
+            active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          });
+        }
+      }
+    });
+  }
 
   function buildTopicsList() {
     if (!readerTopicsList) return;
@@ -2142,6 +2250,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (readerSettings) readerSettings.setAttribute('aria-hidden', 'true');
     if (readerMenuBtn) readerMenuBtn.setAttribute('aria-expanded', 'false');
     if (readerSettingsBackdrop) readerSettingsBackdrop.classList.remove('is-visible');
+
+    // Сворачиваем «Все темы» обратно в одну строку при закрытии настроек
+    if (readerTopics) readerTopics.classList.remove('is-expanded');
+    const expandBtn = document.getElementById('readerTopicsExpand');
+    if (expandBtn) {
+      expandBtn.setAttribute('aria-expanded', 'false');
+      expandBtn.setAttribute('aria-label', 'Показать все темы');
+      expandBtn.title = 'Показать все темы';
+    }
   }
   function toggleReaderSettings() {
     if (!readerSettings) return;
@@ -2246,7 +2363,10 @@ function openTocWrap() {
 
 
   // ---------- СОДЕРЖАНИЕ (TOC) ----------
-    function buildToc() {
+  const tocList = document.getElementById('tocList');
+  let tocObserver = null;
+
+  function buildToc() {
     if (!tocList) return;
     tocList.innerHTML = '';
     if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }

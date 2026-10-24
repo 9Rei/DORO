@@ -3943,3 +3943,58 @@ body.island-collapsed.scroll-top-active .island .island-right > .avatar-wrap {
 [data-theme="dark"] .profile-color__swatch[aria-selected="true"] {
   box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px #16190f;
 }
+/* Кнопка «Показать все темы» — только на мобиле */
+.reader-topics__expand {
+  display: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--island-border);
+  background: var(--bg-soft);
+  color: var(--text-soft);
+  border-radius: 8px;
+  cursor: pointer;
+  place-items: center;
+  transition: background .15s, color .15s, border-color .15s, transform .2s;
+}
+.reader-topics__expand:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.reader-topics__expand svg {
+  transition: transform .25s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.reader-topics__expand[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+[data-theme="dark"] .reader-topics__expand {
+  background: #1a1e14;
+  border-color: #2c3220;
+  color: var(--text-soft);
+}
+[data-theme="dark"] .reader-topics__expand:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(163, 230, 53, 0.10);
+}
+
+/* На телефоне — показываем кнопку, блок по умолчанию 1 строка */
+@media (max-width: 640px) {
+  .reader-topics__expand { display: grid; }
+
+  /* Свёрнуто — ровно 1 строка кружков */
+  .reader-topics {
+    max-height: 110px;
+    transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Развёрнуто — больше строк */
+  .reader-topics.is-expanded {
+    max-height: calc(100vh - 200px);
+  }
+  .reader-topics.is-expanded .reader-topics__body {
+    max-height: calc(100vh - 260px);
+    overflow-y: auto;
+  }
+}
