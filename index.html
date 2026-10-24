@@ -51,11 +51,10 @@
         </button>
         <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
           <span></span><span></span><span></span>
-        </button>
         <div class="avatar-wrap">
           <button class="avatar" id="avatar" title="Профиль">
-            ?
-            <span class="avatar-dot" id="avatarDot" hidden></span>
+            <span class="avatar-letter" id="avatarLetter">?</span>
+            <span class="avatar-badge" id="avatarBadge" style="display: none;"></span>
           </button>
         </div>
       </div>
@@ -198,6 +197,26 @@
         <label for="nameInput">Твоё имя</label>
         <input id="nameInput" type="text" placeholder="Например, Аня" maxlength="30" autocomplete="off">
         <button class="btn-pop" id="saveNameBtn">Сохранить</button>
+      </div>
+
+      <!-- Статус -->
+      <div class="profile-status">
+        <label for="statusInput">Статус</label>
+        <input id="statusInput" type="text" placeholder="например, готов к коллоквиуму" maxlength="40" autocomplete="off">
+      </div>
+
+      <!-- Группа -->
+      <div class="profile-group">
+        <label for="groupSelect">Группа</label>
+        <select id="groupSelect">
+          <option value="">— не выбрана —</option>
+        </select>
+      </div>
+
+      <!-- Цвет аватарки -->
+      <div class="profile-color">
+        <span class="profile-color__label">Цвет аватарки</span>
+        <div class="profile-color__palette" id="avatarPalette"></div>
       </div>
 
       <!-- Сетка карточек -->

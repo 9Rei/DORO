@@ -55,21 +55,21 @@ const subjects = {
   biochem: {
     num: "01", title: "Биохимия",
     author: "Кайгородов Антон",
-    tabs: ["theory", "tests"],
+    tabs: ["questions", "problems", "tests"],
     topics: [
+      {
+        num: "3.1",
+        title: "Биологические мембраны. Трансмембранная передача сигнала",
+        steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"],
+        date: "2026-10-24",
+        file: "content/biochem/БХ_3.1.md"
+      },
       {
         num: "2.3",
         title: "Коллоквиум. Матричные биосинтезы",
         steps: ["Прочитать основной файл", "Прочитать файл с задачами"],
         date: "2026-10-17",
-        file: "content/biochem/2.3.md"
-      },
-      {
-        num: "2.2",
-        title: "Транскрипция, трансляция. ДНК технологии в медицине. Экспрессия генов",
-        steps: ["Прочитать основной файлик", "Прочитать файлик тестов", "Решить тест"],
-        date: "2026-10-10",
-        file: "content/biochem/2.2.md"
+        file: "content/biochem/БХ_2.3.md"
       }
     ]
   },
@@ -100,7 +100,7 @@ const subjects = {
     author: "Мария Прокопьева",
     tabs: ["theory", "preparations"],
     topics: [
-       {
+      {
         num: "25",
         title: "Пищеварительная система. Морфологическая характеристика кишечника.",
         steps: ["Прочитать файлик (в нем препараты)", "Решить тест"],
@@ -643,7 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const notifyToggle = document.getElementById('notifyToggle');
   const notifyList = document.getElementById('notifyList');
   const notifyBadge = document.getElementById('notifyBadge');
-  const avatarDot = document.getElementById('avatarDot');
+  const avatarBadge = document.getElementById('avatarBadge');
 
   const lectureToggle = document.getElementById('lectureToggle');
   const lectureInfo = document.getElementById('lectureInfo');
@@ -684,6 +684,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------- ПОЛЬЗОВАТЕЛЬ ----------
   let user = JSON.parse(localStorage.getItem('doro.user') || 'null');
+  if (user && typeof user === 'object') {
+    user.color = user.color || '#3b82f6';
+    user.group = user.group || '';
+    user.status = user.status || '';
+  }
+
+  const AVATAR_COLORS = [
+    '#3b82f6', '#16a34a', '#ea580c', '#9333ea',
+    '#0891b2', '#e11d48', '#ca8a04', '#475569'
+  ];
 
   // ---------- ТЕМА ----------
   const THEME_KEY = 'doro.theme';
@@ -818,22 +828,63 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------- ПРОФИЛЬ ----------
+  function getInitials(name) {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  function paintAvatar(color) {
+    if (!avatar) return;
+    avatar.style.background = `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 60%, #ffffff))`;
+    avatar.style.color = '#fff';
+    avatar.style.borderColor = color;
+  }
+
   function renderProfile() {
+    const avatarLetter = document.getElementById('avatarLetter');
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
     if (user && user.name) {
-      avatar.textContent = user.name[0].toUpperCase();
+      if (avatarLetter) avatarLetter.textContent = getInitials(user.name);
+      paintAvatar(user.color || '#3b82f6');
       greetTitle.textContent = isDark ? pickDarkGreeting(user.name) : `Привет, ${user.name}!`;
       profileNameDisplay.textContent = user.name;
       nameInput.value = user.name;
       profileNameRow.style.display = 'flex';
       profileEdit.style.display = 'none';
     } else {
-      avatar.textContent = '?';
+      if (avatarLetter) avatarLetter.textContent = '?';
+      avatar.style.background = '';
+      avatar.style.color = '';
+      avatar.style.borderColor = '';
       greetTitle.textContent = isDark ? pickDarkGreeting(null) : 'Привет!';
       nameInput.value = '';
       profileNameRow.style.display = 'none';
       profileEdit.style.display = 'flex';
+    }
+
+    // Статус и группа
+    const statusInput = document.getElementById('statusInput');
+    const groupSelect = document.getElementById('groupSelect');
+    if (statusInput) statusInput.value = user?.status || '';
+    if (groupSelect) groupSelect.value = user?.group || '';
+
+    // Палитра
+    const palette = document.getElementById('avatarPalette');
+    if (palette) {
+      const current = (user?.color || '#3b82f6').toLowerCase();
+      palette.querySelectorAll('.profile-color__swatch').forEach(btn => {
+        btn.setAttribute('aria-selected', btn.dataset.color.toLowerCase() === current ? 'true' : 'false');
+      });
+    }
+
+    // Подсказка на аватаре
+    if (avatar) {
+      const title = [user?.name, user?.status].filter(Boolean).join(' · ');
+      avatar.title = title || 'Профиль';
     }
   }
 
@@ -905,6 +956,64 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   renderProfile();
+
+  // ---------- ГРУППА ----------
+  (function initGroups() {
+    const select = document.getElementById('groupSelect');
+    if (!select) return;
+    for (let i = 11; i <= 20; i++) {
+      const opt = document.createElement('option');
+      opt.value = 'ЛД25' + i;
+      opt.textContent = 'ЛД25' + i;
+      select.appendChild(opt);
+    }
+    select.addEventListener('change', () => {
+      if (!user) user = {};
+      user.group = select.value;
+      localStorage.setItem('doro.user', JSON.stringify(user));
+    });
+  })();
+
+  // ---------- СТАТУС ----------
+  (function initStatus() {
+    const input = document.getElementById('statusInput');
+    if (!input) return;
+    let t = null;
+    input.addEventListener('input', () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        if (!user) user = {};
+        user.status = input.value.trim();
+        localStorage.setItem('doro.user', JSON.stringify(user));
+        if (avatar) {
+          const title = [user?.name, user?.status].filter(Boolean).join(' · ');
+          avatar.title = title || 'Профиль';
+        }
+      }, 400);
+    });
+  })();
+
+  // ---------- ПАЛИТРА АВАТАРКИ ----------
+  (function initPalette() {
+    const palette = document.getElementById('avatarPalette');
+    if (!palette) return;
+    palette.innerHTML = '';
+    AVATAR_COLORS.forEach(color => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'profile-color__swatch';
+      btn.dataset.color = color;
+      btn.style.background = `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 60%, #ffffff))`;
+      btn.setAttribute('aria-selected', 'false');
+      btn.addEventListener('click', () => {
+        if (!user) user = {};
+        user.color = color;
+        localStorage.setItem('doro.user', JSON.stringify(user));
+        renderProfile();
+      });
+      palette.appendChild(btn);
+    });
+  })();
 
   // ---------- ДОМАШНИЕ ЗАДАНИЯ ----------
   const HW_KEY = 'doro.homework';
@@ -978,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Разработчик пишет уведомления здесь. Появляются у всех пользователей.
   // id должен быть уникальным и стабильным (не менять после публикации).
   const DEV_NOTIFICATIONS = [
-    { id: 'n-2026-10-22-1', text: 'Переделанный интерфейс тем и многое другое!' }
+    { id: 'n-2026-10-23-2', text: 'Патч изменений 1.02. Кнопки переключатели в темах, разные авторы и многое другое!' }
   ];
 
   const NOTIFY_SEEN_KEY = 'doro.seenTopics';
@@ -1021,12 +1130,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const total = unseenAuto + unseenDev;
 
     if (total > 0) {
-      notifyBadge.textContent = total;
-      notifyBadge.style.display = 'grid';
-      if (avatarDot) avatarDot.hidden = false;
+      notifyBadge.style.display = 'block';
+      if (avatarBadge) avatarBadge.style.display = 'block';
     } else {
       notifyBadge.style.display = 'none';
-      if (avatarDot) avatarDot.hidden = true;
+      if (avatarBadge) avatarBadge.style.display = 'none';
     }
   }
 
@@ -1098,7 +1206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         s.add(id);
         saveSeenTopics(s);
         updateNotifyBadge();
-        profilePop.classList.remove('open');
+        closeProfile();
         showView('files');
         setTimeout(() => openTopic(t.key, t.num), 50);
       });
@@ -1113,7 +1221,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Кнопка «Уведомления» — открыть/закрыть панель
   if (notifyToggle && notifyList) {
-    notifyToggle.addEventListener('click', () => {
+    notifyToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
       const willOpen = !notifyList.classList.contains('is-open');
       notifyList.classList.toggle('is-open', willOpen);
       if (willOpen) renderNotifyList();
@@ -1617,7 +1726,13 @@ document.addEventListener('DOMContentLoaded', () => {
         ? t.tabs
         : (Array.isArray(subject.tabs) ? subject.tabs : []);
       if (readerTabs && tabConfigForRender.length) {
-        const TAB_LABELS = { theory: 'Теория', tests: 'Тесты', preparations: 'Препараты' };
+        const TAB_LABELS = {
+          theory: 'Теория',
+          tests: 'Тесты',
+          preparations: 'Препараты',
+          questions: 'Вопросы',
+          problems: 'Задачи'
+        };
         readerTabs.innerHTML = tabConfigForRender.map((tab, i) => `
           <button type="button" class="reader__tab${i === 0 ? ' is-active' : ''}" data-tab="${tab}">${TAB_LABELS[tab] || tab}</button>
         `).join('') + '<span class="reader__tab-indicator" id="readerTabIndicator"></span>';
@@ -1681,8 +1796,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // ---- Кнопка «Посмотреть доп. файлы» (только если нет вкладки «Препараты») ----
-      if (contentEl && t.pdf && !tabConfig.includes('preparations')) {
-        const files = Array.isArray(t.pdf) ? t.pdf : [t.pdf];
+      const extraFiles = extractPdfLinksFromMarkdown(raw);
+      if (contentEl && extraFiles.length && !tabConfig.includes('preparations')) {
+        const files = extraFiles;
         if (files.length) {
           const wrap = document.createElement('div');
           wrap.className = 'reader__extra-files';
@@ -2612,6 +2728,40 @@ if (isPhone) {
     };
   }
 
+  // Разбиение файла на секции: вопросы / задачи / тесты (по заголовкам)
+  function splitIntoThreeSections(raw) {
+    if (!raw) return { questions: '', problems: '', tests: '' };
+
+    const lines = raw.split('\n');
+    const markers = {
+      questions: /^#{1,3}\s+(Вопросы|Вопрос)\s*$/i,
+      problems:  /^#{1,3}\s+(Задачи|Задача|Задач)\s*$/i,
+      tests:     /^#{1,3}\s+(Тесты|Тест|Тестирование)\s*$/i
+    };
+
+    const sections = { questions: [], problems: [], tests: [] };
+    let current = null;
+
+    for (const line of lines) {
+      let matched = false;
+      for (const key of Object.keys(markers)) {
+        if (markers[key].test(line)) {
+          current = key;
+          matched = true;
+          break;
+        }
+      }
+      if (matched) continue;
+      if (current) sections[current].push(line);
+    }
+
+    return {
+      questions: sections.questions.join('\n').trim(),
+      problems: sections.problems.join('\n').trim(),
+      tests: sections.tests.join('\n').trim()
+    };
+  }
+
   let tabsResizeHandler = null;
 
   function moveTabIndicator() {
@@ -2648,6 +2798,32 @@ if (isPhone) {
     window.addEventListener('resize', tabsResizeHandler);
   }
 
+  function extractPdfLinksFromMarkdown(raw) {
+    if (!raw) return [];
+    const result = [];
+
+    // 1. Markdown-ссылки [текст](path.pdf) — с любым экранированием \[ \]
+    const reMd = /\\?\[\s*([^\]\\]*)\s*\\?\]\(\s*([^)\s]+\.pdf(?:\?[^)\s]*)?)\s*\)/gi;
+    let m;
+    while ((m = reMd.exec(raw)) !== null) {
+      const href = m[2].trim();
+      if (href && !result.includes(href)) result.push(href);
+    }
+
+    // 2. «Голые» пути — только если в строке нет markdown-синтаксиса
+    const lines = raw.split('\n');
+    lines.forEach(line => {
+      if (/\[.*\]\(.*\)/.test(line)) return; // ссылки уже собрали
+      const match = line.match(/((?:\.\/)?(?:[\w\-.%/]+)\.pdf(?:\?[^\s)]*)?)/i);
+      if (match) {
+        const href = match[1];
+        if (!result.includes(href)) result.push(href);
+      }
+    });
+
+    return result;
+  }
+  
   // Собираем содержимое вкладок по явной конфигурации
   function buildTabSections(raw, tabConfig, topic) {
     const result = {};
@@ -2667,6 +2843,17 @@ if (isPhone) {
       result.preparations = files;
     }
 
+    // ---- Биохимия: три секции по заголовкам ----
+    if (tabConfig.includes('questions') || tabConfig.includes('problems')) {
+      const three = splitIntoThreeSections(raw);
+      if (tabConfig.includes('questions')) result.questions = three.questions;
+      if (tabConfig.includes('problems'))  result.problems  = three.problems;
+      if (tabConfig.includes('tests') && three.tests) result.tests = three.tests;
+      if (tabConfig.includes('theory') && !three.questions && !three.problems) {
+        result.theory = raw;
+      }
+    }
+
     return result;
   }
 
@@ -2682,6 +2869,20 @@ if (isPhone) {
     contentEl.classList.remove('is-loaded');
     if (tab === 'preparations') {
       contentEl.innerHTML = renderPreparations(sections.preparations || []);
+    } else if (tab === 'questions') {
+      const raw = sections.questions || '';
+      if (!raw.trim()) {
+        contentEl.innerHTML = '<p class="reader__empty">В этой теме нет вопросов</p>';
+      } else {
+        contentEl.innerHTML = renderTopicContent(raw);
+      }
+    } else if (tab === 'problems') {
+      const raw = sections.problems || '';
+      if (!raw.trim()) {
+        contentEl.innerHTML = '<p class="reader__empty">В этой теме нет задач</p>';
+      } else {
+        contentEl.innerHTML = renderTopicContent(raw);
+      }
     } else if (tab === 'tests') {
       const testsRaw = sections.tests || '';
       const cleaned = testsRaw
@@ -2709,6 +2910,63 @@ if (isPhone) {
         openPdfModal([btn.dataset.pdf], 'Препарат');
       });
     });
+
+    // ---- Блок «Файлы» внизу: собираем все PDF-ссылки из контента ----
+    const pdfLinks = Array.from(contentEl.querySelectorAll('a[href$=".pdf"], a[href*=".pdf?"]'))
+      .map(a => ({ href: a.getAttribute('href'), name: a.textContent.trim() || a.getAttribute('href') }))
+      .filter((v, i, arr) => arr.findIndex(x => x.href === v.href) === i);
+
+    if (pdfLinks.length) {
+      // Удаляем сами pdf-ссылки и окружающий текст-примечание из контента
+      pdfLinks.forEach(f => {
+        const link = contentEl.querySelector(`a[href="${f.href}"]`);
+        if (!link) return;
+        const parent = link.parentElement;
+        // Если ссылка внутри <p> — удаляем весь <p>
+        if (parent && parent.tagName === 'P') {
+          // Смотрим, что было прямо перед этим <p> — если цитата с «Примечание», удаляем и её
+          let prev = parent.previousElementSibling;
+          while (prev && !prev.textContent.trim() && !prev.querySelector('img')) {
+            prev = prev.previousElementSibling;
+          }
+          if (prev && /примечани/i.test(prev.textContent)) {
+            prev.remove();
+          }
+          parent.remove();
+        } else {
+          link.remove();
+        }
+      });
+
+      // Удаляем пустые параграфы
+      contentEl.querySelectorAll('p').forEach(p => {
+        if (!p.textContent.trim() && !p.querySelector('img')) p.remove();
+      });
+
+      const wrap = document.createElement('div');
+      wrap.className = 'reader__pdf-attachments';
+      const title = document.createElement('div');
+      title.className = 'reader__pdf-attachments-title';
+      title.textContent = 'Файлы к теме';
+      wrap.appendChild(title);
+
+      pdfLinks.forEach(f => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'reader__prep-item';
+        btn.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <span>${escapeHtml(f.name)}</span>
+        `;
+        btn.addEventListener('click', () => openPdfModal([f.href], f.name));
+        wrap.appendChild(btn);
+      });
+
+      contentEl.appendChild(wrap);
+    }
 
     if (readerArticle) {
       readerArticle.classList.remove('is-switching');
