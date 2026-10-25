@@ -23,7 +23,7 @@
         <span class="brand-name">doro<span>.</span></span>
       </a>
 
-      <!-- Прогресс чтения (в свёрнутой шапке). При скролле вверх превращается в кнопку «наверх» -->
+      <!-- Прогресс чтения -->
       <div class="island-progress" id="islandProgress" aria-hidden="true">
         <span class="island-progress__value" id="islandProgressValue">0%</span>
         <span class="island-progress__bar"><span class="island-progress__fill" id="islandProgressFill"></span></span>
@@ -43,14 +43,9 @@
       </nav>
 
       <div class="island-right">
-        <button type="button" class="scroll-top" id="scrollTopBtn" aria-label="Наверх" title="Наверх">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="19" x2="12" y2="5"></line>
-            <polyline points="5 12 12 5 19 12"></polyline>
-          </svg>
-        </button>
         <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
           <span></span><span></span><span></span>
+        </button>
         <div class="avatar-wrap">
           <button class="avatar" id="avatar" title="Профиль">
             <span class="avatar-letter" id="avatarLetter">?</span>
@@ -98,8 +93,6 @@
 
     <!-- VIEW: Разделы -->
     <section class="view" id="view-files">
-
-      <!-- Экран 1: карточки предметов -->
       <div class="subjects-cards-view" id="subjects-cards-view">
         <div class="quick-head">
           <h2>Разделы</h2>
@@ -107,7 +100,6 @@
         <div class="subjects-cards" id="subjects-cards"></div>
       </div>
 
-      <!-- Экран 2: читалка -->
       <div class="reader-screen" id="reader-screen" style="display:none;">
         <div class="reader" id="reader">
           <div class="reader__panel">
@@ -119,7 +111,6 @@
                 </svg>
               </button>
               <div class="reader__subject" id="reader-subject-title"></div>
-
               <button type="button" class="reader-menu-btn" id="readerMenuBtn" aria-label="Настройки чтения" aria-expanded="false">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="3"></circle>
@@ -128,7 +119,8 @@
               </button>
             </div>
 
-<article class="reader__article" id="reader-article"></article>
+            <article class="reader__article" id="reader-article"></article>
+          </div>
         </div>
       </div>
     </section>
@@ -168,74 +160,64 @@
       </div>
     </section>
 
-  </main>
+  <!-- VIEW: Профиль -->
+  <section class="view" id="view-profile">
+    <div class="profile-page">
 
-  <!-- ================= ПРОФИЛЬ (модалка, поверх всего) ================= -->
-  <div class="profile-backdrop" id="profileBackdrop"></div>
+      <!-- ОДНА КАРТОЧКА: фон + аватар + имя + статус + группа + статистика -->
+      <div class="profile-card">
 
-  <div class="profile-pop" id="profilePop" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="profile-pop__head">
-      <span class="profile-pop__title">Профиль</span>
-      <button type="button" class="profile-pop__close" id="profileCloseBtn" aria-label="Закрыть">×</button>
-    </div>
-
-    <div class="profile-pop__body">
-
-      <!-- Просмотр имени -->
-      <div class="profile-name-row" id="profileNameRow" style="display: none;">
-        <span class="profile-name" id="profileNameDisplay"></span>
-        <button type="button" class="profile-edit-btn" id="editNameBtn" title="Изменить имя" aria-label="Изменить имя">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button type="button" class="profile-card__edit" id="editProfileBtn" title="Редактировать" aria-label="Редактировать профиль">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 20h9"></path>
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
           </svg>
         </button>
+
+        <div class="profile-card__avatar" id="profileHeroAvatar">
+          <span id="profileHeroLetter">?</span>
+        </div>
+
+        <h1 class="profile-card__name" id="profileNameDisplay">Профиль</h1>
+        <p class="profile-card__status" id="profileStatusDisplay">Статус не задан</p>
+        <span class="profile-card__group" id="profileGroupDisplay">Группа не выбрана</span>
       </div>
 
-      <!-- Редактирование имени -->
-      <div class="profile-edit" id="profileEdit">
-        <label for="nameInput">Твоё имя</label>
-        <input id="nameInput" type="text" placeholder="Например, Аня" maxlength="30" autocomplete="off">
-        <button class="btn-pop" id="saveNameBtn">Сохранить</button>
-      </div>
+      <!-- ПРОДОЛЖИТЬ -->
+      <button type="button" class="profile-continue is-hidden" id="continueBtn" aria-hidden="true" tabindex="-1">
+        <span class="profile-continue__icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+          </svg>
+        </span>
+        <span class="profile-continue__body">
+          <span class="profile-continue__label">Продолжить чтение</span>
+          <span class="profile-continue__title" id="continueLabel">—</span>
+        </span>
+        <span class="profile-continue__arrow">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </span>
+      </button>
 
-      <!-- Статус -->
-      <div class="profile-status">
-        <label for="statusInput">Статус</label>
-        <input id="statusInput" type="text" placeholder="например, готов к коллоквиуму" maxlength="40" autocomplete="off">
-      </div>
+      <!-- ДЕЙСТВИЯ -->
+      <div class="profile-actions">
 
-      <!-- Группа -->
-      <div class="profile-group">
-        <label for="groupSelect">Группа</label>
-        <select id="groupSelect">
-          <option value="">— не выбрана —</option>
-        </select>
-      </div>
-
-      <!-- Цвет аватарки -->
-      <div class="profile-color">
-        <span class="profile-color__label">Цвет аватарки</span>
-        <div class="profile-color__palette" id="avatarPalette"></div>
-      </div>
-
-      <!-- Сетка карточек -->
-      <div class="profile-grid">
-
-        <!-- Поиск -->
-        <button type="button" class="profile-tile" id="searchToggle" data-tile="search">
-          <span class="profile-tile__icon">
+        <button type="button" class="action-circle" id="searchToggle" aria-label="Поиск">
+          <span class="action-circle__icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="7"></circle>
               <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
             </svg>
           </span>
-          <span class="profile-tile__label">Поиск по темам</span>
+          <span class="action-circle__label">Поиск</span>
         </button>
 
-        <!-- Принять ДЗ -->
-        <button type="button" class="profile-tile" id="qrShowBtn" data-tile="qr-show">
-          <span class="profile-tile__icon">
+        <button type="button" class="action-circle" id="qrShowBtn" aria-label="Принять ДЗ">
+          <span class="action-circle__icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="7" height="7"></rect>
               <rect x="14" y="3" width="7" height="7"></rect>
@@ -243,12 +225,11 @@
               <rect x="3" y="14" width="7" height="7"></rect>
             </svg>
           </span>
-          <span class="profile-tile__label">Принять ДЗ</span>
+          <span class="action-circle__label">Принять</span>
         </button>
 
-        <!-- Отдать ДЗ -->
-        <button type="button" class="profile-tile" id="qrScanBtn" data-tile="qr-scan">
-          <span class="profile-tile__icon">
+        <button type="button" class="action-circle" id="qrScanBtn" aria-label="Отдать ДЗ">
+          <span class="action-circle__icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
               <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
@@ -257,12 +238,11 @@
               <line x1="7" y1="12" x2="17" y2="12"></line>
             </svg>
           </span>
-          <span class="profile-tile__label">Отдать ДЗ</span>
+          <span class="action-circle__label">Отдать</span>
         </button>
 
-        <!-- Лекции на неделю -->
-        <button type="button" class="profile-tile" id="lectureToggle" data-tile="lecture">
-          <span class="profile-tile__icon">
+        <button type="button" class="action-circle" id="lectureToggle" aria-label="Лекции">
+          <span class="action-circle__icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
               <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -270,88 +250,47 @@
               <line x1="3" y1="10" x2="21" y2="10"></line>
             </svg>
           </span>
-          <span class="profile-tile__label">Лекции</span>
+          <span class="action-circle__label">Лекции</span>
         </button>
 
-        <!-- Уведомления -->
-        <button type="button" class="profile-tile" id="notifyToggle" data-tile="notify">
-          <span class="profile-tile__icon">
+        <button type="button" class="action-circle" id="notifyToggle" aria-label="Уведомления">
+          <span class="action-circle__icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
             </svg>
           </span>
-          <span class="profile-tile__label">Уведомления</span>
-          <span class="profile-tile__badge" id="notifyBadge" style="display: none;"></span>
+          <span class="action-circle__label">Уведомл.</span>
+          <span class="action-circle__badge" id="notifyBadge" style="display: none;"></span>
         </button>
-      <!-- Продолжить чтение -->
-      <button type="button" class="profile-tile is-hidden" id="continueBtn" data-tile="continue" aria-hidden="true" tabindex="-1">
-        <span class="profile-tile__icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-          </svg>
-        </span>
-        <span class="profile-tile__label" id="continueLabel">Продолжить</span>
-      </button>
-      <!-- Архив -->
-      <button type="button" class="profile-tile" id="archiveTile" data-tile="archive">
-        <span class="profile-tile__icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="21 8 21 21 3 21 3 8"></polyline>
-            <rect x="1" y="3" width="22" height="5"></rect>
-            <line x1="10" y1="12" x2="14" y2="12"></line>
-          </svg>
-        </span>
-        <span class="profile-tile__label">Архив</span>
-      </button>
 
-      </div>  <!-- .profile-grid -->
+        <button type="button" class="action-circle" id="archiveTile" aria-label="Архив">
+          <span class="action-circle__icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="21 8 21 21 3 21 3 8"></polyline>
+              <rect x="1" y="3" width="22" height="5"></rect>
+              <line x1="10" y1="12" x2="14" y2="12"></line>
+            </svg>
+          </span>
+          <span class="action-circle__label">Архив</span>
+        </button>
 
-      <!-- Раскрывающиеся панели -->
-      <div class="profile-panels">
-        <div class="pop-search__field" id="searchField">
-          <input id="searchInput" type="text" placeholder="Название темы или предмета…" autocomplete="off">
-          <div class="pop-search__results" id="searchResults"></div>
-        </div>
-
-        <div class="pop-lecture__info" id="lectureInfo"></div>
-
-        <div class="pop-notify__list" id="notifyList">
-          <div class="notify-dev-list" id="notifyDevList"></div>
-          <div class="notify-auto-list" id="notifyAutoList"></div>
-        </div>
-      </div>
-
-      <!-- Тема -->
-      <div class="profile-theme">
-        <div class="profile-theme__label">Ты любишь змей?</div>
-        <div class="theme-seg" role="tablist" aria-label="Тема">
-          <button type="button" class="theme-seg__btn" data-mode="auto" role="tab" aria-selected="false">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button type="button" class="action-circle" id="themeToggleBtn" aria-label="Переключить тему">
+          <span class="action-circle__icon" id="themeToggleIcon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="9"></circle>
               <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"></path>
             </svg>
-            Авто
-          </button>
-          <button type="button" class="theme-seg__btn" data-mode="light" role="tab" aria-selected="false">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4"></circle>
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-            </svg>
-            Нет
-          </button>
-          <button type="button" class="theme-seg__btn" data-mode="dark" role="tab" aria-selected="false">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-            Да
-          </button>
-        </div>
-      </div>
+          </span>
+          <span class="action-circle__label" id="themeToggleLabel">Авто</span>
+        </button>
 
-    </div>
-  </div>
+      </div><!-- /.profile-actions -->
+
+    </div><!-- /.profile-page -->
+  </section><!-- /#view-profile -->
+
+  </main>
 
   <!-- ================= МОДАЛКИ QR ================= -->
   <div class="qr-modal" id="qrShowModal">
@@ -362,24 +301,25 @@
       <button type="button" class="qr-modal__close" id="qrShowClose">Закрыть</button>
     </div>
   </div>
-<!-- ================= МОДАЛКА ИНСТРУКЦИИ ПЕРЕД QR ================= -->
-<div class="qr-modal" id="syncInfoModal">
-  <div class="qr-modal__box">
-    <h3 class="qr-modal__title">Перенос заданий</h3>
-    <p class="qr-modal__sub">
-      Сейчас откроется QR-код. Отсканируйте его телефоном, чтобы передать задания с телефона на этот компьютер.
-    </p>
-    <ul class="sync-info-list">
-      <li>Убедитесь, что на телефоне открыт doro и есть задания.</li>
-      <li>Держите телефон рядом с экраном компьютера.</li>
-      <li>Перенос возможен один раз в день.</li>
-    </ul>
-    <div class="qr-modal__actions">
-      <button type="button" class="qr-modal__close" id="syncInfoCancel">Отмена</button>
-      <button type="button" class="qr-modal__close" id="syncInfoContinue">Продолжить</button>
+
+  <div class="qr-modal" id="syncInfoModal">
+    <div class="qr-modal__box">
+      <h3 class="qr-modal__title">Перенос заданий</h3>
+      <p class="qr-modal__sub">
+        Сейчас откроется QR-код. Отсканируйте его телефоном, чтобы передать задания с телефона на этот компьютер.
+      </p>
+      <ul class="sync-info-list">
+        <li>Убедитесь, что на телефоне открыт doro и есть задания.</li>
+        <li>Держите телефон рядом с экраном компьютера.</li>
+        <li>Перенос возможен один раз в день.</li>
+      </ul>
+      <div class="qr-modal__actions">
+        <button type="button" class="qr-modal__close" id="syncInfoCancel">Отмена</button>
+        <button type="button" class="qr-modal__close" id="syncInfoContinue">Продолжить</button>
+      </div>
     </div>
   </div>
-</div>
+
   <div class="qr-modal" id="qrScanModal">
     <div class="qr-modal__box">
       <h3 class="qr-modal__title">Сканировать QR</h3>
@@ -394,7 +334,6 @@
   </div>
 
   <div class="reader-pop" id="readerPop">
-    <!-- ================= НАСТРОЙКИ ЧТЕНИЯ (сверху) ================= -->
     <aside class="reader-settings" id="readerSettings" aria-hidden="true">
       <div class="reader-settings__head">
         <span class="reader-settings__title">Настройки чтения</span>
@@ -403,7 +342,6 @@
 
       <div class="reader-settings__body">
 
-        <!-- Размер шрифта -->
         <div class="rs-section">
           <div class="rs-section__label">
             Размер шрифта
@@ -411,21 +349,11 @@
           </div>
           <div class="rs-font">
             <span class="rs-font__edge rs-font__edge--min" aria-hidden="true">A</span>
-            <input
-              type="range"
-              class="rs-font__range"
-              id="fontRange"
-              min="0"
-              max="10"
-              step="1"
-              value="8"
-              aria-label="Размер шрифта"
-            >
+            <input type="range" class="rs-font__range" id="fontRange" min="0" max="10" step="1" value="8" aria-label="Размер шрифта">
             <span class="rs-font__edge rs-font__edge--max" aria-hidden="true">A</span>
           </div>
         </div>
 
-        <!-- Отступы по бокам -->
         <div class="rs-section rs-section--pad">
           <div class="rs-section__label">Отступы по бокам</div>
           <div class="rs-pad">
@@ -436,7 +364,6 @@
           </div>
         </div>
 
-        <!-- Плотность -->
         <div class="rs-section">
           <div class="rs-section__label">Плотность</div>
           <div class="rs-compact">
@@ -445,7 +372,6 @@
           </div>
         </div>
 
-        <!-- Тема -->
         <div class="rs-section">
           <div class="rs-section__label">Тема</div>
           <div class="rs-theme">
@@ -458,26 +384,90 @@
       </div>
     </aside>
 
-    <!-- ================= ВСЕ ТЕМЫ (снизу) ================= -->
     <aside class="reader-topics" id="readerTopics" aria-hidden="true">
       <div class="reader-topics__head">
         <span class="reader-topics__title">Все темы</span>
-        <button type="button" class="reader-topics__expand" id="readerTopicsExpand" aria-label="Показать все темы" aria-expanded="false" title="Показать все темы">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
       </div>
       <div class="reader-topics__body">
         <div class="reader-topics__list" id="readerTopicsList"></div>
       </div>
     </aside>
   </div>
+<!-- Шторка редактирования профиля -->
+<div class="profile-sheet" id="profileSheet" aria-hidden="true">
+  <div class="profile-sheet__backdrop" id="profileSheetBackdrop"></div>
+  <div class="profile-sheet__box" role="dialog" aria-modal="true" aria-labelledby="profileSheetTitle">
+    <div class="profile-sheet__head">
+      <span class="profile-sheet__title" id="profileSheetTitle">Редактировать профиль</span>
+      <button type="button" class="profile-sheet__close" id="profileSheetClose" aria-label="Закрыть">×</button>
+    </div>
+    <div class="profile-sheet__body">
+      <label class="profile-sheet__label" for="nameInput">Твоё имя</label>
+      <input id="nameInput" type="text" placeholder="Например, Аня" maxlength="30" autocomplete="off">
 
-  <!-- Бэкдроп настроек (нужен скрипту) -->
+      <span class="profile-sheet__label">Статус</span>
+      <div class="status-picker" id="statusPicker">
+        <button type="button" class="status-picker__trigger" id="statusTrigger" aria-haspopup="listbox" aria-expanded="false">
+          <span class="status-picker__value" id="statusTriggerValue">— не задан —</span>
+          <svg class="status-picker__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        <ul class="status-picker__menu" id="statusMenu" role="listbox" tabindex="-1">
+          <li class="status-picker__item" role="option" data-value="" aria-selected="true">
+            <span>— не задан —</span>
+          </li>
+          <li class="status-picker__item" role="option" data-value="готов к коллоквиуму">
+            <span>готов к коллоквиуму</span>
+          </li>
+          <li class="status-picker__item" role="option" data-value="учусь, не мешайте">
+            <span>учусь, не мешайте</span>
+          </li>
+          <li class="status-picker__item" role="option" data-value="всё горит 🔥">
+            <span>всё горит 🔥</span>
+          </li>
+          <li class="status-picker__item" role="option" data-value="на связи">
+            <span>на связи</span>
+          </li>
+          <li class="status-picker__item" role="option" data-value="сплю, но не долго">
+            <span>сплю, но не долго</span>
+          </li>
+        </ul>
+      </div>
+
+      <label class="profile-sheet__label" for="groupSelect">Группа</label>
+      <select id="groupSelect">
+        <option value="">— не выбрана —</option>
+      </select>
+
+      <span class="profile-sheet__label">Цвет аватарки</span>
+      <div class="profile-color__palette" id="avatarPalette"></div>
+    </div>
+    <div class="profile-sheet__foot">
+      <button type="button" class="profile-btn profile-btn--primary" id="saveNameBtn">Сохранить</button>
+    </div>
+  </div>
+</div>
   <div class="reader-settings-backdrop" id="readerSettingsBackdrop"></div>
+  <!-- ================= МОДАЛКА ПАНЕЛЕЙ ПРОФИЛЯ ================= -->
+  <div class="profile-pop" id="profilePop" aria-hidden="true">
+    <div class="profile-pop__backdrop" id="profilePopBackdrop"></div>
+    <div class="profile-pop__box" role="dialog" aria-modal="true">
+      <button type="button" class="profile-pop__close" id="profilePopClose" aria-label="Закрыть">×</button>
 
-  <!-- ================= СКРИПТЫ ================= -->
+      <div class="pop-search__field" id="searchField">
+        <input id="searchInput" type="text" placeholder="Название темы или предмета…" autocomplete="off">
+        <div class="pop-search__results" id="searchResults"></div>
+      </div>
+      <div class="pop-lecture__info" id="lectureInfo"></div>
+      <div class="pop-notify__list" id="notifyList">
+        <div class="notify-dev-list" id="notifyDevList"></div>
+        <div class="notify-auto-list" id="notifyAutoList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="script.js"></script>

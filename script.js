@@ -2,11 +2,27 @@
 //  ДЕРЗКИЕ ПРИВЕТСТВИЯ (тёмная тема) — РАЗ В ДЕНЬ
 // ============================================================
 const DARK_GREETINGS = [
-  "О, {name}. Наконец-то.",
-  "Темно. Уютно. {name}.",
-  "{name}, ты в теме.",
-  "Ш-ш-ш, {name}…"
+  "Добрый вечер, {name}.",
+  "Спокойного вечера, {name}.",
+  "{name}, всё под контролем.",
+  "Тихо и по делу, {name}.",
+  "Вечер — хорошее время для практики, {name}."
 ];
+const LIGHT_GREETINGS = [
+  "Доброе утро, {name}!",
+  "Хорошего дня, {name}.",
+  "{name}, готовы к работе?",
+  "Продуктивного дня, {name}.",
+  "Всё по плану, {name}."
+];
+
+function pickLightGreeting(name) {
+  const n = name || "друг";
+  // выбираем стабильно по дню, чтобы не «прыгало» каждую секунду
+  const day = Math.floor(Date.now() / 86400000);
+  const idx = day % LIGHT_GREETINGS.length;
+  return LIGHT_GREETINGS[idx].replace(/\{name\}/g, n);
+}
 
 const DARK_GREET_KEY = 'doro.darkGreeting';
 
@@ -85,7 +101,6 @@ const subjects = {
         date: "2026-10-04",
         file: "content/physio/1.5.md"
       },
-
       {
         num: "2.2",
         title: "Нервная регуляция вегетативных функций. Физиологические свойства и особенности вегетативной нервной системы, её клинико-физиологическая оценка",
@@ -185,7 +200,7 @@ const subjects = {
         file: "content/microbio/01.md"
       }
     ]
-  },
+  }
 };
 
 const schedule = {
@@ -194,7 +209,7 @@ const schedule = {
     { time: "10:40–13:05", title: "Биохимия", subjectKey: "biochem", room: "305 каб.", teacher: "Волобой Нина Леонидовна" }
   ],
   "ВТ": [
-    { time: "8:00–9:30", title: "ОМиПК", subjectKey: "microbio", subgroups: [{ label: "А", room: "48 каб.", teacher: "Старчикова М.В." }, { label: "Б", room: "43 каб.", teacher: "Кленова А.Ф." }] },
+    { time: "8:00–9:30", title: "ОМиПК", subjectKey: "omipk", subgroups: [{ label: "А", room: "48 каб.", teacher: "Старчикова М.В." }, { label: "Б", room: "43 каб.", teacher: "Кленова А.Ф." }] },
     { time: "9:40–11:10", title: "Биоэтика", subjectKey: "bioethics", subgroups: [{ label: "А", room: "53 каб.", teacher: "Кочетова Ю.Ю." }, { label: "Б", room: "55 каб.", teacher: "Вольферц М.В." }] }
   ],
   "СР": [
@@ -303,19 +318,6 @@ function findNextLessonDate(subjectKey, fromDate) {
     if (dow === 0 || dow === 6) continue;
     const lessons = dayMap[dow] || [];
     if (!lessons.some(l => l.subjectKey === subjectKey)) continue;
-
-    if (i === 0) {
-      const now = new Date();
-      const lesson = lessons.find(l => l.subjectKey === subjectKey);
-      const parts = lesson.time.split(/[–-]/);
-      const endPart = parts[1] ? parts[1].trim() : '';
-      const m = endPart.match(/(\d{1,2}):(\d{2})/);
-      if (m) {
-        const endDate = new Date(d);
-        endDate.setHours(parseInt(m[1], 10), parseInt(m[2], 10), 0, 0);
-        if (now > endDate) continue;
-      }
-    }
     return d;
   }
   return null;
@@ -334,33 +336,25 @@ function toDateKey(d) {
 // ============================================================
 //  MARKDOWN-РЕНДЕР ДЛЯ ТЕМ
 // ============================================================
-// ============================================================
-//  MARKDOWN-РЕНДЕР ДЛЯ ТЕМ (расширенный, без библиотек)
-// ============================================================
 function renderTopicContent(raw) {
   if (!raw) return '<p class="reader__empty">Файл темы пуст.</p>';
 
-  // Если файл — уже готовый HTML (легаси), отдаём как есть
   const looksLikeHtml = /<\w+[\s>]/.test(raw) && !/^#{1,6}\s/m.test(raw) && !/^\s*[-*+]\s/m.test(raw);
   if (looksLikeHtml) return raw;
 
   const lines = raw.replace(/\r\n?/g, '\n').split('\n');
   const out = [];
 
-  // ---------- состояние парсера ----------
   let inCode = false;
   let codeBuf = [];
   let codeLang = '';
-  let inList = null;            // 'ul' | 'ol' | null
-  let olCounter = 0;            // счётчик для продолжения нумерации между отдельными <ol>
-  let listStack = [];           // [{type, indent}]
+  let listStack = [];
   let para = [];
   let blockquoteBuf = [];
   let inBlockquote = false;
-  let refDefs = {};             // сноски: { '1': 'текст' }
+  let refDefs = {};
   let footnotesOrder = [];
 
-  // ---------- вспомогательные ----------
   const flushPara = () => {
     if (para.length) {
       out.push('<p>' + inlineMd(para.join(' ')) + '</p>');
@@ -369,13 +363,11 @@ function renderTopicContent(raw) {
   };
   const flushList = () => {
     while (listStack.length) out.push(`</${listStack.pop().type}>`);
-    inList = null;
   };
   const flushBlockquote = () => {
     if (!inBlockquote) return;
     const text = blockquoteBuf.join('\n').trim();
     if (text) {
-      // Внутри цитаты — рекурсивно рендерим как обычный markdown, но без <blockquote>
       const inner = renderTopicContentInline(text);
       out.push('<blockquote>' + inner + '</blockquote>');
     }
@@ -384,11 +376,9 @@ function renderTopicContent(raw) {
   };
   const flushAll = () => { flushPara(); flushList(); flushBlockquote(); };
 
-  // ---------- inline-разметка ----------
   function inlineMd(s) {
     if (s == null) return '';
 
-    // 1. Прячем разрешённые HTML-теги в плейсхолдеры
     const PH = {
       BR:    '\u0000BR\u0000',
       NBSP:  '\u0000NBSP\u0000',
@@ -414,16 +404,11 @@ function renderTopicContent(raw) {
       .replace(/<del>/gi, PH.DEL_O).replace(/<\/del>/gi, PH.DEL_C)
       .replace(/<kbd>/gi, PH.KBD_O).replace(/<\/kbd>/gi, PH.KBD_C)
       .replace(/<abbr\s+title="([^"]*)">/gi, (_, t) => PH.ABBR_T + t + '\u0000')
-      .replace(/<abbr>/gi, PH.ABBR_O + '\u0000' + PH.ABBR_C) // без title
+      .replace(/<abbr>/gi, PH.ABBR_O + '\u0000' + PH.ABBR_C)
       .replace(/<\/abbr>/gi, PH.ABBR_C);
 
-    // 2. Экранируем всё остальное (XSS-защита)
-    s = s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    // 3. Инлайн-код `...` — прячем, чтобы внутри не срабатывал markdown
     const codeSpans = [];
     s = s.replace(/`([^`]+)`/g, (_, code) => {
       const idx = codeSpans.length;
@@ -431,7 +416,6 @@ function renderTopicContent(raw) {
       return `\u0000CODE${idx}\u0000`;
     });
 
-    // 4. Markdown-разметка
     s = s
       .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -439,22 +423,17 @@ function renderTopicContent(raw) {
       .replace(/~~(.+?)~~/g, '<del>$1</del>')
       .replace(/==(.+?)==/g, '<mark>$1</mark>');
 
-    // 5. Картинки → ссылки (картинки могут быть опасны; оставляем как ссылки)
     s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">🖼 $1</a>');
-    // Обычные ссылки
     s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 
-    // 6. Сноски [^1]
     s = s.replace(/\[\^([^\]]+)\]/g, (_, id) => {
       if (!footnotesOrder.includes(id)) footnotesOrder.push(id);
       const idx = footnotesOrder.indexOf(id) + 1;
       return `<sup class="reader__footnote-ref" data-fn="${id}">[${idx}]</sup>`;
     });
 
-    // 7. Возвращаем инлайн-код
     s = s.replace(/\u0000CODE(\d+)\u0000/g, (_, i) => '<code>' + codeSpans[+i] + '</code>');
 
-    // 8. Возвращаем разрешённые теги
     s = s
       .replace(new RegExp(PH.BR, 'g'), '<br>')
       .replace(new RegExp(PH.NBSP, 'g'), '&nbsp;')
@@ -466,16 +445,13 @@ function renderTopicContent(raw) {
       .replace(new RegExp(PH.DEL_O, 'g'), '<del>').replace(new RegExp(PH.DEL_C, 'g'), '</del>')
       .replace(new RegExp(PH.KBD_O, 'g'), '<kbd>').replace(new RegExp(PH.KBD_C, 'g'), '</kbd>');
 
-    // abbr с title — отдельно, т.к. формат сложнее
-    s = s.replace(/\u0000ABBRO\u0000\u0000ABBRT\u0000([^\u0000]*)\u0000/g,
-                  '<abbr title="$1">');
+    s = s.replace(/\u0000ABBRO\u0000\u0000ABBRT\u0000([^\u0000]*)\u0000/g, '<abbr title="$1">');
     s = s.replace(new RegExp(PH.ABBR_O, 'g'), '<abbr>');
     s = s.replace(new RegExp(PH.ABBR_C, 'g'), '</abbr>');
 
     return s;
   }
 
-  // Упрощённый inline-рендер для вложенных блоков (цитат)
   function renderTopicContentInline(text) {
     const subLines = text.split('\n');
     const subOut = [];
@@ -493,13 +469,9 @@ function renderTopicContent(raw) {
     return subOut.join('\n');
   }
 
-  // ============================================================
-  //  ГЛАВНЫЙ ЦИКЛ
-  // ============================================================
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
 
-    // ---------- Код-блок ``` ----------
     if (/^\s*```(\w*)\s*$/.test(line)) {
       if (inCode) {
         const cls = codeLang ? ` class="language-${codeLang}"` : '';
@@ -514,7 +486,6 @@ function renderTopicContent(raw) {
     }
     if (inCode) { codeBuf.push(line); continue; }
 
-    // ---------- Определения сносок: [^1]: текст ----------
     let fnDef = line.match(/^\[\^([^\]]+)\]:\s*(.*)$/);
     if (fnDef) {
       flushAll();
@@ -522,20 +493,12 @@ function renderTopicContent(raw) {
       continue;
     }
 
-    // ---------- Пустая строка ----------
-    if (!line.trim()) {
-      // Не закрываем список на пустой строке — пусть продолжается.
-      // Список закроется сам, когда встретим не-список.
-      flushPara();
-      continue;
-    }
+    if (!line.trim()) { flushPara(); continue; }
 
-    // ---------- Цитата (многострочная) ----------
     if (/^>\s?/.test(line)) {
       flushPara(); flushList();
       if (!inBlockquote) { inBlockquote = true; blockquoteBuf = []; }
       blockquoteBuf.push(line.replace(/^>\s?/, ''));
-      // Если следующая строка не цитата — закрываем блок
       if (i + 1 >= lines.length || !/^>\s?/.test(lines[i + 1])) {
         flushBlockquote();
       }
@@ -544,14 +507,12 @@ function renderTopicContent(raw) {
       flushBlockquote();
     }
 
-    // ---------- Горизонтальная линия ----------
     if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) {
       flushAll();
       out.push('<div class="reader__gap"></div>');
       continue;
     }
 
-    // ---------- Таблица ----------
     if (/^\s*\|.*\|\s*$/.test(line) &&
         i + 1 < lines.length &&
         /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1])) {
@@ -580,7 +541,6 @@ function renderTopicContent(raw) {
       continue;
     }
 
-    // ---------- Заголовки ----------
     let m = line.match(/^(#{1,6})\s+(.*)$/);
     if (m) {
       flushAll();
@@ -589,14 +549,12 @@ function renderTopicContent(raw) {
       continue;
     }
 
-    // ---------- Чек-бокс: - [ ] / - [x] ----------
     m = line.match(/^(\s*)[-*+]\s+\[([ xX])\]\s+(.*)$/);
     if (m) {
       flushPara();
       const indent = m[1].length;
       const checked = m[2].toLowerCase() === 'x';
       const text = m[3];
-      // Открываем ul, если нужно
       if (listStack.length === 0) {
         out.push('<ul class="reader__checklist">');
         listStack.push({ type: 'ul', indent });
@@ -610,7 +568,6 @@ function renderTopicContent(raw) {
       continue;
     }
 
-    // ---------- Списки (с вложенностью) ----------
     m = line.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/);
     if (m) {
       flushPara(); flushBlockquote();
@@ -618,18 +575,14 @@ function renderTopicContent(raw) {
       const isOrdered = /^\d/.test(m[2]);
       const type = isOrdered ? 'ol' : 'ul';
 
-      // Закрываем списки, которые глубже текущего уровня
       while (listStack.length && listStack[listStack.length - 1].indent > indent) {
         out.push(`</${listStack.pop().type}>`);
       }
-      // Если такого же типа/уровня ещё нет — открываем новый
       const last = listStack[listStack.length - 1];
       if (!last || last.indent < indent) {
-        // новый вложенный уровень
         out.push(`<${type}>`);
         listStack.push({ type, indent });
       } else if (last.type !== type) {
-        // сменили тип на том же уровне
         out.push(`</${listStack.pop().type}>`);
         out.push(`<${type}>`);
         listStack.push({ type, indent });
@@ -638,21 +591,17 @@ function renderTopicContent(raw) {
       out.push('<li>' + inlineMd(m[3]) + '</li>');
       continue;
     }
-    // Строка не список — закрываем списки
     if (listStack.length) flushList();
 
-    // ---------- Обычный параграф ----------
     para.push(line.trim());
   }
 
-  // ---------- Финализация ----------
   flushAll();
   if (inCode && codeBuf.length) {
     const cls = codeLang ? ` class="language-${codeLang}"` : '';
     out.push('<pre><code' + cls + '>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>');
   }
 
-  // ---------- Сноски внизу ----------
   if (footnotesOrder.length) {
     let fnHtml = '<div class="reader__footnotes"><hr><ol>';
     footnotesOrder.forEach(id => {
@@ -671,69 +620,67 @@ function renderTopicContent(raw) {
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
 
-  // ---------- ЭЛЕМЕНТЫ ----------
-  const avatar = document.getElementById('avatar');
-  const profilePop = document.getElementById('profilePop');
-  const profileNameRow = document.getElementById('profileNameRow');
-  const profileEdit = document.getElementById('profileEdit');
-  const profileNameDisplay = document.getElementById('profileNameDisplay');
-  const nameInput = document.getElementById('nameInput');
-  const editNameBtn = document.getElementById('editNameBtn');
-  const saveNameBtn = document.getElementById('saveNameBtn');
-  const greetTitle = document.getElementById('greetTitle');
-  const greetDate = document.getElementById('greetDate');
+  // ---------- ХЕЛПЕР ----------
+  const $ = (id) => document.getElementById(id);
 
-  const burger = document.getElementById('burger');
-  const nav = document.getElementById('nav');
+  // ---------- ЭЛЕМЕНТЫ ----------
+  const avatar = $('avatar');
+  const profileSheet = $('profileSheet');
+  const profileSheetBackdrop = $('profileSheetBackdrop');
+  const profileSheetClose = $('profileSheetClose');
+  const editProfileBtn = $('editProfileBtn');
+  const profileNameDisplay = $('profileNameDisplay');
+  const nameInput = $('nameInput');
+  const saveNameBtn = $('saveNameBtn');
+  const greetTitle = $('greetTitle');
+  const greetDate = $('greetDate');
+
+  const burger = $('burger');
+  const nav = $('nav');
 
   const themeSegBtns = document.querySelectorAll('.theme-seg__btn');
   const rsThemeBtns  = document.querySelectorAll('.rs-theme__btn');
 
-  const calendarEl = document.getElementById('calendar');
-  const lessonsEl = document.getElementById('lessons');
+  const calendarEl = $('calendar');
+  const lessonsEl = $('lessons');
 
-  const searchToggle = document.getElementById('searchToggle');
-  const searchField = document.getElementById('searchField');
-  const searchInput = document.getElementById('searchInput');
-  const searchResults = document.getElementById('searchResults');
-  const notifyToggle = document.getElementById('notifyToggle');
-  const notifyList = document.getElementById('notifyList');
-  const notifyBadge = document.getElementById('notifyBadge');
-  const avatarBadge = document.getElementById('avatarBadge');
+  const searchToggle = $('searchToggle');
+  const searchField = $('searchField');
+  const searchInput = $('searchInput');
+  const searchResults = $('searchResults');
+  const notifyToggle = $('notifyToggle');
+  const notifyList = $('notifyList');
+  const notifyBadge = $('notifyBadge');
+  const avatarBadge = $('avatarBadge');
 
-  const lectureToggle = document.getElementById('lectureToggle');
-  const lectureInfo = document.getElementById('lectureInfo');
+  const lectureToggle = $('lectureToggle');
+  const lectureInfo = $('lectureInfo');
 
-  // Разделы — карточки
-  const subjectsCards = document.getElementById('subjects-cards');
-  const subjectsCardsView = document.getElementById('subjects-cards-view');
+  const subjectsCards = $('subjects-cards');
+  const subjectsCardsView = $('subjects-cards-view');
 
-  // Читалка
-  const readerScreen = document.getElementById('reader-screen');
-  const readerBack = document.getElementById('readerBack');
+  const readerScreen = $('reader-screen');
+  const readerBack = $('readerBack');
   const readerPanel = document.querySelector('#reader .reader__panel');
-  const readerArticle = document.getElementById('reader-article');
-  const readerSubjectTitle = document.getElementById('reader-subject-title');
-  let readerTabs = document.getElementById('readerTabs');
+  const readerArticle = $('reader-article');
+  const readerSubjectTitle = $('reader-subject-title');
+  let readerTabs = $('readerTabs');
 
-  // Панель «Настройки чтения»
-  const readerMenuBtn = document.getElementById('readerMenuBtn');
-  const readerSettings = document.getElementById('readerSettings');
-  const readerSettingsClose = document.getElementById('readerSettingsClose');
-  const readerSettingsBackdrop = document.getElementById('readerSettingsBackdrop');
-  const fontMinus = document.getElementById('fontMinus');
-  const fontPlus = document.getElementById('fontPlus');
-  const fontValue = document.getElementById('fontValue');
+  const readerMenuBtn = $('readerMenuBtn');
+  const readerSettings = $('readerSettings');
+  const readerSettingsClose = $('readerSettingsClose');
+  const readerSettingsBackdrop = $('readerSettingsBackdrop');
+  const fontValue = $('fontValue');
   const rsCompactBtns = document.querySelectorAll('.rs-compact__btn');
 
-  // Views
   const views = {
-    home:  document.getElementById('view-home'),
-    files: document.getElementById('view-files'),
-    links: document.getElementById('view-links'),
-    tasks: document.getElementById('view-tasks')
+    home:    $('view-home'),
+    files:   $('view-files'),
+    links:   $('view-links'),
+    tasks:   $('view-tasks'),
+    profile: $('view-profile')
   };
-  const rendered = { home: false, files: false, links: false, tasks: false };
+  const rendered = { home: false, files: false, links: false, tasks: false, profile: false };
 
   let currentSubjectKey = null;
   let currentTopicMeta = null;
@@ -774,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (theme === 'dark') {
       greetTitle.textContent = pickDarkGreeting(user && user.name ? user.name : null);
     } else {
-      greetTitle.textContent = user && user.name ? `Привет, ${user.name}!` : 'Привет!';
+      greetTitle.textContent = pickLightGreeting(user && user.name ? user.name : null);
     }
   }
   function applyTheme(theme) {
@@ -823,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let snakeTimers = { theme: null, cleanup: null };
   function runSnakeTransition(nextTheme) {
-    const island = document.getElementById('island');
+    const island = $('island');
     if (!island) { applyTheme(nextTheme); return; }
     if (snakeTimers.theme) clearTimeout(snakeTimers.theme);
     if (snakeTimers.cleanup) clearTimeout(snakeTimers.cleanup);
@@ -858,31 +805,217 @@ document.addEventListener('DOMContentLoaded', () => {
   rsThemeBtns.forEach(btn => {
     btn.addEventListener('click', () => handleThemeChange(btn.dataset.mode));
   });
+
+  // ---------- КНОПКА ТЕМЫ В ПРОФИЛЕ ----------
+  const themeToggleBtn = $('themeToggleBtn');
+  const themeToggleLabel = $('themeToggleLabel');
+  const themeToggleIcon = $('themeToggleIcon');
+
+  const THEME_CYCLE = ['auto', 'light', 'dark'];
+
+  const THEME_LABELS = {
+    auto: 'Авто',
+    light: 'Светлая',
+    dark: 'Тёмная'
+  };
+
+  const THEME_ICONS = {
+    auto: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"></path></svg>',
+    light: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>',
+    dark: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'
+  };
+
+  function paintThemeToggleBtn() {
+    if (!themeToggleBtn) return;
+    const mode = getThemeMode();
+    if (themeToggleLabel) themeToggleLabel.textContent = THEME_LABELS[mode];
+    if (themeToggleIcon) themeToggleIcon.innerHTML = THEME_ICONS[mode];
+    themeToggleBtn.setAttribute('aria-label', 'Тема: ' + THEME_LABELS[mode] + '. Нажмите, чтобы переключить');
+  }
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const current = getThemeMode();
+      const idx = THEME_CYCLE.indexOf(current);
+      const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+      handleThemeChange(next);
+      paintThemeToggleBtn();
+    });
+  }
+
+  // Перекрашиваем кнопку при любой смене темы (в т.ч. из reader)
+  const origSyncAllThemeSwitchers = syncAllThemeSwitchers;
+  // Переопределять функцию не надо — просто вызываем paint там, где меняется тема.
+  // Легче подписаться на MutationObserver на <html data-theme>:
+  const themeObserver = new MutationObserver(() => {
+    paintThemeToggleBtn();
+  });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  paintThemeToggleBtn();
+
   syncAllThemeSwitchers();
 
   // ---------- БУРГЕР ----------
-  if (burger && nav) {
+  const isMobileNav = () => window.matchMedia('(max-width: 860px)').matches;
+
+  let navIslands = null;
+
+  function getIslandRect() {
+    const islandEl = $('island');
+    if (!islandEl) return null;
+    return islandEl.getBoundingClientRect();
+  }
+
+  function positionNavIslands() {
+    if (!navIslands) return;
+    const rect = getIslandRect();
+    if (!rect) return;
+    const wrap = navIslands;
+    wrap.style.top = rect.top + 'px';
+    wrap.style.left = rect.left + 'px';
+    wrap.style.right = 'auto';
+    wrap.style.width = rect.width + 'px';
+    wrap.style.padding = '0';
+    const first = wrap.querySelector('.nav-island--first');
+    if (first) first.style.minHeight = rect.height + 'px';
+    wrap.querySelectorAll('.nav-island:not(.nav-island--first)').forEach(el => {
+      el.style.minHeight = rect.height + 'px';
+    });
+  }
+
+  function buildNavIslands() {
+    if (navIslands) return navIslands;
+    if (!nav) return null;
+    const links = Array.from(nav.querySelectorAll('a[data-view]'));
+    if (!links.length) return null;
+
+    navIslands = document.createElement('div');
+    navIslands.className = 'nav-islands';
+    navIslands.setAttribute('aria-hidden', 'true');
+    navIslands.style.display = 'none';
+
+    links.forEach((link, idx) => {
+      const btn = document.createElement('a');
+      btn.href = '#';
+      btn.className =
+        'nav-island' +
+        (idx === 0 ? ' nav-island--first' : '') +
+        (link.classList.contains('active') ? ' active' : '');
+      btn.dataset.view = link.dataset.view;
+
+      btn.innerHTML =
+        '<span class="nav-island__title">' + link.textContent.trim() + '</span>';
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeNavIslands();
+        showView(btn.dataset.view);
+      });
+
+      navIslands.appendChild(btn);
+    });
+
+    document.body.appendChild(navIslands);
+    return navIslands;
+  }
+
+  function syncNavIslandsActive() {
+    if (!navIslands || !nav) return;
+    const activeView = nav.querySelector('a.active')?.dataset.view || 'home';
+    navIslands.querySelectorAll('.nav-island').forEach((el) => {
+      el.classList.toggle('active', el.dataset.view === activeView);
+    });
+  }
+
+  function openNavIslands() {
+    if (!isMobileNav()) return;
+    const el = buildNavIslands();
+    if (!el) return;
+
+    syncNavIslandsActive();
+
+    el.style.display = 'flex';
+    positionNavIslands();
+    void el.offsetWidth;
+
+    document.body.classList.add('nav-islands-active');
+    el.classList.add('is-open');
+    el.setAttribute('aria-hidden', 'false');
+
+    if (burger) burger.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeNavIslands() {
+    document.body.classList.remove('nav-islands-active');
+    if (burger) burger.setAttribute('aria-expanded', 'false');
+    if (!navIslands) return;
+
+    navIslands.classList.remove('is-open');
+    navIslands.setAttribute('aria-hidden', 'true');
+
+    window.setTimeout(() => {
+      if (navIslands && !navIslands.classList.contains('is-open')) {
+        navIslands.style.display = 'none';
+      }
+    }, 420);
+  }
+
+  function toggleNavIslands() {
+    if (!isMobileNav()) return;
+    if (navIslands && navIslands.classList.contains('is-open')) closeNavIslands();
+    else openNavIslands();
+  }
+
+  if (burger) {
     burger.addEventListener('click', (e) => {
       e.stopPropagation();
-      const open = nav.classList.toggle('nav--open');
-      burger.classList.toggle('burger--open', open);
-      burger.setAttribute('aria-expanded', String(open));
+      if (isMobileNav()) {
+        toggleNavIslands();
+      } else if (nav) {
+        const open = nav.classList.toggle('nav--open');
+        burger.classList.toggle('burger--open', open);
+        burger.setAttribute('aria-expanded', String(open));
+      }
     });
-    nav.querySelectorAll('a').forEach(a => {
+  }
+
+  document.addEventListener('click', (e) => {
+    if (navIslands && navIslands.classList.contains('is-open')) {
+      if (!navIslands.contains(e.target) && burger && !burger.contains(e.target)) {
+        closeNavIslands();
+      }
+    } else if (nav && nav.classList.contains('nav--open')) {
+      if (!nav.contains(e.target) && burger && !burger.contains(e.target)) {
+        nav.classList.remove('nav--open');
+        burger.classList.remove('burger--open');
+        burger.setAttribute('aria-expanded', 'false');
+      }
+    }
+  });
+
+  if (nav && burger) {
+    nav.querySelectorAll('a').forEach((a) => {
       a.addEventListener('click', () => {
         nav.classList.remove('nav--open');
         burger.classList.remove('burger--open');
         burger.setAttribute('aria-expanded', 'false');
       });
     });
-    document.addEventListener('click', (e) => {
-      if (!nav.contains(e.target) && !burger.contains(e.target)) {
-        nav.classList.remove('nav--open');
-        burger.classList.remove('burger--open');
-        burger.setAttribute('aria-expanded', 'false');
-      }
-    });
   }
+
+  window.addEventListener('resize', () => {
+    if (!isMobileNav()) {
+      closeNavIslands();
+    } else if (navIslands && navIslands.classList.contains('is-open')) {
+      positionNavIslands();
+    }
+  });
+  window.addEventListener('scroll', () => {
+    if (navIslands && navIslands.classList.contains('is-open')) {
+      positionNavIslands();
+    }
+  }, { passive: true });
 
   function getInitials(name) {
     if (!name) return '?';
@@ -900,122 +1033,153 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderProfile() {
-    const avatarLetter = document.getElementById('avatarLetter');
+    const avatarLetter = $('avatarLetter');
+    const heroLetter = $('profileHeroLetter');
+    const heroAvatar = $('profileHeroAvatar');
+    const statusDisplay = $('profileStatusDisplay');
+    const groupDisplay = $('profileGroupDisplay');
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
     if (user && user.name) {
-      if (avatarLetter) avatarLetter.textContent = getInitials(user.name);
+      const initials = getInitials(user.name);
+      if (avatarLetter) avatarLetter.textContent = initials;
+      if (heroLetter) heroLetter.textContent = initials;
       paintAvatar(user.color || '#3b82f6');
-      greetTitle.textContent = isDark ? pickDarkGreeting(user.name) : `Привет, ${user.name}!`;
-      profileNameDisplay.textContent = user.name;
-      nameInput.value = user.name;
-      profileNameRow.style.display = 'flex';
-      profileEdit.style.display = 'none';
+      if (greetTitle) greetTitle.textContent = isDark ? pickDarkGreeting(user.name) : pickLightGreeting(user.name);
+      if (profileNameDisplay) profileNameDisplay.textContent = user.name;
     } else {
       if (avatarLetter) avatarLetter.textContent = '?';
-      avatar.style.background = '';
-      avatar.style.color = '';
-      avatar.style.borderColor = '';
-      greetTitle.textContent = isDark ? pickDarkGreeting(null) : 'Привет!';
-      nameInput.value = '';
-      profileNameRow.style.display = 'none';
-      profileEdit.style.display = 'flex';
+      if (heroLetter) heroLetter.textContent = '?';
+      if (avatar) {
+        avatar.style.background = '';
+        avatar.style.color = '';
+        avatar.style.borderColor = '';
+      }
+      if (greetTitle) greetTitle.textContent = isDark ? pickDarkGreeting(null) : pickLightGreeting(null);
+      if (profileNameDisplay) profileNameDisplay.textContent = 'Профиль';
     }
 
-    // Статус и группа
-    const statusInput = document.getElementById('statusInput');
-    const groupSelect = document.getElementById('groupSelect');
-    if (statusInput) statusInput.value = user?.status || '';
-    if (groupSelect) groupSelect.value = user?.group || '';
-
-    // Палитра
-    const palette = document.getElementById('avatarPalette');
-    if (palette) {
-      const current = (user?.color || '#3b82f6').toLowerCase();
-      palette.querySelectorAll('.profile-color__swatch').forEach(btn => {
-        btn.setAttribute('aria-selected', btn.dataset.color.toLowerCase() === current ? 'true' : 'false');
-      });
+    if (heroAvatar) {
+      const c = user?.color || '#3b82f6';
+      heroAvatar.style.background = `
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.4), transparent 55%),
+        linear-gradient(135deg, ${c}, ${c})
+      `;
+      heroAvatar.style.color = '#fff';
     }
 
-    // Подсказка на аватаре
+    if (statusDisplay) {
+      statusDisplay.textContent = user?.status ? user.status : 'Статус не задан';
+    }
+    if (groupDisplay) {
+      groupDisplay.textContent = user?.group ? 'Группа ' + user.group : 'Группа не выбрана';
+    }
+
+    // Поля шторки и палитра — обновляем, только если шторка закрыта,
+    // иначе перетираем то, что пользователь сейчас вводит
+    const sheetOpen = profileSheet && profileSheet.classList.contains('is-open');
+    if (!sheetOpen) {
+      const groupSelect = $('groupSelect');
+      if (groupSelect) groupSelect.value = user?.group || '';
+      if (typeof window.__paintStatusPicker === 'function') window.__paintStatusPicker();
+
+      const palette = $('avatarPalette');
+      if (palette) {
+        const current = (user?.color || '#3b82f6').toLowerCase();
+        palette.querySelectorAll('.profile-color__swatch').forEach(btn => {
+          btn.setAttribute('aria-selected', btn.dataset.color.toLowerCase() === current ? 'true' : 'false');
+        });
+      }
+    }
+
     if (avatar) {
       const title = [user?.name, user?.status].filter(Boolean).join(' · ');
       avatar.title = title || 'Профиль';
     }
+        // ── Статистика ──
+    const statTopicsEl = $('statTopics');
+    const statTasksEl = $('statTasks');
+    const statReadEl = $('statRead');
+
+    if (statTopicsEl) {
+      const total = Object.values(subjects).reduce((sum, s) => {
+        return sum + s.topics.filter(t => t.title !== 'Раздел в разработке').length;
+      }, 0);
+      statTopicsEl.textContent = String(total);
+    }
+    if (statTasksEl) {
+      statTasksEl.textContent = String(homework.length);
+    }
+    if (statReadEl) {
+      const last = (function () {
+        try { return JSON.parse(localStorage.getItem('doro.lastRead') || 'null'); }
+        catch (e) { return null; }
+      })();
+      statReadEl.textContent = last && last.percent ? last.percent + '%' : '0%';
+    }
   }
 
-  // ---------- ОТКРЫТИЕ / ЗАКРЫТИЕ ПРОФИЛЯ ----------
-  const profileBackdrop = document.getElementById('profileBackdrop');
-  const profileCloseBtn = document.getElementById('profileCloseBtn');
-
-  function openProfile() {
-    if (!profilePop) return;
-    profilePop.classList.add('open');
-    profilePop.setAttribute('aria-hidden', 'false');
-    if (profileBackdrop) profileBackdrop.classList.add('is-visible');
-    document.body.style.overflow = 'hidden';
-    syncAllThemeSwitchers();
-    renderProfile();
-  }
-  function closeProfile() {
-    if (!profilePop) return;
-    profilePop.classList.remove('open');
-    profilePop.setAttribute('aria-hidden', 'true');
-    if (profileBackdrop) profileBackdrop.classList.remove('is-visible');
-    document.body.style.overflow = '';
-  }
-
-  if (avatar && profilePop) {
+  // ---------- ОТКРЫТИЕ ПРОФИЛЯ ----------
+  if (avatar) {
     avatar.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (profilePop.classList.contains('open')) closeProfile();
-      else openProfile();
+      showView('profile');
     });
   }
-  if (profileCloseBtn) profileCloseBtn.addEventListener('click', closeProfile);
-  if (profileBackdrop) profileBackdrop.addEventListener('click', closeProfile);
 
+  function openProfileSheet() {
+    if (!profileSheet) return;
+    if (nameInput) nameInput.value = user?.name || '';
+    const statusInput = $('statusInput');
+    const groupSelect = $('groupSelect');
+    if (statusInput) statusInput.value = user?.status || '';
+    if (groupSelect) groupSelect.value = user?.group || '';
+    profileSheet.classList.add('is-open');
+    profileSheet.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('profile-sheet-open');
+    setTimeout(() => { if (nameInput) nameInput.focus(); }, 250);
+  }
+
+  function closeProfileSheet() {
+    if (!profileSheet) return;
+    profileSheet.classList.remove('is-open');
+    profileSheet.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('profile-sheet-open');
+  }
+
+  if (editProfileBtn) editProfileBtn.addEventListener('click', openProfileSheet);
+  if (profileSheetClose) profileSheetClose.addEventListener('click', closeProfileSheet);
+  if (profileSheetBackdrop) profileSheetBackdrop.addEventListener('click', closeProfileSheet);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && profilePop && profilePop.classList.contains('open')) {
-      closeProfile();
+    if (e.key === 'Escape' && profileSheet && profileSheet.classList.contains('is-open')) {
+      closeProfileSheet();
     }
   });
-  if (editNameBtn) {
-    editNameBtn.addEventListener('click', () => {
-      profileNameRow.style.display = 'none';
-      profileEdit.style.display = 'flex';
-      nameInput.value = user?.name || '';
-      nameInput.focus();
-    });
-  }
+
   if (saveNameBtn) {
     saveNameBtn.addEventListener('click', () => {
+      if (!nameInput) return;
       let val = nameInput.value.trim();
       if (!val) return;
       val = val.split(/\s+/)[0];
       if (!val) return;
-      user = { name: val };
+      user = user || {};
+      user.name = val;
       localStorage.setItem('doro.user', JSON.stringify(user));
       nameInput.value = val;
       renderProfile();
+      closeProfileSheet();
     });
   }
-  if (nameInput) {
+  if (nameInput && saveNameBtn) {
     nameInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') saveNameBtn.click();
     });
   }
-  document.addEventListener('click', (e) => {
-    if (!profilePop || !avatar) return;
-    if (profilePop.contains(e.target) || avatar.contains(e.target)) return;
-    profilePop.classList.remove('open');
-  });
-
-  renderProfile();
 
   // ---------- ГРУППА ----------
   (function initGroups() {
-    const select = document.getElementById('groupSelect');
+    const select = $('groupSelect');
     if (!select) return;
     for (let i = 11; i <= 20; i++) {
       const opt = document.createElement('option');
@@ -1023,35 +1187,131 @@ document.addEventListener('DOMContentLoaded', () => {
       opt.textContent = 'ЛД25' + i;
       select.appendChild(opt);
     }
+    if (user && user.group) select.value = user.group;
     select.addEventListener('change', () => {
       if (!user) user = {};
       user.group = select.value;
       localStorage.setItem('doro.user', JSON.stringify(user));
+      renderProfile();
     });
   })();
 
-  // ---------- СТАТУС ----------
+  // ---------- СТАТУС (пикер) ----------
   (function initStatus() {
-    const input = document.getElementById('statusInput');
-    if (!input) return;
-    let t = null;
-    input.addEventListener('input', () => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        if (!user) user = {};
-        user.status = input.value.trim();
-        localStorage.setItem('doro.user', JSON.stringify(user));
-        if (avatar) {
-          const title = [user?.name, user?.status].filter(Boolean).join(' · ');
-          avatar.title = title || 'Профиль';
-        }
-      }, 400);
+    const picker = $('statusPicker');
+    const trigger = $('statusTrigger');
+    const triggerValue = $('statusTriggerValue');
+    const menu = $('statusMenu');
+    if (!picker || !trigger || !menu) return;
+
+    const items = Array.from(menu.querySelectorAll('.status-picker__item'));
+    let focusedIndex = -1;
+
+    function getCurrentValue() {
+      return (user && user.status) || '';
+    }
+
+    function paintTrigger() {
+      const val = getCurrentValue();
+      if (triggerValue) {
+        triggerValue.textContent = val || '— не задан —';
+        triggerValue.classList.toggle('is-empty', !val);
+      }
+      items.forEach(it => {
+        it.setAttribute('aria-selected', it.dataset.value === val ? 'true' : 'false');
+      });
+    }
+
+    function openMenu() {
+      picker.classList.add('is-open');
+      trigger.setAttribute('aria-expanded', 'true');
+      const cur = getCurrentValue();
+      focusedIndex = items.findIndex(it => it.dataset.value === cur);
+      if (focusedIndex < 0) focusedIndex = 0;
+      items.forEach((it, i) => it.classList.toggle('is-focused', i === focusedIndex));
+    }
+
+    function closeMenu() {
+      picker.classList.remove('is-open');
+      trigger.setAttribute('aria-expanded', 'false');
+      items.forEach(it => it.classList.remove('is-focused'));
+      focusedIndex = -1;
+    }
+
+    function selectValue(val) {
+      if (!user) user = {};
+      user.status = val || '';
+      localStorage.setItem('doro.user', JSON.stringify(user));
+      paintTrigger();
+      closeMenu();
+      renderProfile();
+    }
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (picker.classList.contains('is-open')) closeMenu();
+      else openMenu();
     });
+
+    items.forEach((item, idx) => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectValue(item.dataset.value);
+      });
+      item.addEventListener('mouseenter', () => {
+        items.forEach(it => it.classList.remove('is-focused'));
+        item.classList.add('is-focused');
+        focusedIndex = idx;
+      });
+    });
+
+    // закрытие по клику вне
+    document.addEventListener('click', (e) => {
+      if (!picker.classList.contains('is-open')) return;
+      if (!picker.contains(e.target)) closeMenu();
+    });
+
+    // клавиатура
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (!picker.classList.contains('is-open')) openMenu();
+      } else if (e.key === 'Escape') {
+        closeMenu();
+      }
+    });
+
+    picker.addEventListener('keydown', (e) => {
+      if (!picker.classList.contains('is-open')) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        focusedIndex = (focusedIndex + 1) % items.length;
+        items.forEach((it, i) => it.classList.toggle('is-focused', i === focusedIndex));
+        items[focusedIndex].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        focusedIndex = (focusedIndex - 1 + items.length) % items.length;
+        items.forEach((it, i) => it.classList.toggle('is-focused', i === focusedIndex));
+        items[focusedIndex].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (focusedIndex >= 0) selectValue(items[focusedIndex].dataset.value);
+      } else if (e.key === 'Escape') {
+        closeMenu();
+        trigger.focus();
+      }
+    });
+
+    paintTrigger();
+
+    // синхронизация с renderProfile — вешаем хвост
+    // (не обязательно, но на всякий случай при обновлении профиля)
+    window.__paintStatusPicker = paintTrigger;
   })();
 
-  // ---------- ПАЛИТРА АВАТАРКИ ----------
+  // ---------- ПАЛИТРА ----------
   (function initPalette() {
-    const palette = document.getElementById('avatarPalette');
+    const palette = $('avatarPalette');
     if (!palette) return;
     palette.innerHTML = '';
     AVATAR_COLORS.forEach(color => {
@@ -1065,9 +1325,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!user) user = {};
         user.color = color;
         localStorage.setItem('doro.user', JSON.stringify(user));
+        // выделяем только что выбранный, остальные снимаем
+        palette.querySelectorAll('.profile-color__swatch').forEach(b => {
+          b.setAttribute('aria-selected', b.dataset.color === color ? 'true' : 'false');
+        });
         renderProfile();
       });
       palette.appendChild(btn);
+    });
+
+    // начальная подсветка
+    const current = (user && user.color ? user.color : '#3b82f6').toLowerCase();
+    palette.querySelectorAll('.profile-color__swatch').forEach(b => {
+      b.setAttribute('aria-selected', b.dataset.color.toLowerCase() === current ? 'true' : 'false');
     });
   })();
 
@@ -1086,8 +1356,95 @@ document.addEventListener('DOMContentLoaded', () => {
       h.subjectKey === subjectKey && h.dayKey === dayKey && h.slot === slot
     );
   }
+  // ---------- МОДАЛКА ПАНЕЛЕЙ ----------
+  const profilePop = $('profilePop');
+  const profilePopBackdrop = $('profilePopBackdrop');
+  const profilePopClose = $('profilePopClose');
 
-  // ---------- ПОИСК И УВЕДОМЛЕНИЯ ----------
+  let activePanelKey = null;
+
+  function openProfilePanel(key) {
+    if (!profilePop) return;
+
+    // закрыть предыдущую панель
+    ['searchField', 'lectureInfo', 'notifyList'].forEach(id => {
+      const el = $(id);
+      if (el) el.classList.remove('is-open');
+    });
+
+    let panelEl = null;
+    if (key === 'search') panelEl = $('searchField');
+    if (key === 'lecture') panelEl = $('lectureInfo');
+    if (key === 'notify') panelEl = $('notifyList');
+    if (!panelEl) return;
+
+    panelEl.classList.add('is-open');
+    activePanelKey = key;
+
+    profilePop.classList.add('is-open');
+    profilePop.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('profile-pop-open');
+
+    if (key === 'search' && searchInput) {
+      setTimeout(() => searchInput.focus(), 150);
+    }
+  }
+
+  function closeProfilePanel() {
+    if (!profilePop) return;
+
+    profilePop.classList.remove('is-open');
+    profilePop.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('profile-pop-open');
+
+    ['searchField', 'lectureInfo', 'notifyList'].forEach(id => {
+      const el = $(id);
+      if (el) el.classList.remove('is-open');
+    });
+
+    activePanelKey = null;
+  }
+
+  // ---------- ОБРАБОТЧИКИ КНОПОК ПРОФИЛЯ ----------
+  if (searchToggle) {
+    searchToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (activePanelKey === 'search') { closeProfilePanel(); return; }
+      openProfilePanel('search');
+    });
+  }
+
+  if (lectureToggle) {
+    lectureToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (activePanelKey === 'lecture') { closeProfilePanel(); return; }
+      renderLectureInfo();
+      openProfilePanel('lecture');
+    });
+  }
+
+  if (notifyToggle) {
+    notifyToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (activePanelKey === 'notify') { closeProfilePanel(); return; }
+      renderNotifyList();
+      openProfilePanel('notify');
+    });
+  }
+
+  if (profilePopBackdrop) {
+    profilePopBackdrop.addEventListener('click', closeProfilePanel);
+  }
+  if (profilePopClose) {
+    profilePopClose.addEventListener('click', closeProfilePanel);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && profilePop && profilePop.classList.contains('is-open')) {
+      closeProfilePanel();
+    }
+  });
+
+  // ---------- ПОИСК ----------
   function collectAllTopics() {
     const all = [];
     Object.entries(subjects).forEach(([key, s]) => {
@@ -1099,16 +1456,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return all;
   }
 
-  if (searchToggle && searchField && searchInput && searchResults) {
-    searchToggle.addEventListener('click', () => {
-      const willOpen = !searchField.classList.contains('is-open');
-      searchField.classList.toggle('is-open', willOpen);
-      if (willOpen) {
-        searchInput.value = '';
-        searchResults.innerHTML = '';
-        setTimeout(() => searchInput.focus(), 200);
-      }
-    });
+  if (searchInput && searchResults) {
     searchInput.addEventListener('input', () => {
       const q = searchInput.value.trim().toLowerCase();
       searchResults.innerHTML = '';
@@ -1130,7 +1478,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="pop-result__meta">${subjects[t.key].title}</div>
         `;
         btn.addEventListener('click', () => {
-          profilePop.classList.remove('open');
+          closeProfilePanel();
           showView('files');
           setTimeout(() => openTopic(t.key, t.num), 50);
         });
@@ -1139,9 +1487,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------- УВЕДОМЛЕНИЯ (от разработчика + авто) ----------
-  // Разработчик пишет уведомления здесь. Появляются у всех пользователей.
-  // id должен быть уникальным и стабильным (не менять после публикации).
+  // ---------- УВЕДОМЛЕНИЯ ----------
   const DEV_NOTIFICATIONS = [
     { id: 'n-2026-10-23-2', text: 'Патч изменений 1.02. Кнопки переключатели в темах, разные авторы и многое другое!' }
   ];
@@ -1195,12 +1541,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderDevNotifications() {
-    const listEl = document.getElementById('notifyDevList');
+    const listEl = $('notifyDevList');
     if (!listEl) return;
     const seen = getSeenDev();
-    const items = DEV_NOTIFICATIONS
-      .slice()
-      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    const items = DEV_NOTIFICATIONS.slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
     listEl.innerHTML = '';
     if (!items.length) return;
@@ -1209,9 +1553,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'notify-item notify-item--dev' + (seen.has(n.id) ? ' notify-item--seen' : '');
-      const dateStr = n.date
-        ? new Date(n.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
-        : '';
+      const dateStr = n.date ? new Date(n.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
       btn.innerHTML = `
         <span class="notify-item__dot"></span>
         <span class="notify-item__body">
@@ -1231,7 +1573,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderAutoNotifications() {
-    const autoEl = document.getElementById('notifyAutoList');
+    const autoEl = $('notifyAutoList');
     if (!autoEl) return;
     const seen = getSeenTopics();
     const upcoming = getUpcomingTopics();
@@ -1262,7 +1604,6 @@ document.addEventListener('DOMContentLoaded', () => {
         s.add(id);
         saveSeenTopics(s);
         updateNotifyBadge();
-        closeProfile();
         showView('files');
         setTimeout(() => openTopic(t.key, t.num), 50);
       });
@@ -1273,16 +1614,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderNotifyList() {
     renderDevNotifications();
     renderAutoNotifications();
-  }
-
-  // Кнопка «Уведомления» — открыть/закрыть панель
-  if (notifyToggle && notifyList) {
-    notifyToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const willOpen = !notifyList.classList.contains('is-open');
-      notifyList.classList.toggle('is-open', willOpen);
-      if (willOpen) renderNotifyList();
-    });
   }
   updateNotifyBadge();
 
@@ -1382,19 +1713,19 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar();
       });
     });
-      calendarEl.querySelectorAll('[data-day]').forEach(b => {
-        b.addEventListener('click', () => {
-          const day = Number(b.dataset.day);
-          selectedDay = day;
-          selectedMonth = month;
-          selectedYear = year;
-          renderCalendar();
-          updateTodayView();
-        });
+    calendarEl.querySelectorAll('[data-day]').forEach(b => {
+      b.addEventListener('click', () => {
+        const day = Number(b.dataset.day);
+        selectedDay = day;
+        selectedMonth = month;
+        selectedYear = year;
+        renderCalendar();
+        updateTodayView();
       });
+    });
   }
 
-  // ---------- ПАРЫ И ДЗ НА ГЛАВНОЙ ----------
+  // ---------- ПАРЫ И ДЗ ----------
   function updateLessonBadge(lessonEl, subjectKey, dayKey, slot) {
     const btn = lessonEl.querySelector('.lesson-hw-btn');
     if (!btn) return;
@@ -1449,16 +1780,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updateTodayView() {
-    const titleEl = document.getElementById('today-title');
-    const topicsPanel = document.getElementById('topics-panel');
-    const topicsList = document.getElementById('topics-list');
+    const titleEl = $('today-title');
+    const topicsPanel = $('topics-panel');
+    const topicsList = $('topics-list');
     if (!titleEl || !lessonsEl) return;
 
     let targetDate, isToday = false;
 
     if (!selectedDay) {
       targetDate = new Date();
-      // После 15:00 — сдвигаем на следующий день, как выходной на понедельник
       if (targetDate.getHours() >= 15) {
         targetDate.setDate(targetDate.getDate() + 1);
         selectedDay = targetDate.getDate();
@@ -1480,7 +1810,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     } else {
-      // Ручной выбор (или уже сдвинутый день) — никогда не "сегодня"
       targetDate = new Date(selectedYear, selectedMonth, selectedDay);
       const dow = targetDate.getDay();
       if (dow === 0 || dow === 6) {
@@ -1575,7 +1904,8 @@ document.addEventListener('DOMContentLoaded', () => {
       topicsList.appendChild(btn);
     });
   }
-    (function scheduleDaySwitch() {
+
+  (function scheduleDaySwitch() {
     const DAY_SWITCH_HOUR = 15;
     function msUntilSwitch() {
       const now = new Date();
@@ -1614,48 +1944,39 @@ document.addEventListener('DOMContentLoaded', () => {
   function applySubjectAccent(panelEl, key) {
     const accent = getSubjectAccent(key);
 
-    // На панель читалки
     if (panelEl) {
       panelEl.style.setProperty('--subject-accent', accent);
       panelEl.dataset.accent = key;
     }
 
-    // На бейдж предмета в читалке
-    const subjBadge = document.getElementById('reader-subject-title');
-    if (subjBadge) {
-      subjBadge.style.setProperty('--subject-accent', accent);
-    }
+    const subjBadge = $('reader-subject-title');
+    if (subjBadge) subjBadge.style.setProperty('--subject-accent', accent);
 
-    // Только на сам блок читалки — чтобы свечение и штрихи жили в нём
-    const readerEl = document.getElementById('reader');
-    if (readerEl) {
-      readerEl.style.setProperty('--subject-accent', accent);
-    }
+    const readerEl = $('reader');
+    if (readerEl) readerEl.style.setProperty('--subject-accent', accent);
 
-    // Акцент для окна «Все темы»
-    const topicsEl = document.getElementById('readerTopics');
+    const topicsEl = $('readerTopics');
     if (topicsEl) topicsEl.style.setProperty('--subject-accent', accent);
   }
+
   function sortTopics(topics) {
-  // По убыванию номера темы: 9 → 8 → 7 → …
-  // Темы без номера — в конце, между собой по дате (свежие выше).
-  return topics.slice().sort((a, b) => {
-    const na = parseFloat(String(a.num ?? '').replace(',', '.'));
-    const nb = parseFloat(String(b.num ?? '').replace(',', '.'));
-    const aHas = Number.isFinite(na);
-    const bHas = Number.isFinite(nb);
+    return topics.slice().sort((a, b) => {
+      const na = parseFloat(String(a.num ?? '').replace(',', '.'));
+      const nb = parseFloat(String(b.num ?? '').replace(',', '.'));
+      const aHas = Number.isFinite(na);
+      const bHas = Number.isFinite(nb);
 
-    if (aHas && bHas) {
-      if (na !== nb) return nb - na;
-      return 0;
-    }
-    if (aHas !== bHas) return aHas ? -1 : 1;
+      if (aHas && bHas) {
+        if (na !== nb) return nb - na;
+        return 0;
+      }
+      if (aHas !== bHas) return aHas ? -1 : 1;
 
-    const da = new Date(a.date).getTime() || 0;
-    const db = new Date(b.date).getTime() || 0;
-    return db - da;
-  });
-}
+      const da = new Date(a.date).getTime() || 0;
+      const db = new Date(b.date).getTime() || 0;
+      return db - da;
+    });
+  }
 
   function renderSections() {
     if (!subjectsCards) return;
@@ -1689,12 +2010,6 @@ document.addEventListener('DOMContentLoaded', () => {
           </span>
           <span class="subject-card-big__meta">
             <span class="subject-card-big__count">${countText}</span>
-            <span class="subject-card-big__arrow">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-              </svg>
-            </span>
           </span>
         `;
         card.addEventListener('click', () => openLatestTopic(key));
@@ -1702,45 +2017,41 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   }
 
-function getCurrentTopic(valid) {
-  // valid отсортирован по убыванию номера (9 → 8 → 7 → …).
-  // Текущая — ближайшая по дате к сегодня (минимальная |date - today|).
-  // При равенстве (сегодня) — приоритет той, что ещё не началась/идёт,
-  // то есть более старший номер из пары.
-  if (!valid.length) return null;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  function getCurrentTopic(valid) {
+    if (!valid.length) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
 
-  let best = null;
-  let bestDiff = Infinity;
+    let best = null;
+    let bestDiff = Infinity;
 
-  for (const t of valid) {
-    const d = new Date(t.date + 'T00:00:00');
-    if (isNaN(d.getTime())) continue;
-    const diff = Math.abs(d.getTime() - today.getTime());
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = t;
+    for (const t of valid) {
+      const d = new Date(t.date + 'T00:00:00');
+      if (isNaN(d.getTime())) continue;
+      const diff = Math.abs(d.getTime() - today.getTime());
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = t;
+      }
     }
+    return best || valid[valid.length - 1];
   }
-  return best || valid[valid.length - 1];
-}
 
-function openLatestTopic(key) {
-  const subject = subjects[key];
-  if (!subject) return;
-  const valid = sortTopics(subject.topics.filter(t => t.title !== 'Раздел в разработке'));
+  function openLatestTopic(key) {
+    const subject = subjects[key];
+    if (!subject) return;
+    const valid = sortTopics(subject.topics.filter(t => t.title !== 'Раздел в разработке'));
 
-  if (subjectsCardsView) subjectsCardsView.style.display = 'none';
-  if (readerScreen) readerScreen.style.display = 'flex';
+    if (subjectsCardsView) subjectsCardsView.style.display = 'none';
+    if (readerScreen) readerScreen.style.display = 'flex';
 
-  if (!valid.length) {
-    if (readerSubjectTitle) readerSubjectTitle.textContent = subject.title;
-    if (readerArticle) readerArticle.innerHTML = '<p class="reader__empty">Материалы появятся позже</p>';
-    return;
+    if (!valid.length) {
+      if (readerSubjectTitle) readerSubjectTitle.textContent = subject.title;
+      if (readerArticle) readerArticle.innerHTML = '<p class="reader__empty">Материалы появятся позже</p>';
+      return;
+    }
+    const current = getCurrentTopic(valid);
+    openTopic(key, current.num);
   }
-  const current = getCurrentTopic(valid);
-  openTopic(key, current.num);
-}
 
   async function openTopic(key, topicNum = null) {
     const subject = subjects[key];
@@ -1749,7 +2060,7 @@ function openLatestTopic(key) {
     const valid = sortTopics(subject.topics.filter(t => t.title !== 'Раздел в разработке'));
     if (!valid.length) return;
 
-    const viewFiles = document.getElementById('view-files');
+    const viewFiles = $('view-files');
     if (viewFiles) viewFiles.classList.add('reader-open');
 
     let initialIndex = 0;
@@ -1757,7 +2068,7 @@ function openLatestTopic(key) {
       const f = valid.findIndex(t => t.num === topicNum);
       if (f !== -1) initialIndex = f;
     }
-    
+
     currentTopicMeta = valid[initialIndex];
     currentSubjectKey = key;
 
@@ -1769,7 +2080,6 @@ function openLatestTopic(key) {
 
     applySubjectAccent(readerPanel, key);
 
-    // Закрываем панель настроек при смене темы
     closeReaderSettings();
 
     const topicCache = new Map();
@@ -1791,6 +2101,7 @@ function openLatestTopic(key) {
         return `Не удалось загрузить файл темы: ${topic.file}`;
       }
     }
+
     async function renderTopic(i) {
       const t = valid[i];
       if (!readerArticle) return;
@@ -1808,9 +2119,8 @@ function openLatestTopic(key) {
         <div class="reader__content"><p class="reader__empty">Загрузка темы…</p></div>
       `;
 
-      readerTabs = document.getElementById('readerTabs');
+      readerTabs = $('readerTabs');
 
-      // ---- Явные вкладки из данных (тема → предмет) ----
       const tabConfigForRender = Array.isArray(t.tabs)
         ? t.tabs
         : (Array.isArray(subject.tabs) ? subject.tabs : []);
@@ -1851,7 +2161,6 @@ function openLatestTopic(key) {
 
       const contentEl = readerArticle.querySelector('.reader__content');
 
-      // ---- Скелетон загрузки ----
       if (contentEl) {
         contentEl.classList.remove('is-loaded');
         contentEl.innerHTML = `
@@ -1871,7 +2180,6 @@ function openLatestTopic(key) {
 
       const raw = await loadTopicContent(t);
 
-      // ---- Вкладки: у темы приоритет, иначе — у предмета ----
       const tabConfig = Array.isArray(t.tabs)
         ? t.tabs
         : (Array.isArray(subject.tabs) ? subject.tabs : []);
@@ -1884,7 +2192,6 @@ function openLatestTopic(key) {
         contentEl.innerHTML = renderTopicContent(raw);
       }
 
-      // ---- Кнопка «Посмотреть доп. файлы» (только если нет вкладки «Препараты») ----
       const extraFiles = extractPdfLinksFromMarkdown(raw);
       if (contentEl && extraFiles.length && !tabConfig.includes('preparations')) {
         const files = extraFiles;
@@ -1907,10 +2214,7 @@ function openLatestTopic(key) {
         }
       }
 
-      // Плавное появление готового контента
-      if (contentEl) {
-        contentEl.classList.add('is-loaded');
-      }
+      if (contentEl) contentEl.classList.add('is-loaded');
 
       document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
       tocBuiltForArticle = null;
@@ -1921,7 +2225,6 @@ function openLatestTopic(key) {
     }
 
     renderTopic(initialIndex);
-    // Запоминаем, что открыли эту тему
     saveLastRead(key, valid[initialIndex].num);
   }
 
@@ -1930,13 +2233,13 @@ function openLatestTopic(key) {
       if (readerScreen) readerScreen.style.display = 'none';
       setCollapsed(false);
       if (subjectsCardsView) subjectsCardsView.style.display = 'block';
-      const viewFiles = document.getElementById('view-files');
+      const viewFiles = $('view-files');
       if (viewFiles) {
         viewFiles.classList.remove('reader-open');
         viewFiles.style.removeProperty('--subject-accent');
         delete viewFiles.dataset.accent;
       }
-      const readerEl = document.getElementById('reader');
+      const readerEl = $('reader');
       if (readerEl) {
         readerEl.style.removeProperty('--subject-accent');
         delete readerEl.dataset.accent;
@@ -1948,7 +2251,7 @@ function openLatestTopic(key) {
 
   // ---------- ЗАДАНИЯ ----------
   function renderTasks() {
-    const listEl = document.getElementById('tasksList');
+    const listEl = $('tasksList');
     if (!listEl) return;
 
     if (!homework.length) {
@@ -2070,18 +2373,20 @@ function openLatestTopic(key) {
 
   // ---------- VIEWS ----------
   function showView(name) {
+    closeProfilePanel();
     Object.values(views).forEach(v => { if (v) v.classList.remove('is-active'); });
     const v = views[name];
     if (!v) return;
+    void v.offsetWidth; 
     v.classList.add('is-active');
 
-    const viewFiles = document.getElementById('view-files');
+    const viewFiles = $('view-files');
     if (viewFiles && name !== 'files') {
       setCollapsed(false);
       viewFiles.classList.remove('reader-open');
       viewFiles.style.removeProperty('--subject-accent');
       delete viewFiles.dataset.accent;
-      const readerEl = document.getElementById('reader');
+      const readerEl = $('reader');
       if (readerEl) {
         readerEl.style.removeProperty('--subject-accent');
         delete readerEl.dataset.accent;
@@ -2094,6 +2399,8 @@ function openLatestTopic(key) {
     document.querySelectorAll('.nav a[data-view]').forEach(a => {
       a.classList.toggle('active', a.dataset.view === name);
     });
+    syncNavIslandsActive();
+    if (name === 'profile') { syncAllThemeSwitchers(); renderProfile(); }
 
     if (!rendered[name]) {
       if (name === 'home') { renderCalendar(); updateTodayView(); }
@@ -2111,10 +2418,13 @@ function openLatestTopic(key) {
     });
   });
 
-  document.getElementById('brand-logo').addEventListener('click', (e) => {
-    e.preventDefault();
-    showView('home');
-  });
+  const brandLogo = $('brand-logo');
+  if (brandLogo) {
+    brandLogo.addEventListener('click', (e) => {
+      e.preventDefault();
+      showView('home');
+    });
+  }
 
   // ---------- БЛИЖАЙШАЯ ЛЕКЦИЯ ----------
   function pluralDays(n, one, few, many) {
@@ -2161,46 +2471,10 @@ function openLatestTopic(key) {
     lectureInfo.innerHTML = html;
   }
 
-  if (lectureToggle && lectureInfo) {
-    lectureToggle.addEventListener('click', () => {
-      const willOpen = !lectureInfo.classList.contains('is-open');
-      lectureInfo.classList.toggle('is-open', willOpen);
-      if (willOpen) renderLectureInfo();
-    });
-  }
+  let tocBuiltForArticle = null;
 
-  let tocBuiltForArticle = null;   // сигнатура последней темы, для которой строили TOC
-
-  // «Все темы» — отдельное окно снизу
-  const readerTopics = document.getElementById('readerTopics');
-  const readerTopicsList = document.getElementById('readerTopicsList');
-
-  // ---------- РАЗВОРОТ «ВСЕ ТЕМЫ» НА МОБИЛЕ ----------
-  const readerTopicsExpand = document.getElementById('readerTopicsExpand');
-
-  function syncTopicsExpandBtn() {
-    if (!readerTopics || !readerTopicsExpand) return;
-    const expanded = readerTopics.classList.contains('is-expanded');
-    readerTopicsExpand.setAttribute('aria-expanded', String(expanded));
-    readerTopicsExpand.setAttribute('aria-label', expanded ? 'Скрыть темы' : 'Показать все темы');
-    readerTopicsExpand.title = expanded ? 'Скрыть темы' : 'Показать все темы';
-  }
-
-  if (readerTopicsExpand) {
-    readerTopicsExpand.addEventListener('click', () => {
-      if (!readerTopics) return;
-      const expanded = readerTopics.classList.toggle('is-expanded');
-      syncTopicsExpandBtn();
-      if (expanded) {
-        const active = readerTopics.querySelector('.reader-topics__item.is-active');
-        if (active) {
-          requestAnimationFrame(() => {
-            active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-          });
-        }
-      }
-    });
-  }
+  const readerTopics = $('readerTopics');
+  const readerTopicsList = $('readerTopicsList');
 
   function buildTopicsList() {
     if (!readerTopicsList) return;
@@ -2225,7 +2499,7 @@ function openLatestTopic(key) {
     });
   }
 
-  const readerPop = document.getElementById('readerPop');
+  const readerPop = $('readerPop');
 
   function openReaderSettings() {
     if (!readerSettings) return;
@@ -2250,15 +2524,6 @@ function openLatestTopic(key) {
     if (readerSettings) readerSettings.setAttribute('aria-hidden', 'true');
     if (readerMenuBtn) readerMenuBtn.setAttribute('aria-expanded', 'false');
     if (readerSettingsBackdrop) readerSettingsBackdrop.classList.remove('is-visible');
-
-    // Сворачиваем «Все темы» обратно в одну строку при закрытии настроек
-    if (readerTopics) readerTopics.classList.remove('is-expanded');
-    const expandBtn = document.getElementById('readerTopicsExpand');
-    if (expandBtn) {
-      expandBtn.setAttribute('aria-expanded', 'false');
-      expandBtn.setAttribute('aria-label', 'Показать все темы');
-      expandBtn.title = 'Показать все темы';
-    }
   }
   function toggleReaderSettings() {
     if (!readerSettings) return;
@@ -2275,10 +2540,10 @@ function openLatestTopic(key) {
     }
   });
 
-  // ---------- РАЗМЕР ШРИФТА (слайдер) ----------
+  // ---------- РАЗМЕР ШРИФТА ----------
   const FONT_KEY = 'doro.readerFontSize';
   const FONT_SIZES = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
-  const fontRange = document.getElementById('fontRange');
+  const fontRange = $('fontRange');
 
   let fontIndex = FONT_SIZES.indexOf(parseInt(localStorage.getItem(FONT_KEY) || '16', 10));
   if (fontIndex < 0) fontIndex = FONT_SIZES.indexOf(16);
@@ -2314,6 +2579,7 @@ function openLatestTopic(key) {
   }
 
   applyFontSize();
+
   // ---------- КОМПАКТНЫЙ РЕЖИМ ----------
   const COMPACT_KEY = 'doro.readerCompact';
 
@@ -2339,16 +2605,16 @@ function openLatestTopic(key) {
     });
   });
 
-  // ---------- РАСКРЫТИЕ СОДЕРЖАНИЯ ----------
-  const tocToggle = document.getElementById('tocToggle');
-  const tocWrap = document.getElementById('tocWrap');
+  // ---------- TOC ----------
+  const tocToggle = $('tocToggle');
+  const tocWrap = $('tocWrap');
 
-function openTocWrap() {
-  if (!tocWrap || !tocToggle) return;
-  buildToc();
-  tocWrap.classList.add('is-open');
-  tocToggle.setAttribute('aria-expanded', 'true');
-}
+  function openTocWrap() {
+    if (!tocWrap || !tocToggle) return;
+    buildToc();
+    tocWrap.classList.add('is-open');
+    tocToggle.setAttribute('aria-expanded', 'true');
+  }
   function closeTocWrap() {
     if (!tocWrap || !tocToggle) return;
     tocWrap.classList.remove('is-open');
@@ -2361,9 +2627,7 @@ function openTocWrap() {
     });
   }
 
-
-  // ---------- СОДЕРЖАНИЕ (TOC) ----------
-  const tocList = document.getElementById('tocList');
+  const tocList = $('tocList');
   let tocObserver = null;
 
   function buildToc() {
@@ -2400,17 +2664,14 @@ function openTocWrap() {
       btn.className = 'toc__link toc__link--' + item.level;
       btn.dataset.target = item.id;
 
-      // Номер
       const num = document.createElement('span');
       num.className = 'toc__num';
       num.textContent = String(index + 1).padStart(2, '0');
 
-      // Текст
       const text = document.createElement('span');
       text.className = 'toc__link-text';
       text.textContent = item.text;
 
-      // Звёздочка
       const star = document.createElement('button');
       star.type = 'button';
       star.className = 'toc__star' + (saved[item.id] ? ' is-active' : '');
@@ -2443,7 +2704,7 @@ function openTocWrap() {
       btn.appendChild(star);
 
       btn.addEventListener('click', () => {
-        const target = document.getElementById(item.id);
+        const target = $('item.id');
         if (!target) return;
         const y = target.getBoundingClientRect().top + window.scrollY - 100;
         window.scrollTo({ top: y, behavior: 'smooth' });
@@ -2489,10 +2750,8 @@ function openTocWrap() {
     markActive(startId);
   }
 
-  // Перестраиваем TOC при изменениях в статье
   if (readerArticle) {
     const mo = new MutationObserver(() => {
-      // Содержимое статьи изменилось (сменили тему) — сбрасываем кэш
       tocBuiltForArticle = null;
       if (readerSettings && readerSettings.classList.contains('open')) {
         buildToc();
@@ -2507,14 +2766,14 @@ function openTocWrap() {
   const JSONBIN_KEY = '$2a$10$ueLrF0JVSgVVWPZgis5xC.1sLjPqGhq1tWOSypgHXo.HBWRQecrU6';
   const JSONBIN_URL = 'https://api.jsonbin.io/v3/b';
 
-  const qrShowBtn = document.getElementById('qrShowBtn');
-  const qrScanBtn = document.getElementById('qrScanBtn');
-  const qrShowModal = document.getElementById('qrShowModal');
-  const qrScanModal = document.getElementById('qrScanModal');
-  const qrCanvas = document.getElementById('qrCanvas');
-  const qrVideo = document.getElementById('qrVideo');
-  const qrShowClose = document.getElementById('qrShowClose');
-  const qrScanClose = document.getElementById('qrScanClose');
+  const qrShowBtn = $('qrShowBtn');
+  const qrScanBtn = $('qrScanBtn');
+  const qrShowModal = $('qrShowModal');
+  const qrScanModal = $('qrScanModal');
+  const qrCanvas = $('qrCanvas');
+  const qrVideo = $('qrVideo');
+  const qrShowClose = $('qrShowClose');
+  const qrScanClose = $('qrScanClose');
 
   let qrStream = null;
   let qrRafId = null;
@@ -2522,12 +2781,12 @@ function openTocWrap() {
   let pollTimeoutHandle = null;
   let pollActive = false;
 
-const isPhone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-if (isPhone) {
-  if (qrShowBtn) qrShowBtn.style.display = 'none';
-} else {
-  if (qrScanBtn) qrScanBtn.style.display = 'none';
-}
+  const isPhone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if (isPhone) {
+    if (qrShowBtn) qrShowBtn.style.display = 'none';
+  } else {
+    if (qrScanBtn) qrScanBtn.style.display = 'none';
+  }
 
   function stopPolling() {
     pollActive = false;
@@ -2580,9 +2839,9 @@ if (isPhone) {
     }
   }
 
-  const syncInfoModal = document.getElementById('syncInfoModal');
-  const syncInfoCancel = document.getElementById('syncInfoCancel');
-  const syncInfoContinue = document.getElementById('syncInfoContinue');
+  const syncInfoModal = $('syncInfoModal');
+  const syncInfoCancel = $('syncInfoCancel');
+  const syncInfoContinue = $('syncInfoContinue');
   const LAST_SYNC_KEY = 'doro.lastSync';
 
   function todayIso() { return new Date().toISOString().slice(0, 10); }
@@ -2593,8 +2852,8 @@ if (isPhone) {
       return;
     }
     const sessionId = randomId();
-    qrCanvas.innerHTML = '<div style="padding:30px;color:#5a6678;font-size:13px;">Создаю сессию…</div>';
-    qrShowModal.classList.add('open');
+    if (qrCanvas) qrCanvas.innerHTML = '<div style="padding:30px;color:#5a6678;font-size:13px;">Создаю сессию…</div>';
+    if (qrShowModal) qrShowModal.classList.add('open');
 
     let binId = null;
     try {
@@ -2613,26 +2872,29 @@ if (isPhone) {
       binId = json.metadata.id;
       currentBinId = binId;
     } catch (e) {
-      qrCanvas.innerHTML = '<div style="padding:30px;color:#b91c1c;font-size:13px;">Ошибка создания сессии: ' + e.message + '</div>';
+      if (qrCanvas) qrCanvas.innerHTML = '<div style="padding:30px;color:#b91c1c;font-size:13px;">Ошибка создания сессии: ' + e.message + '</div>';
       return;
     }
 
     const qrPayload = JSON.stringify({ t: 'doro-recv', bin: binId, sid: sessionId });
-    qrCanvas.innerHTML = '';
+    if (qrCanvas) qrCanvas.innerHTML = '';
     try {
-      new QRCode(qrCanvas, {
-        text: qrPayload, width: 320, height: 320,
-        colorDark: "#000000", colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
-      });
+      if (qrCanvas && window.QRCode) {
+        new QRCode(qrCanvas, {
+          text: qrPayload, width: 320, height: 320,
+          colorDark: "#000000", colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }
     } catch (err) {
       alert('Ошибка генерации QR: ' + err.message);
     }
 
     pollBin(
       binId,
-      (rec) => { qrShowModal.classList.remove('open'); applyIncoming(rec); },
+      (rec) => { if (qrShowModal) qrShowModal.classList.remove('open'); applyIncoming(rec); },
       () => {
+        if (!qrShowModal) return;
         const hint = qrShowModal.querySelector('.qr-modal__sub');
         if (hint) hint.textContent = 'Время ожидания истекло. Нажмите «Принять ДЗ» ещё раз.';
       }
@@ -2645,15 +2907,15 @@ if (isPhone) {
         alert('Сегодня вы уже переносили задания. Следующий перенос — завтра.');
         return;
       }
-      syncInfoModal.classList.add('open');
+      if (syncInfoModal) syncInfoModal.classList.add('open');
     });
   }
   if (syncInfoCancel) {
-    syncInfoCancel.addEventListener('click', () => syncInfoModal.classList.remove('open'));
+    syncInfoCancel.addEventListener('click', () => { if (syncInfoModal) syncInfoModal.classList.remove('open'); });
   }
   if (syncInfoContinue) {
     syncInfoContinue.addEventListener('click', () => {
-      syncInfoModal.classList.remove('open');
+      if (syncInfoModal) syncInfoModal.classList.remove('open');
       setTimeout(startQrSession, 300);
     });
   }
@@ -2663,7 +2925,7 @@ if (isPhone) {
     });
   }
   if (qrShowClose) {
-    qrShowClose.addEventListener('click', () => { qrShowModal.classList.remove('open'); stopPolling(); });
+    qrShowClose.addEventListener('click', () => { if (qrShowModal) qrShowModal.classList.remove('open'); stopPolling(); });
   }
   if (qrShowModal) {
     qrShowModal.addEventListener('click', (e) => {
@@ -2701,7 +2963,7 @@ if (isPhone) {
       const ok = await sendToBin(parsed.bin, payload);
       if (ok) {
         alert('Отправлено заданий: ' + homework.length + '. ПК получит их в течение пары секунд.');
-        qrScanModal.classList.remove('open');
+        if (qrScanModal) qrScanModal.classList.remove('open');
       }
     } catch (e) {
       alert('Не удалось разобрать QR: ' + e.message);
@@ -2743,7 +3005,7 @@ if (isPhone) {
   }
 
   if (qrScanClose) {
-    qrScanClose.addEventListener('click', () => { qrScanModal.classList.remove('open'); stopQrScanner(); });
+    qrScanClose.addEventListener('click', () => { if (qrScanModal) qrScanModal.classList.remove('open'); stopQrScanner(); });
   }
   if (qrScanModal) {
     qrScanModal.addEventListener('click', (e) => {
@@ -2775,9 +3037,7 @@ if (isPhone) {
     alert('Получено заданий: ' + added);
   }
 
-  // ============================================================
-  //  ЗАКЛАДКИ
-  // ============================================================
+  // ---------- ЗАКЛАДКИ ----------
   const FAV_KEY = 'doro.bookmarks';
   function getBookmarks() {
     try { return JSON.parse(localStorage.getItem(FAV_KEY) || '{}') || {}; }
@@ -2790,9 +3050,8 @@ if (isPhone) {
     if (!currentTopicMeta) return null;
     return `${currentTopicMeta.key || currentSubjectKey}::${currentTopicMeta.num || currentTopicMeta.title}`;
   }
-  // ============================================================
-  //  ОТСТУПЫ ПО БОКАМ (4 режима)
-  // ============================================================
+
+  // ---------- ОТСТУПЫ ПО БОКАМ ----------
   const PAD_KEY = 'doro.readerSidePadding';
   const PAD_MODES = {
     narrowest: 6,
@@ -2822,18 +3081,15 @@ if (isPhone) {
   });
 
   applySidePadding(getPadMode());
-  // ============================================================
-  //  СВЁРНУТАЯ ШАПКА + ПРОГРЕСС ЧТЕНИЯ
-  // ============================================================
-  const islandProgress = document.getElementById('islandProgress');
-  const islandProgressValue = document.getElementById('islandProgressValue');
-  const islandProgressFill = document.getElementById('islandProgressFill');
+
+  // ---------- СВЁРНУТАЯ ШАПКА + ПРОГРЕСС ЧТЕНИЯ ----------
+  const islandProgress = $('islandProgress');
+  const islandProgressValue = $('islandProgressValue');
+  const islandProgressFill = $('islandProgressFill');
 
   let lastScrollY = window.scrollY;
-  // На мобиле сворачиваем раньше, чтобы освободить место
   let collapseThreshold = window.innerWidth <= 860 ? 90 : 160;
-  const scrollDelta = 6;
-  // ---------- ВКЛАДКИ «ТЕОРИЯ / ТЕСТЫ» ----------
+
   function splitTheoryAndTests(raw) {
     if (!raw) return { hasTabs: false };
     const testsMatch = raw.match(/^#{1,3}\s+(Тесты|Тест|Тестирование)\s*$/mi);
@@ -2855,7 +3111,6 @@ if (isPhone) {
     };
   }
 
-  // Разбиение файла на секции: вопросы / задачи / тесты (по заголовкам)
   function splitIntoThreeSections(raw) {
     if (!raw) return { questions: '', problems: '', tests: '' };
 
@@ -2929,7 +3184,6 @@ if (isPhone) {
     if (!raw) return [];
     const result = [];
 
-    // 1. Markdown-ссылки [текст](path.pdf) — с любым экранированием \[ \]
     const reMd = /\\?\[\s*([^\]\\]*)\s*\\?\]\(\s*([^)\s]+\.pdf(?:\?[^)\s]*)?)\s*\)/gi;
     let m;
     while ((m = reMd.exec(raw)) !== null) {
@@ -2937,10 +3191,9 @@ if (isPhone) {
       if (href && !result.includes(href)) result.push(href);
     }
 
-    // 2. «Голые» пути — только если в строке нет markdown-синтаксиса
     const lines = raw.split('\n');
     lines.forEach(line => {
-      if (/\[.*\]\(.*\)/.test(line)) return; // ссылки уже собрали
+      if (/\[.*\]\(.*\)/.test(line)) return;
       const match = line.match(/((?:\.\/)?(?:[\w\-.%/]+)\.pdf(?:\?[^\s)]*)?)/i);
       if (match) {
         const href = match[1];
@@ -2950,8 +3203,7 @@ if (isPhone) {
 
     return result;
   }
-  
-  // Собираем содержимое вкладок по явной конфигурации
+
   function buildTabSections(raw, tabConfig, topic) {
     const result = {};
 
@@ -2970,7 +3222,6 @@ if (isPhone) {
       result.preparations = files;
     }
 
-    // ---- Биохимия: три секции по заголовкам ----
     if (tabConfig.includes('questions') || tabConfig.includes('problems')) {
       const three = splitIntoThreeSections(raw);
       if (tabConfig.includes('questions')) result.questions = three.questions;
@@ -3031,27 +3282,22 @@ if (isPhone) {
     void contentEl.offsetWidth;
     contentEl.classList.add('is-loaded');
 
-    // Обработчики для кнопок «Препараты» (PDF)
     contentEl.querySelectorAll('.reader__prep-item[data-pdf]').forEach(btn => {
       btn.addEventListener('click', () => {
         openPdfModal([btn.dataset.pdf], 'Препарат');
       });
     });
 
-    // ---- Блок «Файлы» внизу: собираем все PDF-ссылки из контента ----
     const pdfLinks = Array.from(contentEl.querySelectorAll('a[href$=".pdf"], a[href*=".pdf?"]'))
       .map(a => ({ href: a.getAttribute('href'), name: a.textContent.trim() || a.getAttribute('href') }))
       .filter((v, i, arr) => arr.findIndex(x => x.href === v.href) === i);
 
     if (pdfLinks.length) {
-      // Удаляем сами pdf-ссылки и окружающий текст-примечание из контента
       pdfLinks.forEach(f => {
         const link = contentEl.querySelector(`a[href="${f.href}"]`);
         if (!link) return;
         const parent = link.parentElement;
-        // Если ссылка внутри <p> — удаляем весь <p>
         if (parent && parent.tagName === 'P') {
-          // Смотрим, что было прямо перед этим <p> — если цитата с «Примечание», удаляем и её
           let prev = parent.previousElementSibling;
           while (prev && !prev.textContent.trim() && !prev.querySelector('img')) {
             prev = prev.previousElementSibling;
@@ -3065,7 +3311,6 @@ if (isPhone) {
         }
       });
 
-      // Удаляем пустые параграфы
       contentEl.querySelectorAll('p').forEach(p => {
         if (!p.textContent.trim() && !p.querySelector('img')) p.remove();
       });
@@ -3106,10 +3351,12 @@ if (isPhone) {
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+
   function isReaderOpen() {
-    return document.getElementById('view-files')?.classList.contains('reader-open') === true;
+    const vf = $('view-files');
+    return vf ? vf.classList.contains('reader-open') : false;
   }
-  // Рендер вкладки «Препараты» — список PDF/картинок
+
   function renderPreparations(files) {
     if (!files || !files.length) {
       return '<p class="reader__empty">Препараты к этой теме не прикреплены.</p>';
@@ -3151,6 +3398,7 @@ if (isPhone) {
       </div>
     `;
   }
+
   function setCollapsed(on) {
     if (document.body.classList.contains('island-collapsed') === on) return;
     document.body.classList.toggle('island-collapsed', on);
@@ -3162,7 +3410,7 @@ if (isPhone) {
   let progress100Shown = false;
 
   function computeReadPercent() {
-    const article = document.getElementById('reader-article');
+    const article = $('reader-article');
     if (!article) return 0;
     const content = article.querySelector('.reader__content');
     const target = content || article;
@@ -3170,18 +3418,13 @@ if (isPhone) {
     const total = target.offsetHeight;
     if (total <= 0) return 0;
 
-    // Считаем так: сколько пикселей контента уже "прошло" через верх окна,
-    // относительно (общая высота - высота окна). Внизу — ровно 100.
     const viewportH = window.innerHeight;
     const scrollable = Math.max(1, total - viewportH);
-    const scrolled = Math.max(0, -rect.top + (article.offsetTop >= 0 ? 0 : 0));
     const realScrolled = Math.max(0, window.scrollY - (target.offsetTop + article.offsetTop));
 
-    // Нижняя граница контента: если она уже в окне — 100%.
-    const contentBottom = rect.top + rect.height;      // координата низа контента в окне
+    const contentBottom = rect.top + rect.height;
     if (contentBottom <= viewportH + 8) return 100;
 
-    // Иначе — доля от прокрученного
     let percent = Math.round((realScrolled / scrollable) * 100);
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
@@ -3194,25 +3437,22 @@ if (isPhone) {
     islandProgressValue.textContent = p + '%';
     islandProgressFill.style.width = p + '%';
 
-    // Срабатывает один раз — когда дошли до 100%
     if (p >= 100 && lastPercent < 100 && !progress100Shown) {
       progress100Shown = true;
       celebrateProgress100();
     }
-    // Если откатились выше 95% — разрешаем снова отпраздновать в следующий раз
     if (p < 95) progress100Shown = false;
 
     lastPercent = p;
   }
 
   function celebrateProgress100() {
-    const island = document.getElementById('island');
+    const island = $('island');
     if (!island) return;
     island.classList.remove('island--done');
-    void island.offsetWidth; // перезапуск анимации
+    void island.offsetWidth;
     island.classList.add('island--done');
 
-    // Покажем "100%" жирнее + пульс
     if (islandProgressValue) {
       islandProgressValue.classList.remove('island-progress__value--done');
       void islandProgressValue.offsetWidth;
@@ -3227,59 +3467,53 @@ if (isPhone) {
     }, 1400);
   }
 
-function onScrollForIsland() {
-  const y = window.scrollY;
-  const progressEl = document.getElementById('islandProgress');
+  function onScrollForIsland() {
+    const y = window.scrollY;
+    const progressEl = $('islandProgress');
 
-  if (!isReaderOpen()) {
-    setCollapsed(false);
-    if (progressEl) progressEl.classList.remove('is-up');
-    lastScrollY = y;
-    return;
-  }
-
-  if (y < 60) {
-    setCollapsed(false);
-  } else if (y > collapseThreshold) {
-    setCollapsed(true);
-  }
-
-  // Листаем вверх — показываем кнопку «наверх». Листаем вниз — прячем.
-  if (progressEl) {
-    const scrollDelta = y - lastScrollY;
-    if (scrollDelta < -5) {
-      progressEl.classList.add('is-up');
-    } else if (scrollDelta > 15) {
-      progressEl.classList.remove('is-up');
+    if (!isReaderOpen()) {
+      setCollapsed(false);
+      if (progressEl) progressEl.classList.remove('is-up');
+      lastScrollY = y;
+      return;
     }
+
+    if (y < 60) {
+      setCollapsed(false);
+    } else if (y > collapseThreshold) {
+      setCollapsed(true);
+    }
+
+    if (progressEl) {
+      const scrollDelta = y - lastScrollY;
+      if (scrollDelta < -5) {
+        progressEl.classList.add('is-up');
+      } else if (scrollDelta > 15) {
+        progressEl.classList.remove('is-up');
+      }
+    }
+
+    lastScrollY = y;
+    updateReadProgress();
   }
 
-  lastScrollY = y;
-  updateReadProgress();
-}
-
-  // Пересчитываем при открытии темы
   window.addEventListener('scroll', onScrollForIsland, { passive: true });
   window.addEventListener('resize', () => {
     collapseThreshold = window.innerWidth <= 860 ? 90 : 160;
     if (isReaderOpen()) updateReadProgress();
   }, { passive: true });
 
-  // Плюс обновляем прогресс при смене темы (когда контент уже отрисован)
   document.addEventListener('doro:topic-rendered', () => {
     setTimeout(updateReadProgress, 30);
   });
-  // ============================================================
-  //  ДОП. ФАЙЛЫ (PDF)
-  // ============================================================
+
+  // ---------- ДОП. ФАЙЛЫ (PDF) ----------
   function openPdfModal(files, title) {
     if (!files || !files.length) return;
     if (files.length === 1) {
       window.open(files[0], '_blank', 'noopener');
       return;
     }
-    // Если файлов несколько — открываем первый, остальные через confirm
-    // (просто и без модалки)
     const list = files.map(f => f.split('/').pop()).join('\n');
     const pick = prompt(
       'В теме несколько доп. файлов:\n' + list + '\n\nВведи номер (1–' + files.length + '), чтобы открыть:',
@@ -3290,185 +3524,179 @@ function onScrollForIsland() {
       window.open(files[idx - 1], '_blank', 'noopener');
     }
   }
-// ============================================================
-//  ЗАЩИТА ОТ КОПИРОВАНИЯ — максимум 5 строк
-// ============================================================
-const MAX_LINES = 15;
-let copyToastTimer = null;
-let selectionGuardLock = false;
 
-function isMobileReader() {
-  return window.innerWidth <= 860;
-}
+  // ---------- ЗАЩИТА ОТ КОПИРОВАНИЯ ----------
+  const MAX_LINES = 15;
+  let copyToastTimer = null;
+  let selectionGuardLock = false;
 
-function showCopyToast(msg) {
-  let toast = document.getElementById('copyToast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'copyToast';
-    toast.className = 'copy-toast';
-    document.body.appendChild(toast);
+  function isMobileReader() {
+    return window.innerWidth <= 860;
   }
-  toast.textContent = msg;
-  toast.classList.add('is-visible');
-  clearTimeout(copyToastTimer);
-  copyToastTimer = setTimeout(() => toast.classList.remove('is-visible'), 1800);
-}
 
-function isInsideReader(el) {
-  if (!el) return false;
-  const node = el.nodeType === 1 ? el : el.parentElement;
-  return !!(node && node.closest && node.closest('.reader__content'));
-}
-
-function countSelectionLines(sel) {
-  if (!sel || !sel.rangeCount) return 0;
-  const range = sel.getRangeAt(0);
-  const rects = range.getClientRects();
-  if (!rects.length) return 0;
-
-  const tops = [];
-  for (let i = 0; i < rects.length; i++) {
-    const r = rects[i];
-    if (r.width < 1 || r.height < 1) continue;
-    const top = Math.round(r.top / 2) * 2;
-    if (!tops.includes(top)) tops.push(top);
+  function showCopyToast(msg) {
+    let toast = $('copyToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'copyToast';
+      toast.className = 'copy-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.add('is-visible');
+    clearTimeout(copyToastTimer);
+    copyToastTimer = setTimeout(() => toast.classList.remove('is-visible'), 1800);
   }
-  tops.sort((a, b) => a - b);
-  return tops.length;
-}
 
-function trimSelectionToMaxLines(sel) {
-  if (!sel || !sel.rangeCount) return;
+  function isInsideReader(el) {
+    if (!el) return false;
+    const node = el.nodeType === 1 ? el : el.parentElement;
+    return !!(node && node.closest && node.closest('.reader__content'));
+  }
 
-  const range = sel.getRangeAt(0);
-  const lines = [];
-  const walker = document.createTreeWalker(
-    range.commonAncestorContainer.nodeType === 3
-      ? range.commonAncestorContainer.parentNode
-      : range.commonAncestorContainer,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
+  function countSelectionLines(sel) {
+    if (!sel || !sel.rangeCount) return 0;
+    const range = sel.getRangeAt(0);
+    const rects = range.getClientRects();
+    if (!rects.length) return 0;
 
-  let node;
-  while ((node = walker.nextNode())) {
-    if (!range.intersectsNode(node)) continue;
-    if (!isInsideReader(node)) continue;
+    const tops = [];
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      if (r.width < 1 || r.height < 1) continue;
+      const top = Math.round(r.top / 2) * 2;
+      if (!tops.includes(top)) tops.push(top);
+    }
+    tops.sort((a, b) => a - b);
+    return tops.length;
+  }
 
-    const textLen = node.nodeValue.length;
-    for (let i = 0; i < textLen; i++) {
-      const r = document.createRange();
-      r.setStart(node, i);
-      r.setEnd(node, i + 1);
-      const rect = r.getBoundingClientRect();
-      if (rect.width < 0.1) continue;
+  function trimSelectionToMaxLines(sel) {
+    if (!sel || !sel.rangeCount) return;
 
-      const top = Math.round(rect.top / 2) * 2;
-      let line = lines.find(l => l.top === top);
-      if (!line) {
-        line = { top, firstNode: node, firstOffset: i, lastNode: node, lastOffset: i + 1 };
-        lines.push(line);
-      } else {
-        line.lastNode = node;
-        line.lastOffset = i + 1;
+    const range = sel.getRangeAt(0);
+    const lines = [];
+    const walker = document.createTreeWalker(
+      range.commonAncestorContainer.nodeType === 3
+        ? range.commonAncestorContainer.parentNode
+        : range.commonAncestorContainer,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    let node;
+    while ((node = walker.nextNode())) {
+      if (!range.intersectsNode(node)) continue;
+      if (!isInsideReader(node)) continue;
+
+      const textLen = node.nodeValue.length;
+      for (let i = 0; i < textLen; i++) {
+        const r = document.createRange();
+        r.setStart(node, i);
+        r.setEnd(node, i + 1);
+        const rect = r.getBoundingClientRect();
+        if (rect.width < 0.1) continue;
+
+        const top = Math.round(rect.top / 2) * 2;
+        let line = lines.find(l => l.top === top);
+        if (!line) {
+          line = { top, firstNode: node, firstOffset: i, lastNode: node, lastOffset: i + 1 };
+          lines.push(line);
+        } else {
+          line.lastNode = node;
+          line.lastOffset = i + 1;
+        }
       }
     }
-  }
 
-  if (lines.length <= MAX_LINES) return;
+    if (lines.length <= MAX_LINES) return;
 
-  lines.sort((a, b) => a.top - b.top);
-  const keep = lines.slice(-MAX_LINES);
-  const first = keep[0];
-  const last = keep[keep.length - 1];
+    lines.sort((a, b) => a.top - b.top);
+    const keep = lines.slice(-MAX_LINES);
+    const first = keep[0];
+    const last = keep[keep.length - 1];
 
-  selectionGuardLock = true;
-  try {
-    const newRange = document.createRange();
-    newRange.setStart(first.firstNode, first.firstOffset);
-    newRange.setEnd(last.lastNode, last.lastOffset);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
-    showCopyToast('Максимум ' + MAX_LINES + ' строк');
-  } catch (e) {
-    sel.removeAllRanges();
-    showCopyToast('Максимум ' + MAX_LINES + ' строк');
-  }
-  selectionGuardLock = false;
-}
-
-// 1. selectionchange — обрезаем ТОЛЬКО на ПК
-document.addEventListener('selectionchange', () => {
-  if (selectionGuardLock) return;
-  if (isMobileReader()) return;
-  const sel = window.getSelection();
-  if (!sel || !sel.rangeCount || sel.isCollapsed) return;
-  if (!isInsideReader(sel.anchorNode) && !isInsideReader(sel.focusNode)) return;
-
-  const lines = countSelectionLines(sel);
-  if (lines > MAX_LINES) {
-    trimSelectionToMaxLines(sel);
-  }
-});
-
-// 2. copy — проверяем 5 строк ВЕЗДЕ (ПК + мобилка)
-document.addEventListener('copy', (e) => {
-  const sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return;
-  const startInside = isInsideReader(sel.anchorNode);
-  const endInside   = isInsideReader(sel.focusNode);
-  if (!startInside && !endInside) return;
-
-  const lines = countSelectionLines(sel);
-  if (lines > MAX_LINES) {
-    e.preventDefault();
-    e.stopPropagation();
-    showCopyToast('Максимум ' + MAX_LINES + ' строк');
-  }
-});
-
-// 3. beforecopy — ТОЛЬКО ПК (на мобиле хватит copy, иначе двойной тост)
-document.addEventListener('beforecopy', (e) => {
-  if (isMobileReader()) return;
-  const sel = window.getSelection();
-  if (!sel) return;
-  if (isInsideReader(sel.anchorNode) || isInsideReader(sel.focusNode)) {
-    if (countSelectionLines(sel) > MAX_LINES) {
-      e.preventDefault();
+    selectionGuardLock = true;
+    try {
+      const newRange = document.createRange();
+      newRange.setStart(first.firstNode, first.firstOffset);
+      newRange.setEnd(last.lastNode, last.lastOffset);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      showCopyToast('Максимум ' + MAX_LINES + ' строк');
+    } catch (e) {
+      sel.removeAllRanges();
       showCopyToast('Максимум ' + MAX_LINES + ' строк');
     }
+    selectionGuardLock = false;
   }
-});
 
-// 4. cut — режем всегда
-document.addEventListener('cut', (e) => {
-  if (isInsideReader(e.target)) {
-    e.preventDefault();
-    showCopyToast('Копирование ограничено.');
-  }
-});
+  document.addEventListener('selectionchange', () => {
+    if (selectionGuardLock) return;
+    if (isMobileReader()) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || sel.isCollapsed) return;
+    if (!isInsideReader(sel.anchorNode) && !isInsideReader(sel.focusNode)) return;
 
-// 5. contextmenu — только ПК, на мобиле нативное меню
-document.addEventListener('contextmenu', (e) => {
-  if (isMobileReader()) return;
-  if (isInsideReader(e.target)) {
-    e.preventDefault();
-    showCopyToast('Правая кнопка отключена. Выделяйте до ' + MAX_LINES + ' строк.');
-    return false;
-  }
-});
+    const lines = countSelectionLines(sel);
+    if (lines > MAX_LINES) {
+      trimSelectionToMaxLines(sel);
+    }
+  });
 
-// 6. Ctrl+A — только ПК
-document.addEventListener('keydown', (e) => {
-  if (isMobileReader()) return;
-  const isSelectAll = (e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A');
-  if (isSelectAll && isInsideReader(document.activeElement)) {
-    e.preventDefault();
-    showCopyToast('Выделить всё в теме нельзя. Максимум ' + MAX_LINES + ' строк.');
-  }
-});
-  // ---------- «ПРОДОЛЖИТЬ ЧТЕНИЕ» ----------
+  document.addEventListener('copy', (e) => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const startInside = isInsideReader(sel.anchorNode);
+    const endInside   = isInsideReader(sel.focusNode);
+    if (!startInside && !endInside) return;
+
+    const lines = countSelectionLines(sel);
+    if (lines > MAX_LINES) {
+      e.preventDefault();
+      e.stopPropagation();
+      showCopyToast('Максимум ' + MAX_LINES + ' строк');
+    }
+  });
+
+  document.addEventListener('beforecopy', (e) => {
+    if (isMobileReader()) return;
+    const sel = window.getSelection();
+    if (!sel) return;
+    if (isInsideReader(sel.anchorNode) || isInsideReader(sel.focusNode)) {
+      if (countSelectionLines(sel) > MAX_LINES) {
+        e.preventDefault();
+        showCopyToast('Максимум ' + MAX_LINES + ' строк');
+      }
+    }
+  });
+
+  document.addEventListener('cut', (e) => {
+    if (isInsideReader(e.target)) {
+      e.preventDefault();
+      showCopyToast('Копирование ограничено.');
+    }
+  });
+
+  document.addEventListener('contextmenu', (e) => {
+    if (isMobileReader()) return;
+    if (isInsideReader(e.target)) {
+      e.preventDefault();
+      showCopyToast('Правая кнопка отключена. Выделяйте до ' + MAX_LINES + ' строк.');
+      return false;
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (isMobileReader()) return;
+    const isSelectAll = (e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A');
+    if (isSelectAll && isInsideReader(document.activeElement)) {
+      e.preventDefault();
+      showCopyToast('Выделить всё в теме нельзя. Максимум ' + MAX_LINES + ' строк.');
+    }
+  });
+
+  // ---------- ПРОДОЛЖИТЬ ЧТЕНИЕ ----------
   const LAST_READ_KEY = 'doro.lastRead';
 
   function saveLastRead(subjectKey, topicNum) {
@@ -3488,7 +3716,6 @@ document.addEventListener('keydown', (e) => {
     } catch (e) { /* ignore */ }
   }
 
-  // Обновляем scrollY и percent по мере чтения
   let lastReadSaveTimer = null;
   function scheduleLastReadUpdate() {
     if (!isReaderOpen()) return;
@@ -3521,8 +3748,8 @@ document.addEventListener('keydown', (e) => {
     } catch (e) { return null; }
   }
 
-  const continueBtn = document.getElementById('continueBtn');
-  const continueLabel = document.getElementById('continueLabel');
+  const continueBtn = $('continueBtn');
+  const continueLabel = $('continueLabel');
 
   function updateContinueTile() {
     if (!continueBtn) return;
@@ -3546,11 +3773,9 @@ document.addEventListener('keydown', (e) => {
     continueBtn.addEventListener('click', () => {
       const last = getLastRead();
       if (!last) return;
-      closeProfile();
       showView('files');
       setTimeout(async () => {
         await openTopic(last.subjectKey, last.topicNum);
-        // Ждём отрисовки контента и скроллим
         setTimeout(() => {
           if (last.scrollY > 0) {
             window.scrollTo({ top: last.scrollY, behavior: 'smooth' });
@@ -3561,17 +3786,17 @@ document.addEventListener('keydown', (e) => {
   }
 
   updateContinueTile();
+
   // ---------- АРХИВ ----------
-  const archiveTile = document.getElementById('archiveTile');
+  const archiveTile = $('archiveTile');
   if (archiveTile) {
     archiveTile.addEventListener('click', () => {
-      // TODO: заменить на реальную ссылку Яндекс.Диска
       window.open('https://disk.yandex.ru/', '_blank', 'noopener');
     });
   }
 
-  // ---------- КЛИК ПО КНОПКЕ «НАВЕРХ» ----------
-  const islandProgressUp = document.getElementById('islandProgressUp');
+  // ---------- КНОПКА «НАВЕРХ» ----------
+  const islandProgressUp = $('islandProgressUp');
   if (islandProgressUp) {
     islandProgressUp.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -3579,5 +3804,8 @@ document.addEventListener('keydown', (e) => {
     });
   }
 
+  // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
+  renderProfile();
+  closeProfilePanel();
   showView('home');
 });
