@@ -41,7 +41,29 @@
         <a href="#" data-view="links">Ссылки</a>
         <a href="#" data-view="tasks">Задания</a>
       </nav>
-
+      <div class="island-search" id="islandSearch" aria-hidden="true">
+        <div class="island-search__inner">
+          <svg class="island-search__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+          </svg>
+          <input type="text" id="readerSearchInput" placeholder="Найти в теме…" autocomplete="off" aria-label="Поиск по теме">
+          <span class="island-search__count" id="readerSearchCount"></span>
+          <div class="island-search__nav">
+            <button type="button" class="island-search__nav-btn" id="readerSearchPrev" aria-label="Предыдущее совпадение" title="Предыдущее (Shift+Enter)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="18 15 12 9 6 15"></polyline>
+              </svg>
+            </button>
+            <button type="button" class="island-search__nav-btn" id="readerSearchNext" aria-label="Следующее совпадение" title="Следующее (Enter)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+          <button type="button" class="island-search__close" id="readerSearchClose" aria-label="Закрыть поиск" title="Закрыть поиск">×</button>
+        </div>
+      </div>
       <div class="island-right">
         <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
           <span></span><span></span><span></span>
@@ -110,13 +132,27 @@
                   <polyline points="12 19 5 12 12 5"></polyline>
                 </svg>
               </button>
+
               <div class="reader__subject" id="reader-subject-title"></div>
+
               <button type="button" class="reader-menu-btn" id="readerMenuBtn" aria-label="Настройки чтения" aria-expanded="false">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="3"></circle>
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
               </button>
+            </div>
+
+            <div class="reader-search" id="readerSearch" aria-hidden="true">
+              <div class="reader-search__inner">
+                <svg class="reader-search__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="7"></circle>
+                  <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+                </svg>
+                <input type="text" id="readerSearchInput" placeholder="Найти в теме…" autocomplete="off" aria-label="Поиск по теме">
+                <span class="reader-search__count" id="readerSearchCount"></span>
+                <button type="button" class="reader-search__close" id="readerSearchClose" aria-label="Закрыть поиск" title="Закрыть поиск">×</button>
+              </div>
             </div>
 
             <article class="reader__article" id="reader-article"></article>
@@ -337,10 +373,35 @@
     <aside class="reader-settings" id="readerSettings" aria-hidden="true">
       <div class="reader-settings__head">
         <span class="reader-settings__title">Настройки чтения</span>
-        <button type="button" class="reader-settings__close" id="readerSettingsClose" aria-label="Закрыть">×</button>
+        <div class="reader-settings__head-actions">
+          <button type="button" class="reader-settings__icon-btn" id="rsSearchBtn" aria-label="Поиск по теме" title="Поиск (Ctrl+F)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+            </svg>
+          </button>
+          <button type="button" class="reader-settings__icon-btn" id="rsThemeBtn" aria-label="Переключить тему" title="Тема">
+            <span id="rsThemeIcon"></span>
+          </button>
+          <button type="button" class="reader-settings__close" id="readerSettingsClose" aria-label="Закрыть">×</button>
+        </div>
       </div>
 
       <div class="reader-settings__body">
+
+        <div class="rs-section">
+          <div class="rs-section__label">Режим чтения</div>
+          <div class="rs-mode">
+            <button type="button" class="rs-mode__btn" data-readmode="normal" aria-selected="true">
+              <span class="rs-mode__title">Обычный</span>
+              <span class="rs-mode__desc">Крупно и с воздухом</span>
+            </button>
+            <button type="button" class="rs-mode__btn" data-readmode="class" aria-selected="false">
+              <span class="rs-mode__title">На паре</span>
+              <span class="rs-mode__desc">Компактно, узкие отступы</span>
+            </button>
+          </div>
+        </div>
 
         <div class="rs-section">
           <div class="rs-section__label">
@@ -351,33 +412,6 @@
             <span class="rs-font__edge rs-font__edge--min" aria-hidden="true">A</span>
             <input type="range" class="rs-font__range" id="fontRange" min="0" max="10" step="1" value="8" aria-label="Размер шрифта">
             <span class="rs-font__edge rs-font__edge--max" aria-hidden="true">A</span>
-          </div>
-        </div>
-
-        <div class="rs-section rs-section--pad">
-          <div class="rs-section__label">Отступы по бокам</div>
-          <div class="rs-pad">
-            <button type="button" class="rs-pad__btn" data-pad="narrowest" aria-selected="false">Уже</button>
-            <button type="button" class="rs-pad__btn" data-pad="narrow"    aria-selected="false">Узко</button>
-            <button type="button" class="rs-pad__btn" data-pad="normal"    aria-selected="true">Обычно</button>
-            <button type="button" class="rs-pad__btn" data-pad="wide"      aria-selected="false">Широко</button>
-          </div>
-        </div>
-
-        <div class="rs-section">
-          <div class="rs-section__label">Плотность</div>
-          <div class="rs-compact">
-            <button type="button" class="rs-compact__btn" data-compact="off" aria-selected="false">Обычный</button>
-            <button type="button" class="rs-compact__btn" data-compact="on"  aria-selected="false">Компакт</button>
-          </div>
-        </div>
-
-        <div class="rs-section">
-          <div class="rs-section__label">Тема</div>
-          <div class="rs-theme">
-            <button type="button" class="rs-theme__btn" data-mode="auto"  role="tab" aria-selected="false">Авто</button>
-            <button type="button" class="rs-theme__btn" data-mode="light" role="tab" aria-selected="false">Светлая</button>
-            <button type="button" class="rs-theme__btn" data-mode="dark"  role="tab" aria-selected="false">Тёмная</button>
           </div>
         </div>
 
@@ -467,7 +501,6 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="script.js"></script>
