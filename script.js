@@ -586,8 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const calendarEl = $('calendar');
   const lessonsEl = $('lessons');
-
-  const searchToggle = $('searchToggle');
+    const searchToggle = $('searchToggle');
   const searchField = $('searchField');
   const searchInput = $('searchInput');
   const searchResults = $('searchResults');
@@ -595,42 +594,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const notifyList = $('notifyList');
   const notifyBadge = $('notifyBadge');
   const avatarBadge = $('avatarBadge');
-
   const lectureToggle = $('lectureToggle');
   const lectureInfo = $('lectureInfo');
-
   const subjectsCards = $('subjects-cards');
   const subjectsCardsView = $('subjects-cards-view');
-
   const readerScreen = $('reader-screen');
   const readerBack = $('readerBack');
   const readerPanel = document.querySelector('#reader .reader__panel');
   const readerArticle = $('reader-article');
   const readerSubjectTitle = $('reader-subject-title');
   let readerTabs = $('readerTabs');
-
   const readerMenuBtn = $('readerMenuBtn');
   const readerSettings = $('readerSettings');
   const readerSettingsClose = $('readerSettingsClose');
   const readerSettingsBackdrop = $('readerSettingsBackdrop');
   const fontValue = $('fontValue');
-
-  const views = {
-    home: $('view-home'), files: $('view-files'), links: $('view-links'),
-    tasks: $('view-tasks'), profile: $('view-profile')
-  };
+  const views = { home: $('view-home'), files: $('view-files'), links: $('view-links'), tasks: $('view-tasks'), profile: $('view-profile') };
   const rendered = { home: false, files: false, links: false, tasks: false, profile: false };
-
   let currentSubjectKey = null;
   let currentTopicMeta = null;
-
   let user = JSON.parse(localStorage.getItem('doro.user') || 'null');
   if (user && typeof user === 'object') {
     user.color = user.color || '#3b82f6';
     user.group = user.group || '';
     user.status = user.status || '';
   }
-
   const AVATAR_COLORS = ['#3b82f6','#16a34a','#ea580c','#9333ea','#0891b2','#e11d48','#ca8a04','#475569'];
 
   // ---------- ТЕМА ----------
@@ -1112,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (key === 'search') panelEl = $('searchField');
     if (key === 'lecture') panelEl = $('lectureInfo');
     if (key === 'notify') panelEl = $('notifyList');
+    if (key === 'users') panelEl = $('usersList');
     if (!panelEl) return;
     panelEl.classList.add('is-open');
     activePanelKey = key;
@@ -1119,6 +1108,63 @@ document.addEventListener('DOMContentLoaded', () => {
     profilePop.setAttribute('aria-hidden', 'false');
     document.body.classList.add('profile-pop-open');
     if (key === 'search' && searchInput) setTimeout(() => searchInput.focus(), 150);
+  }
+    // ---------- СПИСОК ПОЛЬЗОВАТЕЛЕЙ (FIREBASE) ----------
+  const usersToggle = $('usersToggle');
+  const usersList = $('usersList');
+
+  if (usersToggle) {
+    usersToggle.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (activePanelKey === 'users') { closeProfilePanel(); return; }
+      
+      openProfilePanel('users');
+      if (!usersList) return;
+      
+      usersList.innerHTML = '<div class="notify-item--empty" style="text-align:center;padding:20px;">Загрузка пользователей…</div>';
+      
+      try {
+        if (window.doroCloudReady) {
+          const cloud = await window.doroCloudReady;
+          if (cloud) {
+            const allUsers = await cloud.listUsers();
+            allUsers.sort((a, b) => b.updatedAt - a.updatedAt);
+            
+            usersList.innerHTML = '';
+            if (!allUsers.length) {
+              usersList.innerHTML = '<div class="notify-item--empty" style="text-align:center;padding:20px;">Пока никого нет.</div>';
+              return;
+            }
+
+            allUsers.forEach(u => {
+              const initial = u.name ? u.name[0].toUpperCase() : '?';
+              const color = u.color || '#3b82f6';
+              const displayName = u.name || 'Без имени';
+              const displayGroup = u.group ? `Группа ${u.group}` : 'Группа не выбрана';
+              const displayStatus = u.status || 'Без статуса';
+              
+              const row = document.createElement('div');
+              row.className = 'user-row';
+              row.style.cssText = 'display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; margin-bottom:8px; background:rgba(255,255,255,0.5);';
+              row.innerHTML = `
+                <div style="width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:bold;font-size:16px;background:linear-gradient(135deg, ${color}, ${color}aa)">${initial}</div>
+                <div style="display:flex; flex-direction:column; min-width:0;">
+                  <div style="font-size:14px; font-weight:700; color:var(--text);">${displayName}</div>
+                  <div style="font-size:12px; color:var(--text-soft);">${displayGroup}</div>
+                  <div style="font-size:12px; color:var(--accent); font-weight:600;">${displayStatus}</div>
+                </div>
+              `;
+              usersList.appendChild(row);
+            });
+          }
+        } else {
+          usersList.innerHTML = '<div class="notify-item--empty" style="text-align:center;padding:20px;">Ошибка Firebase.</div>';
+        }
+      } catch (err) {
+        console.error(err);
+        usersList.innerHTML = '<div class="notify-item--empty" style="text-align:center;padding:20px;">Ошибка загрузки.</div>';
+      }
+    });
   }
   function closeProfilePanel() {
     if (!profilePop) return;
@@ -2744,7 +2790,142 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------- НАВЕРХ ----------
   const islandProgressUp = $('islandProgressUp');
   if (islandProgressUp) islandProgressUp.addEventListener('click', (e) => { e.stopPropagation(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  // ============================================================
+  //  ОНБОРДИНГ НОВОГО ПОЛЬЗОВАТЕЛЯ
+  // ============================================================
+  const ONBOARD_DONE_KEY = 'doro.onboarded.v2'; // v2 сбросит всех
 
+  (function initOnboard() {
+    const onboard       = $('onboard');
+    const nameInp       = $('onboardName');
+    const nextBtn       = $('onboardNext');
+    const nextBtn2      = $('onboardNext2');
+    const skipGroup     = $('onboardSkipGroup');
+    const finishBtn     = $('onboardFinish');
+    const stepLabel     = $('onboardStep');
+    const avatarLetter  = $('onboardAvatarLetter');
+    const avatarEl      = $('onboardAvatar');
+    
+    const groupPrefix   = $('onboardGroupPrefix');
+    const groupSuffix   = $('onboardGroupSuffix');
+    
+    const chipsWrap     = $('onboardStatusChips');
+    const colorsWrap    = $('onboardColors');
+    const panels        = Array.from(document.querySelectorAll('.onboard__step-panel'));
+
+    if (!onboard) return;
+
+    let step = 1;
+    let draft = { name: '', group: '', status: '', color: '#3b82f6' };
+
+    // Заполняем вторую часть группы (01 - 20)
+    for (let i = 1; i <= 20; i++) {
+      const val = String(i).padStart(2, '0');
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = val;
+      if (i === 11) opt.selected = true; // По умолчанию 11
+      groupSuffix.appendChild(opt);
+    }
+
+    const COLORS = ['#3b82f6','#16a34a','#ea580c','#9333ea','#0891b2','#e11d48','#ca8a04','#475569'];
+    COLORS.forEach(c => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'onboard__color';
+      b.dataset.color = c;
+      b.style.background = `linear-gradient(135deg, ${c}, color-mix(in srgb, ${c} 60%, #fff))`;
+      b.addEventListener('click', () => {
+        draft.color = c;
+        colorsWrap.querySelectorAll('.onboard__color').forEach(x => x.classList.toggle('is-selected', x.dataset.color === c));
+        paintOnboardAvatar();
+      });
+      colorsWrap.appendChild(b);
+    });
+
+    function paintOnboardAvatar() {
+      const name = draft.name.trim();
+      avatarLetter.textContent = name ? name[0].toUpperCase() : '?';
+      avatarEl.style.background = `linear-gradient(135deg, ${draft.color}, color-mix(in srgb, ${draft.color} 60%, #fff))`;
+      avatarEl.classList.remove('is-popping');
+      void avatarEl.offsetWidth;
+      avatarEl.classList.add('is-popping');
+    }
+
+    function goTo(n) {
+      step = n;
+      panels.forEach(p => p.classList.toggle('is-active', Number(p.dataset.step) === n));
+      stepLabel.textContent = `Шаг ${n} из 3`;
+      if (n === 1) setTimeout(() => nameInp.focus(), 200);
+    }
+
+    nameInp.addEventListener('input', () => {
+      draft.name = nameInp.value;
+      nextBtn.disabled = !nameInp.value.trim();
+      paintOnboardAvatar();
+    });
+    nameInp.addEventListener('keydown', e => { if (e.key === 'Enter' && !nextBtn.disabled) nextBtn.click(); });
+    
+    nextBtn.addEventListener('click', () => {
+      if (!nameInp.value.trim()) return;
+      draft.name = nameInp.value.trim().split(/\s+/)[0];
+      nameInp.value = draft.name;
+      goTo(2);
+    });
+
+    // Собираем группу при нажатии "Дальше" на 2 шаге
+    nextBtn2.addEventListener('click', () => {
+      draft.group = `ЛД${groupPrefix.value}${groupSuffix.value}`;
+      goTo(3);
+    });
+    skipGroup.addEventListener('click', () => { draft.group = ''; goTo(3); });
+
+    chipsWrap.addEventListener('click', e => {
+      const chip = e.target.closest('.onboard__chip');
+      if (!chip) return;
+      draft.status = chip.dataset.value;
+      chipsWrap.querySelectorAll('.onboard__chip').forEach(c => c.classList.toggle('is-selected', c === chip));
+    });
+
+    finishBtn.addEventListener('click', async () => {
+      finishBtn.disabled = true;
+      finishBtn.textContent = 'Сохраняю…';
+
+      user = user || {};
+      user.name   = draft.name;
+      user.group  = draft.group;
+      user.status = draft.status;
+      user.color  = draft.color;
+      localStorage.setItem('doro.user', JSON.stringify(user));
+      localStorage.setItem(ONBOARD_DONE_KEY, '1');
+
+      try {
+        if (window.doroCloudReady) {
+          const cloud = await window.doroCloudReady;
+          if (cloud) await cloud.saveProfile(user);
+        }
+      } catch (e) { console.warn('Cloud save failed:', e); }
+
+      onboard.classList.remove('is-open');
+      onboard.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('onboard-open');
+
+      renderProfile();
+      if (typeof paintThemeToggleBtn === 'function') paintThemeToggleBtn();
+      showView('profile');
+    });
+
+    const alreadyDone = localStorage.getItem(ONBOARD_DONE_KEY) === '1';
+    if (!alreadyDone) {
+      if (user) { user.name = ''; localStorage.setItem('doro.user', JSON.stringify(user)); }
+      setTimeout(() => {
+        onboard.classList.add('is-open');
+        onboard.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('onboard-open');
+        goTo(1);
+      }, 500);
+    }
+  })();
   // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
   renderProfile();
   closeProfilePanel();
