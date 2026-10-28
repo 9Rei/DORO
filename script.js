@@ -2793,7 +2793,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ============================================================
   //  ОНБОРДИНГ НОВОГО ПОЛЬЗОВАТЕЛЯ
   // ============================================================
-  const ONBOARD_DONE_KEY = 'doro.onboarded.v3'; 
+  const ONBOARD_DONE_KEY = 'doro.onboarded.v3'; // v2 сбросит всех
 
   (function initOnboard() {
     const onboard       = $('onboard');
