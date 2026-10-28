@@ -1548,6 +1548,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const subjBadge = $('reader-subject-title'); if (subjBadge) subjBadge.style.setProperty('--subject-accent', accent);
     const readerEl = $('reader'); if (readerEl) readerEl.style.setProperty('--subject-accent', accent);
     const topicsEl = $('readerTopics'); if (topicsEl) topicsEl.style.setProperty('--subject-accent', accent);
+    const settingsEl = $('readerSettings'); if (settingsEl) settingsEl.style.setProperty('--subject-accent', accent);
+    const popEl = $('readerPop'); if (popEl) popEl.style.setProperty('--subject-accent', accent);
+    const viewFiles = $('view-files'); if (viewFiles) viewFiles.style.setProperty('--subject-accent', accent);
   }
   function sortTopics(topics) {
     return topics.slice().sort((a, b) => {
