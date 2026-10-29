@@ -88,7 +88,8 @@ const subjects = {
       { num: "27", title: "Морфологическая характеристика кожи и ее производных. Морфологическая характеристика органов дыхания", steps: ["Прочитать файлик","Тема разделена на 2 части", "В конце темы краткий вариант", "Решить тест"], date: "2026-11-02", file: "content/histology/ГИСТА_27.md", pdf: "content/histology/27П.pdf" },
       { num: "26", title: "Пищеварительная система. Морфологическая характеристика печени и поджелудочной железы", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-27", file: "content/histology/ГИСТА_26.md", pdf: "content/histology/26П.pdf" },
       { num: "25", title: "Пищеварительная система. Морфологическая характеристика кишечника", steps: ["Прочитать файлик (в нем препараты)", "Решить тест"], date: "2026-10-20", file: "content/histology/ГИСТА_25.md", pdf: "content/histology/25П.pdf" },
-      { num: "24", title: "Пищеварительная система. Морфологическая характеристика желудка", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-13", file: "content/histology/24.md" }
+      { num: "24", title: "Пищеварительная система. Морфологическая характеристика желудка", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-13", file: "content/histology/24.md" },
+      { num: "23", title: "Пищеварительная система. Морфологическая характеристика переднего отдела пищеварительной системы: органы ротовой полости, пищевод", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-06", file: "content/histology/ГИСТА_23.md", pdf: "content/histology/23П.pdf" }
     ]
   },
   microbio: {
@@ -108,6 +109,48 @@ const subjects = {
   }
 };
 
+// ============================================================
+//  ЕДИНЫЙ СПИСОК СТАТУСОВ + УТИЛИТЫ ГРУППЫ
+// ============================================================
+const USER_STATUSES = [
+  "готов к коллоквиуму",
+  "учусь, не мешайте",
+  "всё горит",
+  "на связи",
+  "сплю, но не долго",
+  "в потоке",
+  "на парах",
+  "отдыхаю",
+  "на позитиве",
+  "кофе и конспекты",
+  "перечитываю лекции",
+  "дедлайн близко",
+  "живу от пары до пары",
+  "почти всё успел(а)",
+  "режим тишины"
+];
+
+const GROUP_DEFAULT = { letters: "ЛД", year: "25", num: "11" };
+const GROUP_MAX_YEAR = 26;
+const GROUP_MAX_NUM = 20;
+
+function normalizeGroupLetters(raw) {
+  return (raw || "").toUpperCase().replace(/[^А-ЯЁA-Z]/g, "").slice(0, 4);
+}
+function formatGroup(parts) {
+  if (!parts || !parts.letters || !parts.year || !parts.num) return "";
+  return parts.letters + parts.year + parts.num;
+}
+function parseGroup(str) {
+  const s = (str || "").trim().toUpperCase();
+  if (!s) return { letters: "", year: "", num: "" };
+  const m = s.match(/^([А-ЯЁA-Z]+)(\d{2})(\d{2})$/);
+  if (m) return { letters: m[1], year: m[2], num: m[3] };
+  const m2 = s.match(/^(.*?)(\d{2})(\d{2})$/);
+  if (m2) return { letters: m2[1], year: m2[2], num: m2[3] };
+  return { letters: s.replace(/\d/g, ""), year: "", num: "" };
+}
+
 const schedule = {
   "ПН": [
     { time: "8:00–10:25", title: "Микробио", subjectKey: "microbio", room: "239 каб.", teacher: "Бжитских Екатерина Евгеньевна" },
@@ -122,14 +165,32 @@ const schedule = {
     { time: "10:40–13:05", title: "Гигиена", subjectKey: "hygiene", room: "133 каб.", teacher: "Ушаков Александр Анатольевич" }
   ],
   "ЧТ": [
-    { time: "8:00–10:25", title: "Норм физа", subjectKey: "physio", room: "409 каб.", teacher: "Шахматов Игорь Ильич" },
-    { time: "10:35–12:05", title: "Истмед (1 нед.)", room: "326 каб.", teacher: "Кулипанова Наталья Викторовна" }
+    { time: "8:00–10:25", title: "Норм физа", subjectKey: "physio", room: "409 каб.", teacher: "Шахматов Игорь Ильич" }
   ],
   "ПТ": [
     { time: "10:30–12:00", title: "Физра", subjectKey: "physio", room: "4 каб.", teacher: "Воронцов Павел Геннадьевич" },
     { time: "13:30–15:55", title: "Гиста", subjectKey: "histology", room: "433 каб.", teacher: "Грибанова Ольга Геннадьевна" }
   ]
 };
+
+// История — только на первой неделе (чётность от 29.10.2026)
+// 29.10.2026 — четверг, это «первая» неделя.
+const WEEK_ANCHOR = new Date(2026, 9, 29); // 29 октября 2026
+function isFirstWeek(date) {
+  const d = new Date(date); d.setHours(0,0,0,0);
+  const anchor = new Date(WEEK_ANCHOR); anchor.setHours(0,0,0,0);
+  const diffDays = Math.floor((d - anchor) / 86400000);
+  const weeks = Math.floor(diffDays / 7);
+  return ((weeks % 2) + 2) % 2 === 0; // чётные недели от якоря — «первая»
+}
+function getDaySchedule(dayKey, date) {
+  const base = (schedule[dayKey] || []).slice();
+  // История (истмед) — только на первой неделе
+  if (dayKey === 'ЧТ' && isFirstWeek(date)) {
+    base.push({ time: "10:35–12:05", title: "Истмед", room: "326 каб.", teacher: "Кулипанова Наталья Викторовна" });
+  }
+  return base;
+}
 
 // ============================================================
 //  ЛЕКЦИИ
@@ -205,7 +266,7 @@ function findNextLessonDate(subjectKey, fromDate) {
     const d = new Date(start); d.setDate(d.getDate() + i);
     const dow = d.getDay();
     if (dow === 0 || dow === 6) continue;
-    const lessons = dayMap[dow] || [];
+    const lessons = getDaySchedule(['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'][dow], d);
     if (!lessons.some(l => l.subjectKey === subjectKey)) continue;
     return d;
   }
@@ -425,8 +486,8 @@ const SearchCtl = (function () {
   let idx = -1;
 
   function getArticle() { return document.getElementById('reader-article'); }
-  function getInput()   { return document.getElementById('readerSearchInput'); }
-  function getCount()   { return document.getElementById('readerSearchCount'); }
+  function getInput()   { return document.getElementById('readerSearchInputLocal'); }
+  function getCount()   { return document.getElementById('readerSearchCountLocal'); }
   function getPanel()   { return document.getElementById('islandSearch'); }
 
   function clear() {
@@ -534,7 +595,7 @@ const SearchCtl = (function () {
   }
 
   function bind() {
-    const closeBtn = document.getElementById('readerSearchClose');
+    const closeBtn = document.getElementById('readerSearchCloseLocal');
     const prevBtn = document.getElementById('readerSearchPrev');
     const nextBtn = document.getElementById('readerSearchNext');
     const input = getInput();
@@ -586,11 +647,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const calendarEl = $('calendar');
   const lessonsEl = $('lessons');
-    const searchToggle = $('searchToggle');
   const searchField = $('searchField');
   const searchInput = $('searchInput');
   const searchResults = $('searchResults');
-  const notifyToggle = $('notifyToggle');
   const notifyList = $('notifyList');
   const notifyBadge = $('notifyBadge');
   const avatarBadge = $('avatarBadge');
@@ -701,7 +760,6 @@ document.addEventListener('DOMContentLoaded', () => {
   themeSegBtns.forEach(btn => btn.addEventListener('click', () => handleThemeChange(btn.dataset.mode)));
 
   // ---------- КНОПКА ТЕМЫ В ПРОФИЛЕ ----------
-  const themeToggleBtn = $('themeToggleBtn');
   const themeToggleLabel = $('themeToggleLabel');
   const themeToggleIcon = $('themeToggleIcon');
   const THEME_CYCLE = ['auto', 'light', 'dark'];
@@ -712,14 +770,15 @@ document.addEventListener('DOMContentLoaded', () => {
     dark: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>'
   };
   function paintThemeToggleBtn() {
-    if (!themeToggleBtn) return;
     const mode = getThemeMode();
     if (themeToggleLabel) themeToggleLabel.textContent = THEME_LABELS[mode];
     if (themeToggleIcon) themeToggleIcon.innerHTML = THEME_ICONS[mode];
-    themeToggleBtn.setAttribute('aria-label', 'Тема: ' + THEME_LABELS[mode] + '. Нажмите, чтобы переключить');
+    const t = $('tileTheme');
+    if (t) t.setAttribute('aria-label', 'Тема: ' + THEME_LABELS[mode] + '. Нажмите, чтобы переключить');
   }
-  if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', () => {
+  const tileTheme = $('tileTheme');
+  if (tileTheme) {
+    tileTheme.addEventListener('click', () => {
       const current = getThemeMode();
       const idx = THEME_CYCLE.indexOf(current);
       const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
@@ -846,7 +905,16 @@ document.addEventListener('DOMContentLoaded', () => {
     avatar.style.color = '#fff';
     avatar.style.borderColor = color;
   }
-
+  async function syncProfileToCloud() {
+    try {
+      if (!window.doroCloudReady) return;
+      const cloud = await window.doroCloudReady;
+      if (!cloud) return;
+      await cloud.saveProfile(user || {});
+    } catch (e) {
+      console.warn('Cloud save failed:', e);
+    }
+  }
   function renderProfile() {
     const avatarLetter = $('avatarLetter');
     const heroLetter = $('profileHeroLetter');
@@ -907,18 +975,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (avatar) avatar.addEventListener('click', (e) => { e.stopPropagation(); showView('profile'); });
-
   function openProfileSheet() {
     if (!profileSheet) return;
     profileSheet.style.removeProperty('display');
     if (nameInput) nameInput.value = user?.name || '';
-    const statusInput = $('statusInput');
-    const groupSelect = $('groupSelect');
-    if (statusInput) statusInput.value = user?.status || '';
-    if (groupSelect) groupSelect.value = user?.group || '';
     profileSheet.classList.add('is-open');
     profileSheet.setAttribute('aria-hidden', 'false');
     document.body.classList.add('profile-sheet-open');
+    if (typeof window.__refreshGroupFields === 'function') window.__refreshGroupFields();
+    if (typeof window.__paintStatusPicker === 'function') window.__paintStatusPicker();
     setTimeout(() => { if (nameInput) nameInput.focus(); }, 250);
   }
   function closeProfileSheet() {
@@ -934,7 +999,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape' && profileSheet && profileSheet.classList.contains('is-open')) closeProfileSheet();
   });
   if (saveNameBtn) {
-    saveNameBtn.addEventListener('click', () => {
+    saveNameBtn.addEventListener('click', async () => {
       if (!nameInput) return;
       let val = nameInput.value.trim();
       if (!val) return;
@@ -946,40 +1011,93 @@ document.addEventListener('DOMContentLoaded', () => {
       nameInput.value = val;
       renderProfile();
       closeProfileSheet();
+      await syncProfileToCloud();
     });
   }
   if (nameInput && saveNameBtn) nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveNameBtn.click(); });
 
   (function initGroups() {
-    const select = $('groupSelect');
-    if (!select) return;
-    for (let i = 11; i <= 20; i++) {
-      const opt = document.createElement('option');
-      opt.value = 'ЛД25' + i;
-      opt.textContent = 'ЛД25' + i;
-      select.appendChild(opt);
+    const lettersInp = $('groupLettersInput');
+    const yearSel = $('groupYearSelect');
+    const numSel = $('groupNumSelect');
+    if (!lettersInp || !yearSel || !numSel) return;
+
+    yearSel.innerHTML = '';
+    for (let i = 0; i <= GROUP_MAX_YEAR; i++) {
+      const v = String(i).padStart(2, '0');
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      yearSel.appendChild(o);
     }
-    if (user && user.group) select.value = user.group;
-    select.addEventListener('change', () => {
+    numSel.innerHTML = '';
+    for (let i = 1; i <= GROUP_MAX_NUM; i++) {
+      const v = String(i).padStart(2, '0');
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      numSel.appendChild(o);
+    }
+
+    function applyUserGroup() {
+      const parts = parseGroup(user && user.group);
+      lettersInp.value = parts.letters || '';
+      yearSel.value = parts.year || GROUP_DEFAULT.year;
+      numSel.value = parts.num || GROUP_DEFAULT.num;
+    }
+    applyUserGroup();
+
+    function saveGroup() {
       if (!user) user = {};
-      user.group = select.value;
+      const letters = normalizeGroupLetters(lettersInp.value);
+      const year = yearSel.value;
+      const num = numSel.value;
+      lettersInp.value = letters;
+      user.group = (letters && year && num) ? formatGroup({ letters, year, num }) : '';
       localStorage.setItem('doro.user', JSON.stringify(user));
       renderProfile();
-    });
-  })();
+      syncProfileToCloud();
+    }
 
+    lettersInp.addEventListener('input', () => {
+      const cleaned = normalizeGroupLetters(lettersInp.value);
+      if (lettersInp.value !== cleaned) lettersInp.value = cleaned;
+    });
+    lettersInp.addEventListener('change', saveGroup);
+    yearSel.addEventListener('change', saveGroup);
+    numSel.addEventListener('change', saveGroup);
+
+    window.__refreshGroupFields = applyUserGroup;
+  })();
   (function initStatus() {
     const picker = $('statusPicker');
     const trigger = $('statusTrigger');
     const triggerValue = $('statusTriggerValue');
     const menu = $('statusMenu');
     if (!picker || !trigger || !menu) return;
+
+    menu.innerHTML = '';
+    USER_STATUSES.forEach(s => {
+      const li = document.createElement('li');
+      li.className = 'status-picker__item';
+      li.setAttribute('role', 'option');
+      li.dataset.value = s;
+      li.innerHTML = `<span>${s}</span>`;
+      menu.appendChild(li);
+    });
     const items = Array.from(menu.querySelectorAll('.status-picker__item'));
     let focusedIndex = -1;
-    function getCurrentValue() { return (user && user.status) || ''; }
+
+    function defaultStatus() { return USER_STATUSES[0]; }
+    function getCurrentValue() { return (user && user.status) ? user.status : defaultStatus(); }
+
+    if (user && !user.status) {
+      user.status = defaultStatus();
+      localStorage.setItem('doro.user', JSON.stringify(user));
+      syncProfileToCloud();
+    }
+
     function paintTrigger() {
       const val = getCurrentValue();
-      if (triggerValue) { triggerValue.textContent = val || '— не задан —'; triggerValue.classList.toggle('is-empty', !val); }
+      if (triggerValue) { triggerValue.textContent = val; triggerValue.classList.remove('is-empty'); }
       items.forEach(it => it.setAttribute('aria-selected', it.dataset.value === val ? 'true' : 'false'));
     }
     function openMenu() {
@@ -998,10 +1116,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function selectValue(val) {
       if (!user) user = {};
-      user.status = val || '';
+      user.status = val || defaultStatus();
       localStorage.setItem('doro.user', JSON.stringify(user));
       paintTrigger(); closeMenu(); renderProfile();
+      syncProfileToCloud();
     }
+
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       if (picker.classList.contains('is-open')) closeMenu();
@@ -1040,6 +1160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (focusedIndex >= 0) selectValue(items[focusedIndex].dataset.value);
       } else if (e.key === 'Escape') { closeMenu(); trigger.focus(); }
     });
+
     paintTrigger();
     window.__paintStatusPicker = paintTrigger;
   })();
@@ -1063,6 +1184,7 @@ document.addEventListener('DOMContentLoaded', () => {
           b.setAttribute('aria-selected', b.dataset.color === color ? 'true' : 'false');
         });
         renderProfile();
+        syncProfileToCloud();
       });
       palette.appendChild(btn);
     });
@@ -1081,127 +1203,254 @@ document.addEventListener('DOMContentLoaded', () => {
     return homework.filter(h => h.subjectKey === subjectKey && h.dayKey === dayKey && h.slot === slot);
   }
 
-  // ---------- МОДАЛКА ПАНЕЛЕЙ ПРОФИЛЯ ----------
-  const profilePop = $('profilePop');
-  const profilePopBackdrop = $('profilePopBackdrop');
-  const profilePopClose = $('profilePopClose');
-  let activePanelKey = null;
+  // ---------- СПИСОК ПОЛЬЗОВАТЕЛЕЙ В ПРОФИЛЕ ----------
+  const profileUsersBody = $('profileUsersBody');
+  const profileUsersCount = $('profileUsersCount');
 
-  function openProfilePanel(key) {
-    if (!profilePop) return;
-    if (profileSheet) {
-      profileSheet.classList.remove('is-open');
-      profileSheet.setAttribute('aria-hidden', 'true');
-      profileSheet.style.display = 'none';
-      document.body.classList.remove('profile-sheet-open');
-    }
-    ['searchField', 'lectureInfo', 'notifyList'].forEach(id => { const el = $(id); if (el) el.classList.remove('is-open'); });
-    let panelEl = null;
-    if (key === 'search') panelEl = $('searchField');
-    if (key === 'lecture') panelEl = $('lectureInfo');
-    if (key === 'notify') panelEl = $('notifyList');
-    if (key === 'users') panelEl = $('usersList');
-    if (!panelEl) return;
-    panelEl.classList.add('is-open');
-    activePanelKey = key;
-    profilePop.classList.add('is-open');
-    profilePop.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('profile-pop-open');
-    if (key === 'search' && searchInput) setTimeout(() => searchInput.focus(), 150);
+  function getSectionAuthors() {
+    const set = new Set();
+    Object.values(subjects).forEach(s => {
+      if (s && s.author) set.add(s.author.trim());
+    });
+    return [...set];
   }
-    // ---------- СПИСОК ПОЛЬЗОВАТЕЛЕЙ (FIREBASE) ----------
-  const usersToggle = $('usersToggle');
-  const usersList = $('usersList');
+  const SECTION_AUTHORS = getSectionAuthors();
+  const SECTION_AUTHOR_FIRSTNAMES = SECTION_AUTHORS
+    .map(a => a.split(/\s+/)[0].toLowerCase());
 
-  if (usersToggle) {
-    usersToggle.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (activePanelKey === 'users') { closeProfilePanel(); return; }
-      
-      openProfilePanel('users');
-      if (!usersList) return;
-      
-      usersList.innerHTML = '<div class="notify-item--empty" style="text-align:center;padding:20px;">Загрузка пользователей…</div>';
-      
-      try {
-        if (window.doroCloudReady) {
-          const cloud = await window.doroCloudReady;
-          if (cloud) {
-            const allUsers = await cloud.listUsers();
-            allUsers.sort((a, b) => b.updatedAt - a.updatedAt);
-            
-            usersList.innerHTML = '';
-            if (!allUsers.length) {
-              usersList.innerHTML = '<div class="notify-item--empty" style="text-align:center;padding:20px;">Пока никого нет.</div>';
-              return;
-            }
+  function normalizeUserName(name) {
+    return (name || '').trim().replace(/\s+/g, ' ');
+  }
 
-            allUsers.forEach(u => {
-              const initial = u.name ? u.name[0].toUpperCase() : '?';
-              const color = u.color || '#3b82f6';
-              const displayName = u.name || 'Без имени';
-              const displayGroup = u.group ? `Группа ${u.group}` : 'Группа не выбрана';
-              const displayStatus = u.status || 'Без статуса';
-              
-              const row = document.createElement('div');
-              row.className = 'user-row';
-              row.style.cssText = 'display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; margin-bottom:8px; background:rgba(255,255,255,0.5);';
-              row.innerHTML = `
-                <div style="width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:bold;font-size:16px;background:linear-gradient(135deg, ${color}, ${color}aa)">${initial}</div>
-                <div style="display:flex; flex-direction:column; min-width:0;">
-                  <div style="font-size:14px; font-weight:700; color:var(--text);">${displayName}</div>
-                  <div style="font-size:12px; color:var(--text-soft);">${displayGroup}</div>
-                  <div style="font-size:12px; color:var(--accent); font-weight:600;">${displayStatus}</div>
-                </div>
-              `;
-              usersList.appendChild(row);
-            });
-          }
-        } else {
-          usersList.innerHTML = '<div class="notify-item--empty" style="text-align:center;padding:20px;">Ошибка Firebase.</div>';
+  function isSectionAuthor(name) {
+    const n = normalizeUserName(name).toLowerCase();
+    if (!n) return false;
+    if (SECTION_AUTHORS.some(a => a.toLowerCase() === n)) return true;
+    if (SECTION_AUTHOR_FIRSTNAMES.includes(n)) return true;
+    return SECTION_AUTHORS.some(a => {
+      const parts = a.toLowerCase().split(/\s+/);
+      return parts.some(p => p.length > 2 && n.includes(p));
+    });
+  }
+
+  function userKey(u) {
+    return normalizeUserName(u.name).toLowerCase() + '::' + (u.group || '').trim().toLowerCase();
+  }
+
+  function mergeUsers(list) {
+    const map = new Map();
+    list.forEach(u => {
+      const name = normalizeUserName(u.name);
+      if (!name) return;
+      const key = userKey({ name, group: u.group });
+      if (!map.has(key)) {
+        map.set(key, {
+          name,
+          group: (u.group || '').trim(),
+          status: u.status || '',
+          color: u.color || '#3b82f6',
+          uids: [u.id],
+          updatedAt: u.updatedAt || 0
+        });
+      } else {
+        const cur = map.get(key);
+        cur.uids.push(u.id);
+        if (u.status && (u.updatedAt || 0) >= cur.updatedAt) {
+          cur.status = u.status;
+          cur.updatedAt = u.updatedAt || 0;
         }
-      } catch (err) {
-        console.error(err);
-        usersList.innerHTML = '<div class="notify-item--empty" style="text-align:center;padding:20px;">Ошибка загрузки.</div>';
+        if ((u.updatedAt || 0) >= cur.updatedAt) cur.color = u.color || cur.color;
+      }
+    });
+    return [...map.values()];
+  }
+
+  function paintUserRow(u, opts) {
+    const honorAuthor = !!(opts && opts.honorAuthor);
+    const initial = u.name ? u.name[0].toUpperCase() : '?';
+    const color = u.color || '#3b82f6';
+    const isMe = !!(user && user.name
+      && user.name.toLowerCase() === u.name.toLowerCase()
+      && ((user.group || '').toLowerCase() === (u.group || '').toLowerCase()));
+    const isAuthor = honorAuthor && isSectionAuthor(u.name);
+
+    const row = document.createElement('div');
+    row.className = 'user-chip'
+      + (isMe ? ' user-chip--me' : '')
+      + (isAuthor ? ' user-chip--author' : '');
+    row.title = [u.name, u.group ? 'Группа ' + u.group : '', u.status || ''].filter(Boolean).join(' · ');
+
+    const badges = [];
+    if (isAuthor) badges.push('<span class="user-chip__badge user-chip__badge--author">редактор</span>');
+    if (isMe) badges.push('<span class="user-chip__badge user-chip__badge--me">вы</span>');
+
+    row.innerHTML = `
+      <span class="user-chip__avatar" style="background:linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 55%, #fff))">${initial}</span>
+      <span class="user-chip__name">${escapeHtml(u.name)}</span>
+      ${badges.join('')}
+    `;
+    return row;
+  }
+
+  async function renderProfileUsers() {
+    if (!profileUsersBody) return;
+    profileUsersBody.innerHTML = '<div class="profile-users__empty">Загрузка пользователей…</div>';
+    if (profileUsersCount) profileUsersCount.textContent = '';
+
+    try {
+      if (!window.doroCloudReady) {
+        profileUsersBody.innerHTML = '<div class="profile-users__empty">Firebase недоступен.</div>';
+        return;
+      }
+      const cloud = await window.doroCloudReady;
+      if (!cloud) {
+        profileUsersBody.innerHTML = '<div class="profile-users__empty">Firebase не подключён.</div>';
+        return;
+      }
+      const allUsers = await cloud.listUsers();
+      const merged = mergeUsers(allUsers);
+
+      merged.sort((a, b) => {
+        const aAuth = isSectionAuthor(a.name) ? 0 : 1;
+        const bAuth = isSectionAuthor(b.name) ? 0 : 1;
+        if (aAuth !== bAuth) return aAuth - bAuth;
+        return a.name.localeCompare(b.name, 'ru');
+      });
+
+      if (!merged.length) {
+        profileUsersBody.innerHTML = '<div class="profile-users__empty">Пока никого нет.</div>';
+        if (profileUsersCount) profileUsersCount.textContent = '0';
+        return;
+      }
+
+      if (profileUsersCount) profileUsersCount.textContent = String(merged.length);
+
+      const authors = merged.filter(u => isSectionAuthor(u.name));
+      const groups = new Map();
+      merged.forEach(u => {
+        const g = u.group || '';
+        if (!groups.has(g)) groups.set(g, []);
+        groups.get(g).push(u);
+      });
+      const sortedGroups = [...groups.keys()].sort((a, b) => {
+        if (!a && b) return 1;
+        if (a && !b) return -1;
+        return a.localeCompare(b, 'ru');
+      });
+
+      profileUsersBody.innerHTML = '';
+
+      if (authors.length) {
+        const block = document.createElement('div');
+        block.className = 'users-block users-block--authors';
+        block.innerHTML = '<div class="users-block__title">Редакторы разделов</div><div class="users-block__list"></div>';
+        const listEl = block.querySelector('.users-block__list');
+        authors
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+          .forEach(u => listEl.appendChild(paintUserRow(u, { honorAuthor: true })));
+        profileUsersBody.appendChild(block);
+      }
+
+      sortedGroups.forEach(g => {
+        const list = groups.get(g);
+        if (!list.length) return;
+        const block = document.createElement('div');
+        block.className = 'users-block';
+        const title = g ? `Группа ${escapeHtml(g)}` : 'Без группы';
+        block.innerHTML = `<div class="users-block__title">${title} <span class="users-block__count">${list.length}</span></div><div class="users-block__list"></div>`;
+        const listEl = block.querySelector('.users-block__list');
+        list
+          .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+          .forEach(u => listEl.appendChild(paintUserRow(u, { honorAuthor: false })));
+        profileUsersBody.appendChild(block);
+      });
+    } catch (err) {
+      console.error('renderProfileUsers error:', err);
+      profileUsersBody.innerHTML = '<div class="profile-users__empty">Ошибка загрузки.</div>';
+    }
+  }
+
+  // ---------- Управление плитками и панелями ----------
+  const tileUsers = $('tileUsers');
+  const tileLectures = $('tileLectures');
+  const tileNotify = $('tileNotify');
+  const panelUsers = $('panelUsers');
+  const panelLectures = $('panelLectures');
+  const panelNotify = $('panelNotify');
+  let activePanel = null;
+
+  function setActivePanel(which) {
+    activePanel = which;
+
+    [panelUsers, panelLectures, panelNotify].forEach(p => {
+      if (!p) return;
+      p.classList.remove('is-open');
+      p.setAttribute('aria-hidden', 'true');
+    });
+    [tileUsers, tileLectures, tileNotify].forEach(t => {
+      if (!t) return;
+      t.classList.remove('is-active');
+      t.setAttribute('aria-expanded', 'false');
+    });
+
+    if (!which) return;
+
+    const panel = which === 'users' ? panelUsers
+                : which === 'lectures' ? panelLectures
+                : which === 'notify' ? panelNotify : null;
+    const tile = which === 'users' ? tileUsers
+               : which === 'lectures' ? tileLectures
+               : which === 'notify' ? tileNotify : null;
+    if (panel) { panel.classList.add('is-open'); panel.setAttribute('aria-hidden', 'false'); }
+    if (tile) { tile.classList.add('is-active'); tile.setAttribute('aria-expanded', 'true'); }
+
+    if (which === 'users') renderProfileUsers();
+    if (which === 'lectures') renderLectureInfo();
+    if (which === 'notify') renderNotifyList();
+  }
+  const NEW_USERS_KEY = 'doro.newUsersV1'; // поменяй на V2, чтобы снова «подсветить» плитку
+  function paintUsersNew() {
+    if (!tileUsers) return;
+    const isNew = localStorage.getItem(NEW_USERS_KEY) !== 'seen';
+    tileUsers.classList.toggle('profile-tile--new', isNew);
+  }
+  paintUsersNew();
+
+  if (tileUsers) {
+    tileUsers.addEventListener('click', () => {
+      setActivePanel(activePanel === 'users' ? null : 'users');
+      if (localStorage.getItem(NEW_USERS_KEY) !== 'seen') {
+        localStorage.setItem(NEW_USERS_KEY, 'seen');
+        paintUsersNew();
       }
     });
   }
-  function closeProfilePanel() {
-    if (!profilePop) return;
-    profilePop.classList.remove('is-open');
-    profilePop.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('profile-pop-open');
-    ['searchField', 'lectureInfo', 'notifyList'].forEach(id => { const el = $(id); if (el) el.classList.remove('is-open'); });
-    activePanelKey = null;
+  if (tileLectures) {
+    tileLectures.addEventListener('click', () => {
+      setActivePanel(activePanel === 'lectures' ? null : 'lectures');
+    });
   }
+  if (tileNotify) {
+    tileNotify.addEventListener('click', () => {
+      const willOpen = activePanel !== 'notify';
+      setActivePanel(willOpen ? 'notify' : null);
+      if (willOpen) {
+        const seenTopics = getSeenTopics();
+        getUpcomingTopics().forEach(t => seenTopics.add(topicId(t)));
+        saveSeenTopics(seenTopics);
 
-  if (searchToggle) {
-    searchToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (activePanelKey === 'search') { closeProfilePanel(); return; }
-      openProfilePanel('search');
+        const seenDev = getSeenDev();
+        DEV_NOTIFICATIONS.forEach(n => seenDev.add(n.id));
+        saveSeenDev(seenDev);
+
+        updateNotifyBadge();
+        renderNotifyList();
+      }
     });
   }
-  if (lectureToggle) {
-    lectureToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (activePanelKey === 'lecture') { closeProfilePanel(); return; }
-      renderLectureInfo();
-      openProfilePanel('lecture');
-    });
-  }
-  if (notifyToggle) {
-    notifyToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (activePanelKey === 'notify') { closeProfilePanel(); return; }
-      renderNotifyList();
-      openProfilePanel('notify');
-    });
-  }
-  if (profilePopBackdrop) profilePopBackdrop.addEventListener('click', closeProfilePanel);
-  if (profilePopClose) profilePopClose.addEventListener('click', closeProfilePanel);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && profilePop && profilePop.classList.contains('is-open')) closeProfilePanel();
+    if (e.key === 'Escape' && activePanel) setActivePanel(null);
   });
 
   function collectAllTopics() {
@@ -1234,7 +1483,6 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="pop-result__meta">${subjects[t.key].title}</div>
         `;
         btn.addEventListener('click', () => {
-          closeProfilePanel();
           showView('files');
           setTimeout(() => openTopic(t.key, t.num), 50);
         });
@@ -1244,7 +1492,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------- УВЕДОМЛЕНИЯ ----------
-  const DEV_NOTIFICATIONS = [{ id: 'n-2026-10-23-2', text: 'Патч изменений 1.02. Кнопки переключатели в темах, разные авторы и многое другое!' }];
+  const DEV_NOTIFICATIONS = [{ id: 'n-2026-10-29-1', text: 'Патч изменений 1.05. Пользователи и новый профиль!' }];
   const NOTIFY_SEEN_KEY = 'doro.seenTopics';
   const NOTIFY_SEEN_DEV_KEY = 'doro.seenDevNotifications';
 
@@ -1280,6 +1528,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const items = DEV_NOTIFICATIONS.slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     listEl.innerHTML = '';
     if (!items.length) return;
+
+    const section = document.createElement('div');
+    section.className = 'notify-section notify-section--major';
+    const title = document.createElement('div');
+    title.className = 'notify-section__title';
+    title.innerHTML = '<span class="notify-section__dot"></span>Крупные обновления';
+    section.appendChild(title);
+
     items.forEach(n => {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -1296,8 +1552,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const s = getSeenDev(); s.add(n.id); saveSeenDev(s);
         updateNotifyBadge(); renderDevNotifications();
       });
-      listEl.appendChild(btn);
+      section.appendChild(btn);
     });
+    listEl.appendChild(section);
   }
 
   function renderAutoNotifications() {
@@ -1310,6 +1567,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (DEV_NOTIFICATIONS.length === 0) autoEl.innerHTML = '<div class="notify-item--empty">Пока нет ближайших тем</div>';
       return;
     }
+
+    const section = document.createElement('div');
+    section.className = 'notify-section notify-section--topics';
+    const title = document.createElement('div');
+    title.className = 'notify-section__title';
+    title.innerHTML = '<span class="notify-section__dot"></span>Новые темы';
+    section.appendChild(title);
+
     upcoming.forEach(t => {
       const id = topicId(t);
       const dateStr = new Date(t.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
@@ -1328,8 +1593,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateNotifyBadge(); showView('files');
         setTimeout(() => openTopic(t.key, t.num), 50);
       });
-      autoEl.appendChild(btn);
+      section.appendChild(btn);
     });
+    autoEl.appendChild(section);
   }
 
   function renderNotifyList() { renderDevNotifications(); renderAutoNotifications(); }
@@ -1351,7 +1617,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getDayTopicsInfo(targetDate) {
     const dayKey = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'][targetDate.getDay()];
-    const daySchedule = schedule[dayKey] || [];
+    const daySchedule = getDaySchedule(dayKey, targetDate);
     if (!daySchedule.length) return { hasTopics: false, hasColloq: false };
     const lDate = new Date(targetDate); lDate.setHours(0, 0, 0, 0);
     let hasTopics = false, hasColloq = false;
@@ -1495,7 +1761,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const daysOfWeekAcc = ['воскресенье','понедельник','вторник','среду','четверг','пятницу','субботу'];
     titleEl.textContent = isToday ? 'Сегодня' : 'На ' + daysOfWeekAcc[targetDate.getDay()];
     const dayKey = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'][targetDate.getDay()];
-    const daySchedule = schedule[dayKey] || [];
+    const daySchedule = getDaySchedule(dayKey, targetDate);
     lessonsEl.innerHTML = '';
     const allTopics = [];
     if (!daySchedule.length) {
@@ -1895,7 +2161,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------- VIEWS ----------
   function showView(name) {
-    closeProfilePanel();
     Object.values(views).forEach(v => { if (v) v.classList.remove('is-active'); });
     const v = views[name];
     if (!v) return;
@@ -2795,125 +3060,191 @@ document.addEventListener('DOMContentLoaded', () => {
   // ============================================================
   const ONBOARD_DONE_KEY = 'doro.onboarded.v3'; // v2 сбросит всех
 
-  (function initOnboard() {
+    (function initOnboard() {
     const onboard       = $('onboard');
     const nameInp       = $('onboardName');
     const nextBtn       = $('onboardNext');
     const nextBtn2      = $('onboardNext2');
-    const skipGroup     = $('onboardSkipGroup');
     const finishBtn     = $('onboardFinish');
     const stepLabel     = $('onboardStep');
     const avatarLetter  = $('onboardAvatarLetter');
     const avatarEl      = $('onboardAvatar');
-    
-    const groupPrefix   = $('onboardGroupPrefix');
-    const groupSuffix   = $('onboardGroupSuffix');
-    
+    const lettersInp    = $('onboardGroupLetters');
+    const yearSel       = $('onboardGroupYear');
+    const numSel        = $('onboardGroupNum');
     const chipsWrap     = $('onboardStatusChips');
     const colorsWrap    = $('onboardColors');
     const panels        = Array.from(document.querySelectorAll('.onboard__step-panel'));
 
     if (!onboard) return;
 
-    let step = 1;
-    let draft = { name: '', group: '', status: '', color: '#3b82f6' };
+    let draft = { name: '', group: '', status: USER_STATUSES[0], color: '#3b82f6' };
 
-    // Заполняем вторую часть группы (01 - 20)
-    for (let i = 1; i <= 20; i++) {
-      const val = String(i).padStart(2, '0');
-      const opt = document.createElement('option');
-      opt.value = val;
-      opt.textContent = val;
-      if (i === 11) opt.selected = true; // По умолчанию 11
-      groupSuffix.appendChild(opt);
+    if (yearSel) {
+      yearSel.innerHTML = '';
+      for (let i = 0; i <= GROUP_MAX_YEAR; i++) {
+        const v = String(i).padStart(2, '0');
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v;
+        yearSel.appendChild(o);
+      }
+      yearSel.value = GROUP_DEFAULT.year;
+    }
+    if (numSel) {
+      numSel.innerHTML = '';
+      for (let i = 1; i <= GROUP_MAX_NUM; i++) {
+        const v = String(i).padStart(2, '0');
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v;
+        numSel.appendChild(o);
+      }
+      numSel.value = GROUP_DEFAULT.num;
+    }
+    if (lettersInp) {
+      lettersInp.value = GROUP_DEFAULT.letters;
+      lettersInp.addEventListener('input', () => {
+        const cleaned = normalizeGroupLetters(lettersInp.value);
+        if (lettersInp.value !== cleaned) lettersInp.value = cleaned;
+      });
+    }
+
+    if (chipsWrap) {
+      chipsWrap.innerHTML = '';
+      USER_STATUSES.forEach((s, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'onboard__chip' + (i === 0 ? ' is-selected' : '');
+        b.dataset.value = s;
+        b.textContent = s;
+        b.addEventListener('click', () => {
+          draft.status = s;
+          chipsWrap.querySelectorAll('.onboard__chip').forEach(c => c.classList.toggle('is-selected', c === b));
+        });
+        chipsWrap.appendChild(b);
+      });
     }
 
     const COLORS = ['#3b82f6','#16a34a','#ea580c','#9333ea','#0891b2','#e11d48','#ca8a04','#475569'];
-    COLORS.forEach(c => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'onboard__color';
-      b.dataset.color = c;
-      b.style.background = `linear-gradient(135deg, ${c}, color-mix(in srgb, ${c} 60%, #fff))`;
-      b.addEventListener('click', () => {
-        draft.color = c;
-        colorsWrap.querySelectorAll('.onboard__color').forEach(x => x.classList.toggle('is-selected', x.dataset.color === c));
-        paintOnboardAvatar();
+    if (colorsWrap) {
+      colorsWrap.innerHTML = '';
+      COLORS.forEach((c, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'onboard__color' + (i === 0 ? ' is-selected' : '');
+        b.dataset.color = c;
+        b.style.background = `linear-gradient(135deg, ${c}, color-mix(in srgb, ${c} 60%, #fff))`;
+        b.addEventListener('click', () => {
+          draft.color = c;
+          colorsWrap.querySelectorAll('.onboard__color').forEach(x => x.classList.toggle('is-selected', x.dataset.color === c));
+          paintOnboardAvatar();
+        });
+        colorsWrap.appendChild(b);
       });
-      colorsWrap.appendChild(b);
-    });
+    }
 
     function paintOnboardAvatar() {
       const name = draft.name.trim();
-      avatarLetter.textContent = name ? name[0].toUpperCase() : '?';
-      avatarEl.style.background = `linear-gradient(135deg, ${draft.color}, color-mix(in srgb, ${draft.color} 60%, #fff))`;
-      avatarEl.classList.remove('is-popping');
-      void avatarEl.offsetWidth;
-      avatarEl.classList.add('is-popping');
+      if (avatarLetter) avatarLetter.textContent = name ? name[0].toUpperCase() : '?';
+      if (avatarEl) {
+        avatarEl.style.background = `linear-gradient(135deg, ${draft.color}, color-mix(in srgb, ${draft.color} 60%, #fff))`;
+        avatarEl.classList.remove('is-popping');
+        void avatarEl.offsetWidth;
+        avatarEl.classList.add('is-popping');
+      }
     }
+    paintOnboardAvatar();
 
     function goTo(n) {
-      step = n;
       panels.forEach(p => p.classList.toggle('is-active', Number(p.dataset.step) === n));
-      stepLabel.textContent = `Шаг ${n} из 3`;
-      if (n === 1) setTimeout(() => nameInp.focus(), 200);
+      if (stepLabel) stepLabel.textContent = `Шаг ${n} из 3`;
+      if (n === 1 && nameInp) setTimeout(() => nameInp.focus(), 200);
     }
 
-    nameInp.addEventListener('input', () => {
-      draft.name = nameInp.value;
-      nextBtn.disabled = !nameInp.value.trim();
-      paintOnboardAvatar();
-    });
-    nameInp.addEventListener('keydown', e => { if (e.key === 'Enter' && !nextBtn.disabled) nextBtn.click(); });
-    
-    nextBtn.addEventListener('click', () => {
-      if (!nameInp.value.trim()) return;
-      draft.name = nameInp.value.trim().split(/\s+/)[0];
-      nameInp.value = draft.name;
-      goTo(2);
-    });
+    if (nameInp) {
+      nameInp.addEventListener('input', () => {
+        draft.name = nameInp.value;
+        if (nextBtn) nextBtn.disabled = !nameInp.value.trim();
+        paintOnboardAvatar();
+      });
+      nameInp.addEventListener('keydown', e => { if (e.key === 'Enter' && nextBtn && !nextBtn.disabled) nextBtn.click(); });
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        if (!nameInp || !nameInp.value.trim()) return;
+        draft.name = nameInp.value.trim().split(/\s+/)[0];
+        nameInp.value = draft.name;
+        goTo(2);
+      });
+    }
+    if (nextBtn2) {
+      // Изначально кнопка заблокирована, если нет букв
+      const checkGroupValid = () => {
+        const letters = normalizeGroupLetters(lettersInp ? lettersInp.value : '');
+        nextBtn2.disabled = !letters;
+      };
+      
+      // Слушаем ввод букв, чтобы разблокировать кнопку
+      if (lettersInp) {
+        lettersInp.addEventListener('input', checkGroupValid);
+        lettersInp.addEventListener('change', checkGroupValid);
+      }
+      
+      // Проверяем при инициализации (вдруг там уже есть буквы)
+      setTimeout(checkGroupValid, 100);
 
-    // Собираем группу при нажатии "Дальше" на 2 шаге
-    nextBtn2.addEventListener('click', () => {
-      draft.group = `ЛД${groupPrefix.value}${groupSuffix.value}`;
-      goTo(3);
-    });
-    skipGroup.addEventListener('click', () => { draft.group = ''; goTo(3); });
-
-    chipsWrap.addEventListener('click', e => {
-      const chip = e.target.closest('.onboard__chip');
-      if (!chip) return;
-      draft.status = chip.dataset.value;
-      chipsWrap.querySelectorAll('.onboard__chip').forEach(c => c.classList.toggle('is-selected', c === chip));
-    });
-
-    finishBtn.addEventListener('click', async () => {
-      finishBtn.disabled = true;
-      finishBtn.textContent = 'Сохраняю…';
-
-      user = user || {};
-      user.name   = draft.name;
-      user.group  = draft.group;
-      user.status = draft.status;
-      user.color  = draft.color;
-      localStorage.setItem('doro.user', JSON.stringify(user));
-      localStorage.setItem(ONBOARD_DONE_KEY, '1');
-
-      try {
-        if (window.doroCloudReady) {
-          const cloud = await window.doroCloudReady;
-          if (cloud) await cloud.saveProfile(user);
+      nextBtn2.addEventListener('click', () => {
+        const letters = normalizeGroupLetters(lettersInp ? lettersInp.value : '');
+        if (!letters) {
+          alert('Пожалуйста, введи буквы группы (например, ЛД)');
+          return;
         }
-      } catch (e) { console.warn('Cloud save failed:', e); }
+        const year = yearSel ? yearSel.value : '';
+        const num = numSel ? numSel.value : '';
+        
+        // Собираем группу
+        draft.group = formatGroup({ letters, year, num });
+        
+        // Сохраняем в черновик и переходим к шагу 3
+        goTo(3);
+      });
+    }
 
-      onboard.classList.remove('is-open');
-      onboard.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('onboard-open');
+    if (finishBtn) {
+      finishBtn.addEventListener('click', async () => {
+        // Дополнительная страховка: группа не должна быть пустой
+        if (!draft.group) {
+          alert('Пожалуйста, укажи группу перед завершением.');
+          goTo(2); // возвращаем на шаг с группой
+          return;
+        }
 
-      renderProfile();
-      if (typeof paintThemeToggleBtn === 'function') paintThemeToggleBtn();
-      showView('profile');
-    });
+        finishBtn.disabled = true;
+        finishBtn.textContent = 'Сохраняю…';
+
+        user = user || {};
+        user.name   = draft.name;
+        user.group  = draft.group; // Теперь тут точно не пусто
+        user.status = draft.status || USER_STATUSES[0];
+        user.color  = draft.color;
+        localStorage.setItem('doro.user', JSON.stringify(user));
+        localStorage.setItem(ONBOARD_DONE_KEY, '1');
+
+        try {
+          if (window.doroCloudReady) {
+            const cloud = await window.doroCloudReady;
+            if (cloud) await cloud.saveProfile(user);
+          }
+        } catch (e) { console.warn('Cloud save failed:', e); }
+
+        onboard.classList.remove('is-open');
+        onboard.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('onboard-open');
+
+        renderProfile();
+        if (typeof paintThemeToggleBtn === 'function') paintThemeToggleBtn();
+        showView('profile');
+      });
+    }
 
     const alreadyDone = localStorage.getItem(ONBOARD_DONE_KEY) === '1';
     if (!alreadyDone) {
@@ -2926,8 +3257,90 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 500);
     }
   })();
+    // ============================================================
+  //  МОДАЛКА: ОБЯЗАТЕЛЬНАЯ ГРУППА
+  // ============================================================
+  (function initGroupRequiredModal() {
+    const modal = $('groupRequiredModal');
+    const lettersInp = $('reqGroupLetters');
+    const yearSel = $('reqGroupYear');
+    const numSel = $('reqGroupNum');
+    const saveBtn = $('reqGroupSave');
+
+    if (!modal || !lettersInp || !yearSel || !numSel || !saveBtn) return;
+
+    // Заполняем селекты
+    yearSel.innerHTML = '';
+    for (let i = 0; i <= GROUP_MAX_YEAR; i++) {
+      const v = String(i).padStart(2, '0');
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      yearSel.appendChild(o);
+    }
+    numSel.innerHTML = '';
+    for (let i = 1; i <= GROUP_MAX_NUM; i++) {
+      const v = String(i).padStart(2, '0');
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      numSel.appendChild(o);
+    }
+
+    let checkValid = () => {
+      const letters = normalizeGroupLetters(lettersInp.value);
+      saveBtn.disabled = !letters;
+    };
+
+    lettersInp.addEventListener('input', () => {
+      const cleaned = normalizeGroupLetters(lettersInp.value);
+      if (lettersInp.value !== cleaned) lettersInp.value = cleaned;
+      checkValid();
+    });
+    
+    // Ставим дефолтные значения для года и номера
+    yearSel.value = GROUP_DEFAULT.year;
+    numSel.value = GROUP_DEFAULT.num;
+    checkValid();
+
+    saveBtn.addEventListener('click', async () => {
+      const letters = normalizeGroupLetters(lettersInp.value);
+      if (!letters) return;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Сохраняю…';
+
+      if (!user) user = {};
+      user.group = formatGroup({ letters, year: yearSel.value, num: numSel.value });
+      
+      localStorage.setItem('doro.user', JSON.stringify(user));
+      
+      try {
+        if (window.doroCloudReady) {
+          const cloud = await window.doroCloudReady;
+          if (cloud) await cloud.saveProfile(user);
+        }
+      } catch (e) { console.warn('Cloud save failed:', e); }
+
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('onboard-open');
+
+      renderProfile();
+    });
+
+    // Проверяем, нужно ли показать модалку
+    // Показываем, если есть имя, но нет группы, и онбординг уже пройден
+    const onboardDone = localStorage.getItem(ONBOARD_DONE_KEY) === '1';
+    if (user && user.name && !user.group && onboardDone) {
+      setTimeout(() => {
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('onboard-open');
+        // Фокусируемся на поле ввода
+        setTimeout(() => lettersInp.focus(), 400);
+      }, 1000); // Небольшая задержка, чтобы страница успела прогрузиться
+    }
+  })();
   // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
   renderProfile();
-  closeProfilePanel();
   showView('home');
 });
