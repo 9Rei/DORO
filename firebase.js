@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDocs, collection, serverTimestamp }
+import { getFirestore, doc, setDoc, getDocs, collection, serverTimestamp, query, orderBy, limit }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -30,9 +30,19 @@ signInAnonymously(auth)
           color: p.color || '#3b82f6', updatedAt: serverTimestamp()
         }, { merge: true });
       },
-      async listUsers() {
-        const snap = await getDocs(collection(db, 'users'));
-        return snap.docs.map(d => ({ id: d.id, ...d.data(), updatedAt: d.data().updatedAt?.toMillis?.() || 0 }));
+      async listUsers(maxCount = 200) {
+        // Тянем только последних активных, чтобы не читать всю коллекцию
+        const q = query(
+          collection(db, 'users'),
+          orderBy('updatedAt', 'desc'),
+          limit(maxCount)
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ 
+          id: d.id, 
+          ...d.data(), 
+          updatedAt: d.data().updatedAt?.toMillis?.() || 0 
+        }));
       }
     };
     readyResolve(window.doroCloud);

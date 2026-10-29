@@ -5909,3 +5909,35 @@ body.island-search-open .island > .island-progress {
     padding: 12px 30px 12px 12px;
   }
 }
+/* Кнопка обновления списка пользователей */
+.profile-users__refresh {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.3s, border-color 0.15s;
+}
+.profile-users__refresh:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  transform: rotate(180deg);
+}
+.profile-users__refresh:active {
+  transform: rotate(180deg) scale(0.9);
+}
+[data-theme="dark"] .profile-users__refresh {
+  background: rgba(163, 230, 53, 0.1);
+  border-color: rgba(163, 230, 53, 0.25);
+  color: var(--accent);
+}
+[data-theme="dark"] .profile-users__refresh:hover {
+  background: var(--accent);
+  color: #0d0f0c;
+}

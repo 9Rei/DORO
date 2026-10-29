@@ -1292,8 +1292,26 @@ document.addEventListener('DOMContentLoaded', () => {
     return row;
   }
 
-  async function renderProfileUsers() {
+  // ---------- КЭШ ПОЛЬЗОВАТЕЛЕЙ ----------
+  let usersCache = null;
+  let usersCacheTime = 0;
+  const USERS_CACHE_TTL = 3 * 60 * 1000; // 3 минуты
+  let usersFetching = false;
+
+  async function renderProfileUsers(force = false) {
     if (!profileUsersBody) return;
+    const now = Date.now();
+
+    // Если кэш свежий и не force — рисуем из кэша
+    if (!force && usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
+      paintUsersList(usersCache);
+      return;
+    }
+
+    // Если уже идёт загрузка — ждём
+    if (usersFetching) return;
+    usersFetching = true;
+
     profileUsersBody.innerHTML = '<div class="profile-users__empty">Загрузка пользователей…</div>';
     if (profileUsersCount) profileUsersCount.textContent = '';
 
@@ -1307,68 +1325,80 @@ document.addEventListener('DOMContentLoaded', () => {
         profileUsersBody.innerHTML = '<div class="profile-users__empty">Firebase не подключён.</div>';
         return;
       }
-      const allUsers = await cloud.listUsers();
-      const merged = mergeUsers(allUsers);
-
-      merged.sort((a, b) => {
-        const aAuth = isSectionAuthor(a.name) ? 0 : 1;
-        const bAuth = isSectionAuthor(b.name) ? 0 : 1;
-        if (aAuth !== bAuth) return aAuth - bAuth;
-        return a.name.localeCompare(b.name, 'ru');
-      });
-
-      if (!merged.length) {
-        profileUsersBody.innerHTML = '<div class="profile-users__empty">Пока никого нет.</div>';
-        if (profileUsersCount) profileUsersCount.textContent = '0';
-        return;
-      }
-
-      if (profileUsersCount) profileUsersCount.textContent = String(merged.length);
-
-      const authors = merged.filter(u => isSectionAuthor(u.name));
-      const groups = new Map();
-      merged.forEach(u => {
-        const g = u.group || '';
-        if (!groups.has(g)) groups.set(g, []);
-        groups.get(g).push(u);
-      });
-      const sortedGroups = [...groups.keys()].sort((a, b) => {
-        if (!a && b) return 1;
-        if (a && !b) return -1;
-        return a.localeCompare(b, 'ru');
-      });
-
-      profileUsersBody.innerHTML = '';
-
-      if (authors.length) {
-        const block = document.createElement('div');
-        block.className = 'users-block users-block--authors';
-        block.innerHTML = '<div class="users-block__title">Редакторы разделов</div><div class="users-block__list"></div>';
-        const listEl = block.querySelector('.users-block__list');
-        authors
-          .slice()
-          .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
-          .forEach(u => listEl.appendChild(paintUserRow(u, { honorAuthor: true })));
-        profileUsersBody.appendChild(block);
-      }
-
-      sortedGroups.forEach(g => {
-        const list = groups.get(g);
-        if (!list.length) return;
-        const block = document.createElement('div');
-        block.className = 'users-block';
-        const title = g ? `Группа ${escapeHtml(g)}` : 'Без группы';
-        block.innerHTML = `<div class="users-block__title">${title} <span class="users-block__count">${list.length}</span></div><div class="users-block__list"></div>`;
-        const listEl = block.querySelector('.users-block__list');
-        list
-          .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
-          .forEach(u => listEl.appendChild(paintUserRow(u, { honorAuthor: false })));
-        profileUsersBody.appendChild(block);
-      });
+      
+      // Тянем только 200 последних активных
+      const allUsers = await cloud.listUsers(200);
+      usersCache = allUsers;
+      usersCacheTime = Date.now();
+      
+      paintUsersList(allUsers);
     } catch (err) {
       console.error('renderProfileUsers error:', err);
       profileUsersBody.innerHTML = '<div class="profile-users__empty">Ошибка загрузки.</div>';
+    } finally {
+      usersFetching = false;
     }
+  }
+
+  // Отдельная функция отрисовки (без запроса)
+  function paintUsersList(allUsers) {
+    const merged = mergeUsers(allUsers);
+
+    merged.sort((a, b) => {
+      const aAuth = isSectionAuthor(a.name) ? 0 : 1;
+      const bAuth = isSectionAuthor(b.name) ? 0 : 1;
+      if (aAuth !== bAuth) return aAuth - bAuth;
+      return a.name.localeCompare(b.name, 'ru');
+    });
+
+    if (!merged.length) {
+      profileUsersBody.innerHTML = '<div class="profile-users__empty">Пока никого нет.</div>';
+      if (profileUsersCount) profileUsersCount.textContent = '0';
+      return;
+    }
+
+    if (profileUsersCount) profileUsersCount.textContent = String(merged.length);
+
+    const authors = merged.filter(u => isSectionAuthor(u.name));
+    const groups = new Map();
+    merged.forEach(u => {
+      const g = u.group || '';
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(u);
+    });
+    const sortedGroups = [...groups.keys()].sort((a, b) => {
+      if (!a && b) return 1;
+      if (a && !b) return -1;
+      return a.localeCompare(b, 'ru');
+    });
+
+    profileUsersBody.innerHTML = '';
+
+    if (authors.length) {
+      const block = document.createElement('div');
+      block.className = 'users-block users-block--authors';
+      block.innerHTML = '<div class="users-block__title">Редакторы разделов</div><div class="users-block__list"></div>';
+      const listEl = block.querySelector('.users-block__list');
+      authors
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+        .forEach(u => listEl.appendChild(paintUserRow(u, { honorAuthor: true })));
+      profileUsersBody.appendChild(block);
+    }
+
+    sortedGroups.forEach(g => {
+      const list = groups.get(g);
+      if (!list.length) return;
+      const block = document.createElement('div');
+      block.className = 'users-block';
+      const title = g ? `Группа ${escapeHtml(g)}` : 'Без группы';
+      block.innerHTML = `<div class="users-block__title">${title} <span class="users-block__count">${list.length}</span></div><div class="users-block__list"></div>`;
+      const listEl = block.querySelector('.users-block__list');
+      list
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+        .forEach(u => listEl.appendChild(paintUserRow(u, { honorAuthor: false })));
+      profileUsersBody.appendChild(block);
+    });
   }
 
   // ---------- Управление плитками и панелями ----------
@@ -1424,6 +1454,20 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(NEW_USERS_KEY, 'seen');
         paintUsersNew();
       }
+    });
+  }
+    // Кнопка «Обновить» в панели пользователей
+  const usersRefreshBtn = $('usersRefreshBtn');
+  if (usersRefreshBtn) {
+    usersRefreshBtn.addEventListener('click', async () => {
+      usersRefreshBtn.style.opacity = '0.4';
+      usersRefreshBtn.style.pointerEvents = 'none';
+      usersCache = null; // сбрасываем кэш
+      await renderProfileUsers(true);
+      setTimeout(() => {
+        usersRefreshBtn.style.opacity = '';
+        usersRefreshBtn.style.pointerEvents = '';
+      }, 500);
     });
   }
   if (tileLectures) {
