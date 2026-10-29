@@ -486,8 +486,8 @@ const SearchCtl = (function () {
   let idx = -1;
 
   function getArticle() { return document.getElementById('reader-article'); }
-  function getInput()   { return document.getElementById('readerSearchInputLocal'); }
-  function getCount()   { return document.getElementById('readerSearchCountLocal'); }
+  function getInput()   { return document.getElementById('readerSearchInput'); }
+  function getCount()   { return document.getElementById('readerSearchCount'); }
   function getPanel()   { return document.getElementById('islandSearch'); }
 
   function clear() {
@@ -573,7 +573,9 @@ const SearchCtl = (function () {
     panel.classList.add('is-open');
     panel.setAttribute('aria-hidden', 'false');
     document.body.classList.add('island-search-open');
-    setTimeout(() => { const inp = getInput(); if (inp) inp.focus(); }, 200);
+    const inp = getInput();
+    if (inp && inp.value.trim()) highlight(inp.value.trim());
+    setTimeout(() => { if (inp) { inp.focus(); inp.select(); } }, 200);
   }
 
   function close() {
@@ -595,7 +597,7 @@ const SearchCtl = (function () {
   }
 
   function bind() {
-    const closeBtn = document.getElementById('readerSearchCloseLocal');
+    const closeBtn = document.getElementById('readerSearchClose');
     const prevBtn = document.getElementById('readerSearchPrev');
     const nextBtn = document.getElementById('readerSearchNext');
     const input = getInput();
@@ -618,6 +620,12 @@ const SearchCtl = (function () {
     if (closeBtn) closeBtn.addEventListener('click', close);
     if (prevBtn) prevBtn.addEventListener('click', prev);
     if (nextBtn) nextBtn.addEventListener('click', next);
+
+    // Переподсветка после рендера темы/таба — иначе поиск «теряет» контент
+    document.addEventListener('doro:topic-rendered', () => {
+      const inp = getInput();
+      if (inp && inp.value.trim()) highlight(inp.value.trim());
+    });
   }
 
   return { bind, open, close, clear, highlight, next, prev };
@@ -2012,6 +2020,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentSubjectKey = key;
     if (subjectsCardsView) subjectsCardsView.style.display = 'none';
     if (readerScreen) readerScreen.style.display = 'flex';
+    document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (readerSubjectTitle) readerSubjectTitle.textContent = subject.title;
     applySubjectAccent(readerPanel, key);
