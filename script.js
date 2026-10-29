@@ -1293,10 +1293,28 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------- КЭШ ПОЛЬЗОВАТЕЛЕЙ ----------
+  const USERS_CACHE_KEY = 'doro.usersCache.v1';
+  const USERS_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 часов
+  let usersFetching = false;
+
+  // Пытаемся загрузить кэш из localStorage при старте
   let usersCache = null;
   let usersCacheTime = 0;
-  const USERS_CACHE_TTL = 3 * 60 * 1000; // 3 минуты
-  let usersFetching = false;
+  (function initUsersCache() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(USERS_CACHE_KEY) || 'null');
+      if (raw && Array.isArray(raw.data) && raw.time) {
+        usersCache = raw.data;
+        usersCacheTime = raw.time;
+      }
+    } catch (e) { /* ignore */ }
+  })();
+
+  function saveUsersCacheToLS(data) {
+    try {
+      localStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ data, time: Date.now() }));
+    } catch (e) { /* ignore */ }
+  }
 
   async function renderProfileUsers(force = false) {
     if (!profileUsersBody) return;
@@ -1330,6 +1348,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const allUsers = await cloud.listUsers(200);
       usersCache = allUsers;
       usersCacheTime = Date.now();
+      saveUsersCacheToLS(allUsers);
       
       paintUsersList(allUsers);
     } catch (err) {
@@ -1462,7 +1481,9 @@ document.addEventListener('DOMContentLoaded', () => {
     usersRefreshBtn.addEventListener('click', async () => {
       usersRefreshBtn.style.opacity = '0.4';
       usersRefreshBtn.style.pointerEvents = 'none';
-      usersCache = null; // сбрасываем кэш
+      usersCache = null;
+      usersCacheTime = 0;
+      try { localStorage.removeItem(USERS_CACHE_KEY); } catch (e) {}
       await renderProfileUsers(true);
       setTimeout(() => {
         usersRefreshBtn.style.opacity = '';
