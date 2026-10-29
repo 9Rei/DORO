@@ -132,7 +132,7 @@ const USER_STATUSES = [
 
 const GROUP_DEFAULT = { letters: "ЛД", year: "25", num: "11" };
 const GROUP_MAX_YEAR = 26;
-const GROUP_MAX_NUM = 20;
+const GROUP_MAX_NUM = 30;
 
 function normalizeGroupLetters(raw) {
   return (raw || "").toUpperCase().replace(/[^А-ЯЁA-Z]/g, "").slice(0, 4);
