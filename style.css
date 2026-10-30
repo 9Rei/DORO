@@ -6120,16 +6120,25 @@ body.island-search-open .island > .island-progress {
   position: fixed;
   pointer-events: none;
   border-radius: 16px;
+  opacity: 0;
+  transform: scale(0.96);
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--accent) 75%, transparent),
     0 0 0 9999px rgba(10, 20, 40, 0.6),
     0 0 40px -6px color-mix(in srgb, var(--accent) 65%, transparent);
-  transition: top .35s cubic-bezier(.16,1,.3,1),
-              left .35s cubic-bezier(.16,1,.3,1),
-              width .35s cubic-bezier(.16,1,.3,1),
-              height .35s cubic-bezier(.16,1,.3,1),
-              border-radius .35s ease;
+  transition:
+    top .5s cubic-bezier(.22, 1, .36, 1),
+    left .5s cubic-bezier(.22, 1, .36, 1),
+    width .5s cubic-bezier(.22, 1, .36, 1),
+    height .5s cubic-bezier(.22, 1, .36, 1),
+    border-radius .5s cubic-bezier(.22, 1, .36, 1),
+    opacity .3s ease,
+    transform .45s cubic-bezier(.34, 1.4, .64, 1);
   z-index: 1;
+}
+.tour__spot.is-visible {
+  opacity: 1;
+  transform: scale(1);
 }
 .tour.has-spot .tour__backdrop {
   backdrop-filter: none;
@@ -6137,7 +6146,6 @@ body.island-search-open .island > .island-progress {
   background: transparent;
 }
 
-/* Тултип */
 .tour__tip {
   position: fixed;
   top: -9999px;
@@ -6158,11 +6166,14 @@ body.island-search-open .island > .island-progress {
   z-index: 3;
   color: var(--text);
   transform-origin: center;
-  animation: tourTipIn .32s cubic-bezier(.34,1.4,.64,1);
+  transform: translateY(8px) scale(0.97);
+  transition:
+    opacity .28s ease,
+    transform .42s cubic-bezier(.34, 1.56, .64, 1);
 }
-
 .tour__tip.is-placed {
   opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 @keyframes tourTipIn {
@@ -6236,6 +6247,7 @@ body.island-search-open .island > .island-progress {
   line-height: 1.2;
   margin: 0 0 6px;
   color: var(--text);
+  transition: opacity .2s ease;
 }
 .tour__text {
   font-size: 14px;

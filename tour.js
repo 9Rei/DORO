@@ -412,8 +412,9 @@
     root.classList.remove('is-open');
     root.classList.remove('has-spot');
     root.setAttribute('aria-hidden', 'true');
-    spot.style.display = 'none';
+    spot.classList.remove('is-visible');
     tip.classList.remove('is-placed');
+    setTimeout(() => { spot.style.display = 'none'; }, 260);
     document.body.style.overflow = '';
     localStorage.setItem(TOUR_KEY, 'done');
     document.removeEventListener('keydown', onKey, true);
@@ -427,6 +428,11 @@
     const step = activeSteps[index];
 
     cleanupAction();
+
+    /* Плавно уводим старую подсветку и тултип, чтобы не было скачка */
+    spot.classList.remove('is-visible');
+    tip.classList.remove('is-placed');
+    await new Promise(r => setTimeout(r, 180));
 
     /* элемент */
     let el = resolveSelector(step.selector);
@@ -478,6 +484,9 @@
     spot.style.height = sHeight + 'px';
     spot.style.borderRadius = radius + 'px';
     root.classList.add('has-spot');
+
+    /* плавное появление подсветки */
+    requestAnimationFrame(() => spot.classList.add('is-visible'));
 
     if (isFinal) {
       cleanupAction();
@@ -582,11 +591,7 @@
         tip.dataset.place = use;
         tip.style.left = Math.round(left) + 'px';
         tip.style.top  = Math.round(top) + 'px';
-        tip.classList.add('is-placed');
-
-        tip.style.animation = 'none';
-        void tip.offsetWidth;
-        tip.style.animation = '';
+        requestAnimationFrame(() => tip.classList.add('is-placed'));
         return;
       }
     }
@@ -615,11 +620,9 @@
 
     tip.style.left = Math.round(left) + 'px';
     tip.style.top  = Math.round(top)  + 'px';
-    tip.classList.add('is-placed');
 
-    tip.style.animation = 'none';
-    void tip.offsetWidth;
-    tip.style.animation = '';
+    /* плавное появление через следующий кадр */
+    requestAnimationFrame(() => tip.classList.add('is-placed'));
   }
 
   /* ---------- Публичный API ---------- */
