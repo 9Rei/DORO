@@ -65,9 +65,9 @@
         </div>
       </div>
       <div class="island-right">
-        <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
-          <span></span><span></span><span></span>
-        </button>
+          <button class="burger" id="burger" aria-label="Меню" aria-expanded="false">
+            <span></span><span></span><span></span>
+          </button>
         <div class="avatar-wrap">
           <button class="avatar" id="avatar" title="Профиль">
             <span class="avatar-letter" id="avatarLetter">?</span>
@@ -568,37 +568,9 @@
     </div>
   </div>
 </div>
-<!-- ================= МОДАЛКА ОБЯЗАТЕЛЬНОЙ ГРУППЫ ================= -->
-<div class="onboard" id="groupRequiredModal" aria-hidden="true">
-  <div class="onboard__backdrop"></div>
-  <div class="onboard__box" role="dialog" aria-modal="true">
-    <div class="onboard__glow" aria-hidden="true"></div>
-
-    <div class="onboard__hero">
-      <div class="onboard__avatar" style="background: linear-gradient(135deg, #f59e0b, #f97316);">
-        <span>!</span>
-      </div>
-      <span class="onboard__step">Обязательно</span>
-    </div>
-
-    <div class="onboard__step-panel is-active" data-step="1">
-      <h2 class="onboard__title">Укажи группу</h2>
-      <p class="onboard__sub">Чтобы продолжить, нужно указать свою группу. Это поможет другим найти тебя в списке.</p>
-
-      <div class="group-picker">
-        <input id="reqGroupLetters" class="group-picker__letters" type="text" placeholder="ЛД" maxlength="4" autocomplete="off" autocapitalize="characters">
-        <select id="reqGroupYear" class="group-picker__select"></select>
-        <select id="reqGroupNum" class="group-picker__select"></select>
-      </div>
-
-      <button type="button" class="onboard__btn" id="reqGroupSave" disabled style="margin-top: 10px;">
-        Сохранить и продолжить
-      </button>
-    </div>
-  </div>
-</div>
 
   <script type="module" src="firebase.js"></script>
   <script src="script.js"></script>
+  <script src="tour.js"></script>
 </body>
 </html>

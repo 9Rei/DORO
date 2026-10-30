@@ -192,41 +192,90 @@ body::before {
   box-shadow: 0 1px 4px rgba(20, 40, 80, 0.25);
   pointer-events: none;
 }
-
+/* ============================================================
+   БУРГЕР — стеклянная кнопка с мягкой анимацией в крестик
+   ============================================================ */
 .burger {
   display: none;
   position: relative;
   width: 40px;
   height: 40px;
   padding: 0;
-  border: none;
-  background: transparent;
-  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(246, 249, 253, 0.6) 100%),
+    color-mix(in srgb, var(--accent) 6%, transparent);
+  border-radius: 50%;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s;
+  backdrop-filter: blur(14px) saturate(170%);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 6px 16px -10px color-mix(in srgb, var(--accent) 40%, transparent);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.25s ease,
+    transform 0.15s ease;
 }
-.burger:hover { background: rgba(59, 130, 246, 0.08); }
+.burger:hover {
+  border-color: var(--accent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.7) 100%),
+    color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 8px 20px -8px color-mix(in srgb, var(--accent) 55%, transparent);
+  transform: translateY(-1px);
+}
+.burger:active { transform: translateY(0) scale(0.94); }
 
+/* Три полоски */
 .burger span {
   position: absolute;
   left: 50%;
-  width: 18px;
+  top: 50%;
+  width: 16px;
   height: 2px;
   background: var(--accent);
   border-radius: 999px;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   transition:
-    transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1),
-    top 0.3s cubic-bezier(0.34, 1.4, 0.64, 1),
+    transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1),
     width 0.3s cubic-bezier(0.34, 1.4, 0.64, 1),
     opacity 0.2s ease,
-    background 0.2s ease;
-  transform-origin: center;
+    top 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
-.burger span:nth-child(1) { top: 13px; }
-.burger span:nth-child(2) { top: 19px; }
-.burger span:nth-child(3) { top: 25px; }
+.burger span:nth-child(1) { transform: translate(-50%, calc(-50% - 5px)); }
+.burger span:nth-child(2) { transform: translate(-50%, -50%); width: 12px; left: 50%; margin-left: -2px; }
+.burger span:nth-child(3) { transform: translate(-50%, calc(-50% + 5px)); }
+
+/* Мобилка — показываем */
+@media (max-width: 860px) {
+  .burger { display: grid; place-items: center; }
+}
+
+/* Тёмная тема */
+[data-theme="dark"] .burger {
+  border-color: rgba(163, 230, 53, 0.22);
+  background:
+    linear-gradient(180deg, rgba(163, 230, 53, 0.10) 0%, rgba(20, 23, 15, 0.5) 100%),
+    rgba(20, 23, 15, 0.6);
+  box-shadow:
+    0 1px 0 rgba(163, 230, 53, 0.08) inset,
+    0 6px 16px -10px rgba(0, 0, 0, 0.5);
+}
+[data-theme="dark"] .burger:hover {
+  border-color: var(--accent);
+  background:
+    linear-gradient(180deg, rgba(163, 230, 53, 0.18) 0%, rgba(20, 23, 15, 0.7) 100%),
+    rgba(20, 23, 15, 0.7);
+  box-shadow:
+    0 1px 0 rgba(163, 230, 53, 0.15) inset,
+    0 0 22px -6px rgba(163, 230, 53, 0.55);
+}
+[data-theme="dark"] .burger span { background: var(--accent); }
 
 /* Прогресс чтения */
 .island-progress {
@@ -1222,7 +1271,7 @@ mark.reader-search__hit--active {
   color: var(--text);
 }
 [data-theme="dark"] .reader__content h3 {
-  color: color-mix(in srgb, var(--subject-accent, var(--accent)) 70%, var(--text));
+  color: var(--text);
 }
 .reader__content h1 { font-size: 1.8em; }
 .reader__content h2 { font-size: 1.45em; }
@@ -1253,8 +1302,9 @@ mark.reader-search__hit--active {
 }
 .reader__content strong { font-weight: 700; color: var(--text); }
 /* Верные ответы (**...**) в тестах — акцентные в тёмной теме */
+/* Верные ответы (**...**) в тестах — акцентные в тёмной теме */
 [data-theme="dark"] .reader__content strong {
-  color: var(--subject-accent, var(--accent));
+  color: var(--text);
 }
 .reader__empty { color: var(--text-soft); font-style: italic; }
 .reader__gap { height: 20px; }
@@ -2457,144 +2507,155 @@ mark.reader-search__hit--active {
 /* ---------- ТЁМНАЯ ТЕМА ---------- */
 [data-theme="dark"] .reader-settings,
 [data-theme="dark"] .reader-topics {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--subject-accent, var(--accent)) 10%, rgba(24, 28, 18, 0.92)) 0%,
-      rgba(24, 28, 18, 0.94) 100%),
-    rgba(24, 28, 18, 0.9);
-  border-color: color-mix(in srgb, var(--subject-accent, var(--accent)) 28%, rgba(163, 230, 53, 0.14));
+  background: #14170f; /* глубокий тёмный фон, без белых градиентов */
+  border-color: rgba(163, 230, 53, 0.22);
   box-shadow:
-    0 1px 0 color-mix(in srgb, var(--subject-accent, var(--accent)) 12%, transparent) inset,
-    0 24px 60px -28px rgba(0, 0, 0, 0.75),
-    0 0 0 1px rgba(163, 230, 53, 0.08);
+    0 24px 60px rgba(0, 0, 0, 0.75),
+    0 0 40px -12px rgba(163, 230, 53, 0.25);
 }
+
+/* Убираем белый блеск сверху панелей */
 [data-theme="dark"] .reader-settings::before,
 [data-theme="dark"] .reader-topics::before {
-  background:
-    radial-gradient(ellipse 80% 100% at 20% -20%, rgba(163, 230, 53, 0.18), transparent 60%),
-    radial-gradient(ellipse 60% 100% at 80% -10%, rgba(163, 230, 53, 0.10), transparent 60%);
+  display: none;
 }
+
+/* Шапки панелей */
 [data-theme="dark"] .reader-settings__head,
 [data-theme="dark"] .reader-topics__head {
-  border-bottom-color: rgba(163, 230, 53, 0.14);
+  border-bottom-color: rgba(163, 230, 53, 0.15);
+  background: rgba(20, 23, 15, 0.5);
 }
+
+[data-theme="dark"] .reader-settings__title,
+[data-theme="dark"] .reader-topics__title {
+  color: var(--accent);
+}
+
+/* Кнопки в шапке (поиск, тема, закрыть) */
 [data-theme="dark"] .reader-settings__icon-btn,
 [data-theme="dark"] .reader-settings__close {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--subject-accent, var(--accent)) 14%, rgba(24, 28, 18, 0.6)) 0%,
-      rgba(20, 23, 15, 0.5) 100%);
-  border-color: color-mix(in srgb, var(--subject-accent, var(--accent)) 32%, rgba(163, 230, 53, 0.14));
-  color: var(--subject-accent, var(--accent));
-  box-shadow:
-    0 1px 0 rgba(163, 230, 53, 0.08) inset,
-    0 6px 14px -10px rgba(0, 0, 0, 0.5);
+  background: rgba(163, 230, 53, 0.1);
+  border-color: rgba(163, 230, 53, 0.25);
+  color: var(--accent);
+  box-shadow: none;
 }
 [data-theme="dark"] .reader-settings__icon-btn:hover,
 [data-theme="dark"] .reader-settings__close:hover {
   background: var(--accent);
   color: #0d0f0c;
   border-color: var(--accent);
+  box-shadow: 0 0 16px -4px rgba(163, 230, 53, 0.6);
 }
 
+/* Режимы чтения и быстрые кнопки */
 [data-theme="dark"] .rs-mode__btn,
-[data-theme="dark"] .rs-font,
 [data-theme="dark"] .rs-quick__btn,
+[data-theme="dark"] .rs-font,
 [data-theme="dark"] .rs-search {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--subject-accent, var(--accent)) 10%, rgba(24, 28, 18, 0.85)) 0%,
-      rgba(24, 28, 18, 0.88) 100%);
-  border-color: color-mix(in srgb, var(--subject-accent, var(--accent)) 26%, rgba(163, 230, 53, 0.12));
-  box-shadow:
-    0 1px 0 rgba(163, 230, 53, 0.06) inset,
-    0 8px 20px -16px rgba(0, 0, 0, 0.5);
+  background: #1a1e14; /* убрали белый градиент */
+  border-color: rgba(163, 230, 53, 0.15);
+  box-shadow: none;
 }
 [data-theme="dark"] .rs-mode__btn:hover,
 [data-theme="dark"] .rs-quick__btn:hover,
 [data-theme="dark"] .rs-search:focus-within {
-  background:
-    linear-gradient(180deg, rgba(163, 230, 53, 0.16) 0%, rgba(20, 23, 15, 0.5) 100%),
-    color-mix(in srgb, var(--accent) 10%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  border-color: var(--accent);
+  background: #1f2417;
 }
+
 [data-theme="dark"] .rs-mode__btn[aria-selected="true"] {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--subject-accent, var(--accent)) 28%, rgba(24, 28, 18, 0.5)) 0%,
-      color-mix(in srgb, var(--subject-accent, var(--accent)) 12%, rgba(24, 28, 18, 0.7)) 100%);
-  border-color: var(--subject-accent, var(--accent));
-  box-shadow:
-    0 1px 0 rgba(163, 230, 53, 0.10) inset,
-    0 0 0 1px color-mix(in srgb, var(--subject-accent, var(--accent)) 45%, transparent),
-    0 12px 26px -16px color-mix(in srgb, var(--subject-accent, var(--accent)) 55%, transparent);
+  background: rgba(163, 230, 53, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(163, 230, 53, 0.4);
 }
-[data-theme="dark"] .rs-mode__btn[aria-selected="true"] .rs-mode__title { color: var(--subject-accent, var(--accent)); }
-[data-theme="dark"] .rs-search input { background: transparent; color: var(--text); }
+[data-theme="dark"] .rs-mode__btn[aria-selected="true"] .rs-mode__title {
+  color: var(--accent);
+}
+[data-theme="dark"] .rs-mode__desc {
+  color: var(--text-soft);
+}
+
+/* Иконки в быстрых кнопках */
 [data-theme="dark"] .rs-quick__icon {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--subject-accent, var(--accent)) 18%, rgba(24, 28, 18, 0.6)) 0%,
-      rgba(20, 23, 15, 0.4) 100%);
-  border-color: color-mix(in srgb, var(--subject-accent, var(--accent)) 32%, rgba(163, 230, 53, 0.14));
+  background: rgba(163, 230, 53, 0.12);
+  color: var(--accent);
+  border-color: rgba(163, 230, 53, 0.25);
 }
 [data-theme="dark"] .rs-quick__btn:hover .rs-quick__icon {
-  background: var(--subject-accent, var(--accent));
+  background: var(--accent);
   color: #0d0f0c;
-  border-color: var(--subject-accent, var(--accent));
-}
-[data-theme="dark"] .rs-font__badge {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--subject-accent, var(--accent)) 22%, rgba(24, 28, 18, 0.4)),
-      color-mix(in srgb, var(--subject-accent, var(--accent)) 10%, rgba(24, 28, 18, 0.6)));
-  border-color: color-mix(in srgb, var(--subject-accent, var(--accent)) 32%, rgba(163, 230, 53, 0.14));
-  color: var(--subject-accent, var(--accent));
-}
-[data-theme="dark"] .reader-topics__item {
-  background:
-    linear-gradient(180deg,
-      rgba(163, 230, 53, 0.08) 0%,
-      rgba(24, 28, 18, 0.85) 100%),
-    color-mix(in srgb, var(--subject-accent, var(--accent)) 8%, transparent);
-  border-color: rgba(163, 230, 53, 0.16);
-  box-shadow:
-    0 1px 0 rgba(163, 230, 53, 0.08) inset,
-    0 6px 14px -10px rgba(0, 0, 0, 0.5);
-}
-[data-theme="dark"] .reader-topics__item:hover {
-  background:
-    linear-gradient(180deg, rgba(163, 230, 53, 0.18) 0%, rgba(20, 23, 15, 0.5) 100%),
-    color-mix(in srgb, var(--subject-accent, var(--accent)) 18%, transparent);
-}
-[data-theme="dark"] .reader-topics__item.is-active {
-  background: color-mix(in srgb, var(--subject-accent, var(--accent)) 26%, rgba(20,23,15,0.45));
   border-color: var(--accent);
 }
-[data-theme="dark"] .reader-settings-backdrop {
-  background: rgba(0, 0, 0, 0.55);
+[data-theme="dark"] .rs-quick__title { color: var(--text); }
+[data-theme="dark"] .rs-quick__desc { color: var(--text-soft); }
+
+/* Поиск */
+[data-theme="dark"] .rs-search input {
+  color: var(--text);
+}
+[data-theme="dark"] .rs-search input::placeholder {
+  color: var(--text-soft);
+}
+[data-theme="dark"] .rs-search__close {
+  color: var(--text-soft);
+}
+[data-theme="dark"] .rs-search__close:hover {
+  background: rgba(163, 230, 53, 0.15);
+  color: var(--accent);
+}
+
+/* Шрифт */
+[data-theme="dark"] .rs-font__badge {
+  background: rgba(163, 230, 53, 0.15);
+  color: var(--accent);
+  border-color: rgba(163, 230, 53, 0.3);
 }
 [data-theme="dark"] .rs-font__range::-webkit-slider-runnable-track {
-  background:
-    linear-gradient(90deg,
-      var(--accent) 0,
-      var(--accent) var(--range-progress, 50%),
-      rgba(163, 230, 53, 0.18) var(--range-progress, 50%),
-      rgba(163, 230, 53, 0.18) 100%);
+  background: linear-gradient(90deg,
+    var(--accent) 0,
+    var(--accent) var(--range-progress, 50%),
+    rgba(163, 230, 53, 0.15) var(--range-progress, 50%),
+    rgba(163, 230, 53, 0.15) 100%);
 }
-[data-theme="dark"] .rs-font__range::-moz-range-track { background: rgba(163, 230, 53, 0.18); }
-[data-theme="dark"] .rs-font__range::-moz-range-progress { background: var(--accent); }
+[data-theme="dark"] .rs-font__range::-moz-range-track {
+  background: rgba(163, 230, 53, 0.15);
+}
+[data-theme="dark"] .rs-font__range::-moz-range-progress {
+  background: var(--accent);
+}
 [data-theme="dark"] .rs-font__range::-webkit-slider-thumb {
   background: #1a1e14;
   border-color: var(--accent);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(163, 230, 53, 0.22);
+  box-shadow: 0 0 0 4px rgba(163, 230, 53, 0.2);
 }
 [data-theme="dark"] .rs-font__range::-moz-range-thumb {
   background: #1a1e14;
   border-color: var(--accent);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(163, 230, 53, 0.22);
+  box-shadow: 0 0 0 4px rgba(163, 230, 53, 0.2);
 }
 
+/* Кружки тем */
+[data-theme="dark"] .reader-topics__item {
+  background: #1a1e14;
+  border-color: rgba(163, 230, 53, 0.15);
+  box-shadow: none;
+}
+[data-theme="dark"] .reader-topics__item:hover {
+  background: rgba(163, 230, 53, 0.15);
+  border-color: var(--accent);
+}
+[data-theme="dark"] .reader-topics__item.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+[data-theme="dark"] .reader-topics__item.is-active .reader-topics__item-num {
+   color: #fff;
+}
+[data-theme="dark"] .reader-topics__item-num {
+  background: transparent;
+  color: var(--accent);
+}
 /* ---------- Мобилка ---------- */
 @media (max-width: 640px) {
   .reader-pop {
@@ -2762,26 +2823,74 @@ html.reader-mode-class .reader__article {
   #view-tasks.is-active .hw-item,
   #view-files.reader-open .reader-screen { animation: none !important; }
 }
-
 /* ============================================================
-   13. МОБИЛЬНОЕ МЕНЮ (nav-islands)
+   13. МОБИЛЬНОЕ МЕНЮ — НИЖНЯЯ СТЕКЛЯННАЯ ПАНЕЛЬ
    ============================================================ */
 @media (max-width: 860px) {
+
+  /* ---------- Затемнение фона ---------- */
+  body.nav-islands-active::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 40, 0.35);
+    z-index: 140;
+    pointer-events: none;
+    backdrop-filter: blur(8px) saturate(120%);
+    -webkit-backdrop-filter: blur(8px) saturate(120%);
+    animation: navVeilIn 0.3s ease both;
+  }
+  @keyframes navVeilIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ---------- Контейнер панели ---------- */
   .nav-islands {
     position: fixed;
-    top: 0;
     left: 0;
     right: 0;
+    bottom: 0;
     z-index: 160;
-    pointer-events: none;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    gap: 6px;
+    padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    pointer-events: none;
+
+    /* стекло */
+    background: rgba(255, 255, 255, 0.72);
+    border-top: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 28px 28px 0 0;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      0 -1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 -12px 40px -12px rgba(20, 40, 80, 0.18);
+
+    /* анимация выезда */
     opacity: 0;
-    transition: opacity 0.25s ease;
+    transform: translateY(100%);
+    transition:
+      opacity 0.28s ease,
+      transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .nav-islands.is-open { opacity: 1; }
+  .nav-islands.is-open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* ---------- Ручка сверху ---------- */
+  .nav-islands::before {
+    content: "";
+    align-self: center;
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(20, 40, 80, 0.18);
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Пункты меню ---------- */
   .nav-island {
     pointer-events: auto;
     position: relative;
@@ -2789,34 +2898,58 @@ html.reader-mode-class .reader__article {
     align-items: center;
     gap: 12px;
     width: 100%;
-    min-height: 56px;
-    padding: 10px 24px;
-    background: rgba(255, 255, 255, 0.94);
-    border: 1px solid var(--island-border);
+    min-height: 52px;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.75);
     border-radius: 999px;
-    box-shadow: 0 12px 32px rgba(20, 40, 80, 0.12), 0 4px 12px rgba(20, 40, 80, 0.06);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.85) inset,
+      0 6px 18px -14px rgba(20, 40, 80, 0.2);
     color: var(--text);
     font-family: inherit;
     text-decoration: none;
     cursor: pointer;
+
     opacity: 0;
-    transform: translateY(-14px) scale(0.96);
-    will-change: opacity, transform;
+    transform: translateY(16px) scale(0.97);
     transition:
-      opacity 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-      transform 0.55s cubic-bezier(0.34, 1.4, 0.64, 1),
+      opacity 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.42s cubic-bezier(0.34, 1.4, 0.64, 1),
       background 0.2s ease,
       border-color 0.2s ease,
       box-shadow 0.25s ease;
   }
+  .nav-islands.is-open .nav-island {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  /* каскад снизу вверх */
+  .nav-islands.is-open .nav-island:nth-child(1) { transition-delay: 0.10s; }
+  .nav-islands.is-open .nav-island:nth-child(2) { transition-delay: 0.16s; }
+  .nav-islands.is-open .nav-island:nth-child(3) { transition-delay: 0.22s; }
+  .nav-islands.is-open .nav-island:nth-child(4) { transition-delay: 0.28s; }
+
+  .nav-islands:not(.is-open) .nav-island:nth-child(1) { transition-delay: 0.10s; }
+  .nav-islands:not(.is-open) .nav-island:nth-child(2) { transition-delay: 0.06s; }
+  .nav-islands:not(.is-open) .nav-island:nth-child(3) { transition-delay: 0.02s; }
+  .nav-islands:not(.is-open) .nav-island:nth-child(4) { transition-delay: 0s; }
+
+  .nav-island:hover {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: var(--accent);
+  }
+  .nav-island:active { transform: scale(0.98); }
+
+  /* ---------- Текст ---------- */
   .nav-island__title {
     flex: 1;
     display: inline-flex;
     align-items: baseline;
     gap: 2px;
-    font-weight: 800;
-    font-size: 24px;
-    letter-spacing: -0.6px;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.3px;
     line-height: 1;
     color: var(--text);
     text-align: left;
@@ -2830,95 +2963,80 @@ html.reader-mode-class .reader__article {
     color: var(--accent);
     font-weight: 800;
     margin-left: 1px;
-    transition: color 0.2s ease, transform 0.25s ease;
   }
+
+  /* ---------- Активный пункт ---------- */
   .nav-island.active {
-    border-color: rgba(37, 99, 235, 0.55);
-    background: rgba(59, 130, 246, 0.14);
+    background: color-mix(in srgb, var(--accent) 12%, rgba(255,255,255,0.75));
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
     box-shadow:
-      0 12px 32px rgba(20, 40, 80, 0.14),
-      0 0 0 1px rgba(59, 130, 246, 0.35),
-      0 0 26px -8px rgba(59, 130, 246, 0.55);
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+      0 8px 22px -14px color-mix(in srgb, var(--accent) 55%, transparent);
   }
-  .nav-island.active .nav-island__title { color: #1d4ed8; text-shadow: 0 0 12px rgba(59, 130, 246, 0.25); }
-  .nav-island.active .nav-island__title::after {
-    transform: scale(1.4);
-    color: #2563eb;
-    text-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
-  }
-  .nav-island:hover { background: #fff; border-color: var(--accent); }
-  .nav-island:active { transform: scale(0.98); }
+  .nav-island.active .nav-island__title { color: var(--accent); }
 
-  .nav-islands.is-open { pointer-events: auto; }
-  .nav-islands.is-open .nav-island {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  /* ---------- Прячем шапку, пока открыта панель ---------- */
+  body.nav-islands-active .island-wrap .island {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
   }
-  /* волна: мягкий каскад, но без «дёрганий» */
-  .nav-islands.is-open .nav-island:nth-child(1) { transition-delay: 0.04s; }
-  .nav-islands.is-open .nav-island:nth-child(2) { transition-delay: 0.10s; }
-  .nav-islands.is-open .nav-island:nth-child(3) { transition-delay: 0.16s; }
-  .nav-islands.is-open .nav-island:nth-child(4) { transition-delay: 0.22s; }
-    /* при закрытии — обратный каскад, без blur */
-  .nav-islands:not(.is-open) .nav-island:nth-child(1) { transition-delay: 0.18s; }
-  .nav-islands:not(.is-open) .nav-island:nth-child(2) { transition-delay: 0.12s; }
-  .nav-islands:not(.is-open) .nav-island:nth-child(3) { transition-delay: 0.06s; }
-  .nav-islands:not(.is-open) .nav-island:nth-child(4) { transition-delay: 0s; }
-
-  body.nav-islands-active .island-wrap .island { opacity: 0; pointer-events: none; transition: opacity 0.18s ease; }
   body.nav-islands-active .island-wrap { pointer-events: none; }
 
-  body.nav-islands-active::after {
-    content: "";
-    position: fixed;
-    top: calc(-1 * env(safe-area-inset-top, 0px));
-    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
-    left: calc(-1 * env(safe-area-inset-left, 0px));
-    right: calc(-1 * env(safe-area-inset-right, 0px));
-    background: rgba(10, 20, 40, 0.35);
-    z-index: 140;
-    pointer-events: none;
-    backdrop-filter: blur(8px) saturate(120%);
-    -webkit-backdrop-filter: blur(8px) saturate(120%);
-    animation: navVeilIn 0.3s ease both;
-  }
-  @keyframes navVeilIn { from { opacity: 0; } to { opacity: 1; } }
-
+  /* ---------- Скрываем старый nav ---------- */
   .nav { display: none !important; }
 
+  /* ================= ТЁМНАЯ ТЕМА ================= */
+  [data-theme="dark"] .nav-islands {
+    background: rgba(20, 23, 15, 0.82);
+    border-top-color: rgba(163, 230, 53, 0.18);
+    box-shadow:
+      0 -1px 0 rgba(163, 230, 53, 0.08) inset,
+      0 -12px 40px -12px rgba(0, 0, 0, 0.6),
+      0 0 60px -20px rgba(163, 230, 53, 0.25);
+  }
+  [data-theme="dark"] .nav-islands::before {
+    background: rgba(163, 230, 53, 0.25);
+  }
   [data-theme="dark"] .nav-island {
-    background: rgba(20, 23, 15, 0.94);
-    border-color: #2c3220;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 30px -14px rgba(163, 230, 53, 0.30);
+    background: rgba(20, 23, 15, 0.6);
+    border-color: rgba(163, 230, 53, 0.15);
+    box-shadow:
+      0 1px 0 rgba(163, 230, 53, 0.06) inset,
+      0 6px 18px -14px rgba(0, 0, 0, 0.5);
   }
   [data-theme="dark"] .nav-island__title { color: var(--text); }
   [data-theme="dark"] .nav-island__title::after { color: var(--accent); }
-  [data-theme="dark"] .nav-island.active {
-    border-color: rgba(190, 242, 100, 0.7);
-    background: rgba(163, 230, 53, 0.16);
-    box-shadow:
-      0 12px 32px rgba(0, 0, 0, 0.55),
-      0 0 0 1px rgba(190, 242, 100, 0.5),
-      0 0 26px -6px rgba(163, 230, 53, 0.7);
+  [data-theme="dark"] .nav-island:hover {
+    background: rgba(20, 23, 15, 0.9);
+    border-color: rgba(163, 230, 53, 0.4);
   }
-  [data-theme="dark"] .nav-island.active .nav-island__title { color: #eaffb0; text-shadow: 0 0 12px rgba(163, 230, 53, 0.45); }
-  [data-theme="dark"] .nav-island.active .nav-island__title::after { color: #d9f99d; text-shadow: 0 0 10px rgba(163, 230, 53, 0.6); }
-  [data-theme="dark"] .nav-island:hover { background: #1f2417; border-color: var(--accent); }
+  [data-theme="dark"] .nav-island.active {
+    background: rgba(163, 230, 53, 0.16);
+    border-color: var(--accent);
+    box-shadow:
+      0 0 0 1px rgba(163, 230, 53, 0.45),
+      0 0 26px -8px rgba(163, 230, 53, 0.55);
+  }
+  [data-theme="dark"] .nav-island.active .nav-island__title {
+    color: var(--accent);
+  }
   [data-theme="dark"] body.nav-islands-active::after {
     background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(8px) saturate(120%);
-    -webkit-backdrop-filter: blur(8px) saturate(120%);
   }
 
+  /* ---------- Reduced motion ---------- */
   @media (prefers-reduced-motion: reduce) {
+    .nav-islands,
     .nav-island,
     .nav-islands.is-open .nav-island {
       transition-duration: 0.01s !important;
       transition-delay: 0s !important;
-      filter: none !important;
     }
   }
 }
+
 @media (min-width: 861px) {
   .nav-islands { display: none !important; }
 }
@@ -3586,6 +3704,7 @@ body.profile-sheet-open { overflow: hidden; }
 [data-theme="dark"] .lesson {
   background: rgba(20, 23, 15, 0.55);
   border-color: rgba(163, 230, 53, 0.10);
+  box-shadow: 0 6px 18px -14px rgba(0, 0, 0, 0.6);
 }
 [data-theme="dark"] .lesson:hover {
   border-color: rgba(163, 230, 53, 0.25);
@@ -4150,7 +4269,6 @@ body.profile-sheet-open { overflow: hidden; }
     border: 1px solid rgba(59, 130, 246, 0.3);
     color: var(--accent);
   }
-  .burger { display: grid; width: 40px; height: 40px; padding: 0; }
 
   body.island-collapsed .island {
     width: auto;
@@ -4316,7 +4434,6 @@ body.profile-sheet-open { overflow: hidden; }
   .island { padding: 9px 10px 9px 18px; border-radius: 999px; }
   .brand-name { font-size: 22px; }
   .avatar { width: 36px; height: 36px; font-size: 12px; }
-  .burger { width: 38px; height: 38px; padding: 0; }
 
   .page {
     padding: 92px 16px 48px;
@@ -4446,75 +4563,95 @@ body.profile-sheet-open { overflow: hidden; }
   }
 }
 /* ============================================================
-   АНИМАЦИЯ ПЕРЕХОДА В ПРОФИЛЬ
+   ПРОФИЛЬ: НОВАЯ АНИМАЦИЯ ВХОДА
    ============================================================ */
+
+/* --- Карточка: мягкий «всплывающий» вход --- */
 #view-profile.is-active .profile-card {
-  animation: profileCardIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-#view-profile.is-active .profile-card__avatar {
-  animation: profileAvatarIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  animation-delay: 0.08s;
-}
-#view-profile.is-active .profile-continue {
-  animation: profileItemIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 0.10s;
-}
-#view-profile.is-active .profile-actions .action-circle {
-  animation: profileItemIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-#view-profile.is-active .profile-actions .action-circle:nth-child(1) { animation-delay: 0.16s; }
-#view-profile.is-active .profile-actions .action-circle:nth-child(2) { animation-delay: 0.20s; }
-#view-profile.is-active .profile-actions .action-circle:nth-child(3) { animation-delay: 0.24s; }
-#view-profile.is-active .profile-actions .action-circle:nth-child(4) { animation-delay: 0.28s; }
-#view-profile.is-active .profile-actions .action-circle:nth-child(5) { animation-delay: 0.32s; }
-#view-profile.is-active .profile-actions .action-circle:nth-child(6) { animation-delay: 0.36s; }
-#view-profile.is-active .profile-actions .action-circle:nth-child(7) { animation-delay: 0.40s; }
-#view-profile.is-active .profile-theme {
-  animation: profileItemIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 0.44s;
+  animation: profileCardIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* --- Аватар: пружинистое появление --- */
+#view-profile.is-active .profile-card__avatar {
+  animation: profileAvatarIn 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: 0.10s;
+}
+
+/* --- Имя / статус / группа: лёгкий подъём --- */
+#view-profile.is-active .profile-card__name { animation: profileTextIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 0.18s; }
+#view-profile.is-active .profile-card__status { animation: profileTextIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 0.24s; }
+#view-profile.is-active .profile-card__group { animation: profileTextIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 0.30s; }
+
+/* --- Круглые кнопки на карточке: каскад --- */
+#view-profile.is-active .profile-card__quick .card-quick-btn {
+  animation: profileQuickIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+#view-profile.is-active .profile-card__quick .card-quick-btn:nth-child(1) { animation-delay: 0.34s; }
+#view-profile.is-active .profile-card__quick .card-quick-btn:nth-child(2) { animation-delay: 0.40s; }
+#view-profile.is-active .profile-card__quick .card-quick-btn:nth-child(3) { animation-delay: 0.46s; }
+
+/* --- Плитки (Пользователи / Лекции / Уведомления / Тема) --- */
+#view-profile.is-active .profile-tile {
+  animation: profileTileIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+#view-profile.is-active .profile-tile:nth-child(1) { animation-delay: 0.30s; }
+#view-profile.is-active .profile-tile:nth-child(2) { animation-delay: 0.36s; }
+#view-profile.is-active .profile-tile:nth-child(3) { animation-delay: 0.42s; }
+#view-profile.is-active .profile-tile:nth-child(4) { animation-delay: 0.48s; }
+
+/* --- Тёплая строка над карточкой --- */
+#view-profile.is-active .profile-thanks {
+  animation: profileThanksIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ===== Ключевые кадры ===== */
+
 @keyframes profileCardIn {
-  0%   { opacity: 0; transform: translateY(14px) scale(0.97); filter: blur(6px); }
+  0%   { opacity: 0; transform: translateY(18px) scale(0.975); filter: blur(8px); }
   60%  { opacity: 1; filter: blur(0); }
   100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 
 @keyframes profileAvatarIn {
-  0%   { opacity: 0; transform: scale(0.7) rotate(-6deg); }
-  60%  { opacity: 1; }
-  100% { opacity: 1; transform: scale(1) rotate(0); }
+  0%   { opacity: 0; transform: scale(0.6) rotate(-8deg); filter: blur(6px); }
+  55%  { opacity: 1; filter: blur(0); transform: scale(1.06) rotate(2deg); }
+  75%  { transform: scale(0.98) rotate(-1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); filter: blur(0); }
 }
 
-@keyframes profileItemIn {
-  0%   { opacity: 0; transform: translateY(10px); }
+@keyframes profileTextIn {
+  0%   { opacity: 0; transform: translateY(8px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 
-/* уважение к prefers-reduced-motion */
+@keyframes profileQuickIn {
+  0%   { opacity: 0; transform: scale(0.4); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes profileTileIn {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.96); filter: blur(4px); }
+  55%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes profileThanksIn {
+  0%   { opacity: 0; transform: translateY(-6px) scale(0.98); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* --- Уважение к настройкам ОС --- */
 @media (prefers-reduced-motion: reduce) {
   #view-profile.is-active .profile-card,
   #view-profile.is-active .profile-card__avatar,
-  #view-profile.is-active .profile-continue,
-  #view-profile.is-active .profile-actions .action-circle,
-  #view-profile.is-active .profile-theme {
+  #view-profile.is-active .profile-card__name,
+  #view-profile.is-active .profile-card__status,
+  #view-profile.is-active .profile-card__group,
+  #view-profile.is-active .profile-card__quick .card-quick-btn,
+  #view-profile.is-active .profile-tile,
+  #view-profile.is-active .profile-thanks {
     animation: none !important;
   }
-}
-.profile-sheet__body input,
-.profile-sheet__body select {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
-  font-family: inherit;
-  font-size: 14.5px;
-  color: var(--text);
-  outline: none;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: border-color .15s, background .15s;
 }
 /* ============================================================
    КАСТОМНЫЙ ПИКЕР СТАТУСА
@@ -5070,10 +5207,6 @@ body.island-search-open .island > .island-progress {
   .onboard__title { font-size: 22px; }
   .onboard__sub { font-size: 13px; }
   .onboard__colors { gap: 8px; }
-}
-/* Заголовки вопросов (###) в читалке — акцентные */
-.reader__content h3 {
-  color: var(--subject-accent, var(--accent));
 }
 
 /* ============================================================
@@ -5940,4 +6073,190 @@ body.island-search-open .island > .island-progress {
 [data-theme="dark"] .profile-users__refresh:hover {
   background: var(--accent);
   color: #0d0f0c;
+}
+/* Акцент только для **...** во вкладке «Тесты» (тёмная тема) */
+[data-theme="dark"] .reader__content.reader-tab-tests strong {
+  color: var(--subject-accent, var(--accent));
+}
+/* ============================================================
+   TOUR — интерактивное обучение по сайту
+   ============================================================ */
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;         /* ← всегда none */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.28s ease, visibility 0s linear 0.28s;
+}
+.tour.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;         /* ← всегда none — клики идут к элементам под ним */
+  transition: opacity 0.28s ease, visibility 0s;
+}
+
+.tour__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 20, 40, 0.6);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+/* Когда есть подсветка — фон не должен ловить клики */
+.tour.has-spot .tour__backdrop {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+/* Подсветка-«дырка» */
+.tour__spot {
+  position: fixed;
+  pointer-events: none;
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 75%, transparent),
+    0 0 0 9999px rgba(10, 20, 40, 0.6),
+    0 0 40px -6px color-mix(in srgb, var(--accent) 65%, transparent);
+  transition: top .35s cubic-bezier(.16,1,.3,1),
+              left .35s cubic-bezier(.16,1,.3,1),
+              width .35s cubic-bezier(.16,1,.3,1),
+              height .35s cubic-bezier(.16,1,.3,1),
+              border-radius .35s ease;
+  z-index: 1;
+}
+.tour.has-spot .tour__backdrop {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: transparent;
+}
+
+/* Тултип */
+.tour__tip {
+  position: fixed;
+  width: min(380px, calc(100vw - 32px));
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 22px;
+  padding: 18px 20px 16px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 24px 60px -16px rgba(20, 40, 80, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  z-index: 3;
+  color: var(--text);
+  transform-origin: center;
+  animation: tourTipIn .32s cubic-bezier(.34,1.4,.64,1);
+  .tour__tip {
+  position: fixed;
+  pointer-events: none;
+}
+}
+@keyframes tourTipIn {
+  from { opacity: 0; transform: translateY(6px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Стрелка */
+.tour__tip::after {
+  content: "";
+  position: absolute;
+  width: 14px; height: 14px;
+  background: inherit;
+  border: inherit;
+  border-radius: 3px;
+  transform: rotate(45deg);
+  z-index: -1;
+}
+.tour__tip[data-place="bottom"]::after { top: -7px; left: 28px; border-right: none; border-bottom: none; }
+.tour__tip[data-place="top"]::after    { bottom: -7px; left: 28px; border-left: none; border-top: none; }
+.tour__tip[data-place="right"]::after  { left: -7px; top: 28px; border-top: none; border-right: none; }
+.tour__tip[data-place="left"]::after   { right: -7px; top: 28px; border-bottom: none; border-left: none; }
+
+/* Шапка */
+.tour__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.tour__counter {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.tour__hint {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tour__hint::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent);
+  animation: tourHintPulse 1.4s ease-in-out infinite;
+}
+@keyframes tourHintPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(.7); opacity: .5; }
+}
+
+.tour__title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -.3px;
+  line-height: 1.2;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.tour__text {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-soft);
+  margin: 0 0 4px;
+}
+
+/* Тёмная тема */
+[data-theme="dark"] .tour__tip {
+  background: rgba(22, 25, 15, 0.97);
+  border-color: rgba(163, 230, 53, 0.22);
+  box-shadow:
+    0 1px 0 rgba(163, 230, 53, 0.1) inset,
+    0 24px 60px -16px rgba(0, 0, 0, 0.8),
+    0 0 40px -14px rgba(163, 230, 53, 0.3);
+}
+[data-theme="dark"] .tour__hint { color: var(--accent); }
+
+/* Мобилка */
+@media (max-width: 640px) {
+  .tour__tip {
+    width: calc(100vw - 24px);
+    padding: 16px 16px 14px;
+    border-radius: 20px;
+  }
+  .tour__title { font-size: 16px; }
+  .tour__text { font-size: 13.5px; }
 }

@@ -2,59 +2,46 @@
 //  ДЕРЗКИЕ ПРИВЕТСТВИЯ (тёмная тема) — РАЗ В ДЕНЬ
 // ============================================================
 const DARK_GREETINGS = [
-  "Добрый вечер, {name}.",
-  "Спокойного вечера, {name}.",
-  "{name}, всё под контролем.",
-  "Тихо и по делу, {name}.",
-  "Вечер — хорошее время для практики, {name}."
-];
-const LIGHT_GREETINGS = [
-  "Доброе утро, {name}!",
-  "Хорошего дня, {name}.",
-  "{name}, готовы к работе?",
-  "Продуктивного дня, {name}.",
-  "Всё по плану, {name}."
+  "{name}, врубаем неон.",
+  "Режим тишины, {name}.",
+  "{name}, только ты и конспекты.",
+  "Тёмная сторона учёбы, {name}.",
+  "{name}, контраст и ясность.",
+  "Глаза отдыхают, {name}.",
+  "{name}, в потоке.",
+  "Ночная смена, {name}.",
+  "{name}, фокус на зелёном.",
+  "Без лишнего света, {name}."
 ];
 
-function pickLightGreeting(name) {
+const LIGHT_GREETINGS = [
+  "{name}, вдох-выдох.",
+  "Стекло и воздух, {name}.",
+  "{name}, всё прозрачно.",
+  "Светлый ум, {name}.",
+  "{name}, лёгкий старт.",
+  "Белый шум отключён, {name}.",
+  "{name}, ясность мысли.",
+  "Мягкий фокус, {name}.",
+  "{name}, на чистом листе.",
+  "Пространство для главного, {name}."
+];
+
+function pickGreeting(list, name) {
   const n = name || "друг";
   const day = Math.floor(Date.now() / 86400000);
-  const idx = day % LIGHT_GREETINGS.length;
-  return LIGHT_GREETINGS[idx].replace(/\{name\}/g, n);
+  const idx = day % list.length;
+  return list[idx].replace(/\{name\}/g, n);
 }
 
-const DARK_GREET_KEY = 'doro.darkGreeting';
-
-function getCurrentDarkGreeting() {
-  let saved = null;
-  try { saved = JSON.parse(localStorage.getItem(DARK_GREET_KEY) || 'null'); }
-  catch (e) { saved = null; }
-  if (saved && typeof saved === 'object' && typeof saved.idx === 'number' && DARK_GREETINGS[saved.idx]) {
-    return DARK_GREETINGS[saved.idx];
-  }
-  const idx = Math.floor(Math.random() * DARK_GREETINGS.length);
-  localStorage.setItem(DARK_GREET_KEY, JSON.stringify({ idx }));
-  return DARK_GREETINGS[idx];
-}
-
-function pickNewDarkGreeting() {
-  let lastIdx = -1;
-  try {
-    const saved = JSON.parse(localStorage.getItem(DARK_GREET_KEY) || 'null');
-    if (saved && typeof saved === 'object' && typeof saved.idx === 'number') lastIdx = saved.idx;
-  } catch (e) { /* ignore */ }
-  let newIdx = Math.floor(Math.random() * DARK_GREETINGS.length);
-  if (newIdx === lastIdx && DARK_GREETINGS.length > 1) {
-    newIdx = (newIdx + 1 + Math.floor(Math.random() * (DARK_GREETINGS.length - 1))) % DARK_GREETINGS.length;
-  }
-  localStorage.setItem(DARK_GREET_KEY, JSON.stringify({ idx: newIdx }));
-  return DARK_GREETINGS[newIdx];
+function pickLightGreeting(name) {
+  return pickGreeting(LIGHT_GREETINGS, name);
 }
 
 function pickDarkGreeting(name) {
-  const tpl = getCurrentDarkGreeting();
-  return tpl.replace(/\{name\}/g, name || "друг");
+  return pickGreeting(DARK_GREETINGS, name);
 }
+
 
 // ============================================================
 //  ДАННЫЕ
@@ -760,7 +747,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextTheme = resolveTheme(nextMode);
     setThemeMode(nextMode);
     syncAllThemeSwitchers();
-    if (nextTheme === 'dark' && currentTheme !== 'dark') pickNewDarkGreeting();
     if (currentTheme !== nextTheme) runSnakeTransition(nextTheme);
     else applyTheme(nextTheme);
   }
@@ -804,19 +790,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let navIslands = null;
 
   function getIslandRect() { const el = $('island'); return el ? el.getBoundingClientRect() : null; }
-  function positionNavIslands() {
-    if (!navIslands) return;
-    const rect = getIslandRect(); if (!rect) return;
-    const wrap = navIslands;
-    wrap.style.top = rect.top + 'px';
-    wrap.style.left = rect.left + 'px';
-    wrap.style.right = 'auto';
-    wrap.style.width = rect.width + 'px';
-    wrap.style.padding = '0';
-    const first = wrap.querySelector('.nav-island--first');
-    if (first) first.style.minHeight = rect.height + 'px';
-    wrap.querySelectorAll('.nav-island:not(.nav-island--first)').forEach(el => { el.style.minHeight = rect.height + 'px'; });
-  }
   function buildNavIslands() {
     if (navIslands) return navIslands;
     if (!nav) return null;
@@ -847,7 +820,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isMobileNav()) return;
     const el = buildNavIslands(); if (!el) return;
     syncNavIslandsActive();
-    el.style.display = 'flex'; positionNavIslands(); void el.offsetWidth;
+    el.style.display = 'flex';
+    void el.offsetWidth; // reflow для анимации
     document.body.classList.add('nav-islands-active');
     el.classList.add('is-open');
     el.setAttribute('aria-hidden', 'false');
@@ -859,7 +833,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!navIslands) return;
     navIslands.classList.remove('is-open');
     navIslands.setAttribute('aria-hidden', 'true');
-    window.setTimeout(() => { if (navIslands && !navIslands.classList.contains('is-open')) navIslands.style.display = 'none'; }, 420);
+    window.setTimeout(() => {
+      if (navIslands && !navIslands.classList.contains('is-open')) navIslands.style.display = 'none';
+    }, 460);
   }
   function toggleNavIslands() {
     if (!isMobileNav()) return;
@@ -872,7 +848,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isMobileNav()) toggleNavIslands();
       else if (nav) {
         const open = nav.classList.toggle('nav--open');
-        burger.classList.toggle('burger--open', open);
         burger.setAttribute('aria-expanded', String(open));
       }
     });
@@ -882,22 +857,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!navIslands.contains(e.target) && burger && !burger.contains(e.target)) closeNavIslands();
     } else if (nav && nav.classList.contains('nav--open')) {
       if (!nav.contains(e.target) && burger && !burger.contains(e.target)) {
-        nav.classList.remove('nav--open'); burger.classList.remove('burger--open'); burger.setAttribute('aria-expanded', 'false');
+        nav.classList.remove('nav--open'); burger.setAttribute('aria-expanded', 'false');
       }
     }
   });
   if (nav && burger) {
     nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
-      nav.classList.remove('nav--open'); burger.classList.remove('burger--open'); burger.setAttribute('aria-expanded', 'false');
+      nav.classList.remove('nav--open'); burger.setAttribute('aria-expanded', 'false');
     }));
   }
-  window.addEventListener('resize', () => {
+    window.addEventListener('resize', () => {
     if (!isMobileNav()) closeNavIslands();
-    else if (navIslands && navIslands.classList.contains('is-open')) positionNavIslands();
   });
-  window.addEventListener('scroll', () => {
-    if (navIslands && navIslands.classList.contains('is-open')) positionNavIslands();
-  }, { passive: true });
 
   // ---------- ПРОФИЛЬ ----------
   function getInitials(name) {
@@ -2234,12 +2205,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------- VIEWS ----------
-  function showView(name) {
+function showView(name) {
     Object.values(views).forEach(v => { if (v) v.classList.remove('is-active'); });
     const v = views[name];
     if (!v) return;
     void v.offsetWidth;
     v.classList.add('is-active');
+
+    // Профиль: сброс и перезапуск анимации при каждом входе
+    if (name === 'profile') {
+      v.classList.remove('is-reanimating');
+      void v.offsetWidth;        // force reflow
+      v.classList.add('is-reanimating');
+    }
 
     const viewFiles = $('view-files');
     if (viewFiles && name !== 'files') {
@@ -2803,9 +2781,10 @@ document.addEventListener('DOMContentLoaded', () => {
     SearchCtl.clear();
     if (!contentEl || !readerTabs) return;
     readerTabs.querySelectorAll('.reader__tab').forEach(b => b.classList.toggle('is-active', b.dataset.tab === tab));
-    moveTabIndicator();
-    contentEl.classList.remove('is-loaded');
-    if (tab === 'preparations') contentEl.innerHTML = renderPreparations(sections.preparations || []);
+  moveTabIndicator();
+  contentEl.classList.remove('is-loaded');
+  contentEl.classList.toggle('reader-tab-tests', tab === 'tests');
+  if (tab === 'preparations') contentEl.innerHTML = renderPreparations(sections.preparations || []);
     else if (tab === 'questions') {
       const raw = sections.questions || '';
       contentEl.innerHTML = raw.trim() ? renderTopicContent(raw) : '<p class="reader__empty">В этой теме нет вопросов</p>';
