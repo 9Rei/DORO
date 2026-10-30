@@ -314,6 +314,8 @@
   function cleanupAction() {
     if (actionTarget && actionHandler) {
       actionTarget.removeEventListener('click', actionHandler, true);
+      actionTarget.removeEventListener('input', actionHandler, true);
+      actionTarget.removeEventListener('change', actionHandler, true);
     }
     actionTarget = null;
     actionHandler = null;
@@ -391,10 +393,10 @@
       return el;
     } catch (e) { return null; }
   }
-
   async function start(force) {
     if (!force && localStorage.getItem(TOUR_KEY) === 'done') return;
     buildDom();
+    tip.classList.remove('is-placed');
     activeSteps = filterSteps();
     currentIndex = -1;
     isOpen = true;
@@ -411,6 +413,7 @@
     root.classList.remove('has-spot');
     root.setAttribute('aria-hidden', 'true');
     spot.style.display = 'none';
+    tip.classList.remove('is-placed');
     document.body.style.overflow = '';
     localStorage.setItem(TOUR_KEY, 'done');
     document.removeEventListener('keydown', onKey, true);
@@ -486,24 +489,31 @@
       };
       el.addEventListener('click', actionHandler, true);
     } else {
-      /* Вешаем нативный слушатель на сам элемент. Клик пользователя
-         отрабатывает штатно (навигация, шторки, темы, что угодно),
-         а мы дополнительно переходим на следующий шаг. */
       actionTarget = el;
       actionHandler = async (ev) => {
-        /* НЕ мешаем стандартному поведению — просто ждём кадр,
-           чтобы переход/открытие успели примениться */
         if (step.afterAction) { try { await step.afterAction(); } catch (e) {} }
         await new Promise(r => setTimeout(r, 200));
-
         cleanupAction();
-
         if (currentIndex + 1 < activeSteps.length) goTo(currentIndex + 1);
         else finish();
       };
-      /* capture: true — чтобы сработать до внутренних обработчиков,
-         но не preventDefault, чтобы клик отработал по элементу как обычно */
-      el.addEventListener('click', actionHandler, true);
+
+      /* Для ползунков и полей ввода — слушаем input/change,
+         потому что клик на телефоне по range может не срабатывать */
+      const tag = (el.tagName || '').toLowerCase();
+      const type = (el.getAttribute('type') || '').toLowerCase();
+      const isRange = tag === 'input' && type === 'range';
+      const isField = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+      if (isRange) {
+        el.addEventListener('input', actionHandler, true);
+        el.addEventListener('change', actionHandler, true);
+      } else if (isField) {
+        el.addEventListener('change', actionHandler, true);
+        el.addEventListener('click', actionHandler, true);
+      } else {
+        el.addEventListener('click', actionHandler, true);
+      }
     }
 
     placeTip(step.place || 'auto', el, step);
@@ -540,6 +550,8 @@
     const gap = 16;
     const margin = 12;
 
+    let top = 0, left = 0;    /* ← объявляем ДО использования */
+
     const canRight  = rect.right + gap + tw + margin <= vw;
     const canLeft   = rect.left  - gap - tw - margin >= 0;
     const canBottom = rect.bottom + gap + th + margin <= vh;
@@ -565,8 +577,13 @@
         ));
         if (use === 'bottom') top = rect.bottom + gap;
         else top = rect.top - th - gap;
-        tip.style.left = left + 'px';
-        tip.style.top  = Math.max(margin, Math.min(top, vh - th - margin)) + 'px';
+        top = Math.max(margin, Math.min(top, vh - th - margin));
+
+        tip.dataset.place = use;
+        tip.style.left = Math.round(left) + 'px';
+        tip.style.top  = Math.round(top) + 'px';
+        tip.classList.add('is-placed');
+
         tip.style.animation = 'none';
         void tip.offsetWidth;
         tip.style.animation = '';
@@ -575,17 +592,30 @@
     }
     tip.dataset.place = use;
 
-    let top = 0, left = 0;
     if (use === 'bottom')      { top = rect.bottom + gap; left = rect.left; }
     else if (use === 'top')    { top = rect.top - th - gap; left = rect.left; }
     else if (use === 'right')  { top = rect.top; left = rect.right + gap; }
     else if (use === 'left')   { top = rect.top; left = rect.left - tw - gap; }
-
     left = Math.max(margin, Math.min(left, vw - tw - margin));
     top  = Math.max(margin, Math.min(top, vh - th - margin));
 
-    tip.style.left = left + 'px';
-    tip.style.top  = top + 'px';
+    /* На телефоне: если тултип прилипает к верху — принудительно ставим его
+       под элементом. Если и снизу не влезает — ставим в нижнюю часть экрана. */
+    const isMobileView = window.matchMedia('(max-width: 860px)').matches;
+    if (isMobileView && top <= margin + 2) {
+      const below = rect.bottom + gap;
+      if (below + th + margin <= vh) {
+        top = below;
+        tip.dataset.place = 'bottom';
+      } else {
+        top = vh - th - margin;
+        tip.dataset.place = 'bottom';
+      }
+    }
+
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top  = Math.round(top)  + 'px';
+    tip.classList.add('is-placed');
 
     tip.style.animation = 'none';
     void tip.offsetWidth;

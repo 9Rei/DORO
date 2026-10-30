@@ -6140,6 +6140,10 @@ body.island-search-open .island > .island-progress {
 /* Тултип */
 .tour__tip {
   position: fixed;
+  top: -9999px;
+  left: -9999px;
+  opacity: 0;
+  pointer-events: none;
   width: min(380px, calc(100vw - 32px));
   background: rgba(255, 255, 255, 0.97);
   border: 1px solid rgba(255, 255, 255, 0.9);
@@ -6155,11 +6159,12 @@ body.island-search-open .island > .island-progress {
   color: var(--text);
   transform-origin: center;
   animation: tourTipIn .32s cubic-bezier(.34,1.4,.64,1);
-  .tour__tip {
-  position: fixed;
-  pointer-events: none;
 }
+
+.tour__tip.is-placed {
+  opacity: 1;
 }
+
 @keyframes tourTipIn {
   from { opacity: 0; transform: translateY(6px) scale(.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
