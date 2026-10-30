@@ -6250,13 +6250,29 @@ body.island-search-open .island > .island-progress {
 }
 [data-theme="dark"] .tour__hint { color: var(--accent); }
 
-/* Мобилка */
 @media (max-width: 640px) {
   .tour__tip {
     width: calc(100vw - 24px);
-    padding: 16px 16px 14px;
-    border-radius: 20px;
+    max-width: calc(100vw - 24px);
+    padding: 14px 14px 12px;
+    border-radius: 18px;
   }
   .tour__title { font-size: 16px; }
-  .tour__text { font-size: 13.5px; }
+  .tour__text { font-size: 13.5px; line-height: 1.5; }
+  .tour__counter { font-size: 10px; padding: 2px 8px; }
+  .tour__hint { font-size: 9.5px; letter-spacing: 0.06em; }
+
+  /* Чуть меньше радиус подсветки — на мобиле углы слишком круглые */
+  .tour__spot {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--accent) 75%, transparent),
+      0 0 0 9999px rgba(10, 20, 40, 0.6),
+      0 0 30px -6px color-mix(in srgb, var(--accent) 65%, transparent);
+  }
+}
+
+@media (max-width: 380px) {
+  .tour__tip { padding: 12px 12px 10px; border-radius: 16px; }
+  .tour__title { font-size: 15px; }
+  .tour__text { font-size: 13px; }
 }

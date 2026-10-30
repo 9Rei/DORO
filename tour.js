@@ -52,8 +52,17 @@
     {
       selector: '#burger',
       title: 'Меню',
-      text: 'На телефоне навигация прячется за этой кнопкой. Нажми — и увидишь все разделы.',
+      text: 'На телефоне навигация прячется за этой кнопкой. Нажми — откроется меню.',
       place: 'bottom', padding: 6, radius: 999,
+      mobileOnly: true,
+      action: 'click',
+      afterAction: () => new Promise(r => setTimeout(r, 600)),
+    },
+    {
+      selector: '.nav-island[data-view="files"]',
+      title: 'Разделы',
+      text: 'Жми «Разделы» — откроются все предметы.',
+      place: 'top', padding: 6, radius: 999,
       mobileOnly: true,
       action: 'click',
       afterAction: () => new Promise(r => setTimeout(r, 500)),
@@ -122,6 +131,24 @@
       afterAction: () => new Promise(r => setTimeout(r, 400)),
     },
     {
+      selector: '#burger',
+      title: 'Меню',
+      text: 'Открой меню — выберем «Задания».',
+      place: 'bottom', padding: 6, radius: 999,
+      mobileOnly: true,
+      action: 'click',
+      afterAction: () => new Promise(r => setTimeout(r, 600)),
+    },
+    {
+      selector: '.nav-island[data-view="tasks"]',
+      title: 'Задания',
+      text: 'Жми «Задания» в меню.',
+      place: 'top', padding: 6, radius: 999,
+      mobileOnly: true,
+      action: 'click',
+      afterAction: () => new Promise(r => setTimeout(r, 500)),
+    },
+    {
       selector: '#tasksList',
       title: 'Список заданий',
       text: 'Задания по дням, с чекбоксами и счётчиком. Добавляются значком у пары на главной.',
@@ -137,6 +164,24 @@
       desktopOnly: true,
       action: 'click',
       afterAction: () => new Promise(r => setTimeout(r, 400)),
+    },
+    {
+      selector: '#burger',
+      title: 'Меню',
+      text: 'Открой меню — выберем «Ссылки».',
+      place: 'bottom', padding: 6, radius: 999,
+      mobileOnly: true,
+      action: 'click',
+      afterAction: () => new Promise(r => setTimeout(r, 600)),
+    },
+    {
+      selector: '.nav-island[data-view="links"]',
+      title: 'Ссылки',
+      text: 'Жми «Ссылки» в меню.',
+      place: 'top', padding: 6, radius: 999,
+      mobileOnly: true,
+      action: 'click',
+      afterAction: () => new Promise(r => setTimeout(r, 500)),
     },
     {
       selector: '.links-grid',
@@ -392,12 +437,14 @@
       if (index + 1 < activeSteps.length) return goTo(index + 1);
       return finish();
     }
-
     /* прокрутка */
     const rect = el.getBoundingClientRect();
-    if (rect.top < 80 || rect.bottom > window.innerHeight - 120) {
+    const isMobileView = window.matchMedia('(max-width: 860px)').matches;
+    const topLimit = isMobileView ? 100 : 80;      // запас под шапку
+    const bottomLimit = isMobileView ? 180 : 120;  // запас под тултип снизу
+    if (rect.top < topLimit || rect.bottom > window.innerHeight - bottomLimit) {
       el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 450));
     }
 
     currentIndex = index;
@@ -507,7 +554,25 @@
       else if (canLeft) use = 'left';
       else use = 'bottom';
     }
+    tip.dataset.place = use;
 
+    /* На мобиле — центрируем тултип по горизонтали, чтобы не прилипал к краю */
+    if (isMobile()) {
+      if (use === 'bottom' || use === 'top') {
+        left = Math.max(margin, Math.min(
+          rect.left + rect.width / 2 - tw / 2,
+          vw - tw - margin
+        ));
+        if (use === 'bottom') top = rect.bottom + gap;
+        else top = rect.top - th - gap;
+        tip.style.left = left + 'px';
+        tip.style.top  = Math.max(margin, Math.min(top, vh - th - margin)) + 'px';
+        tip.style.animation = 'none';
+        void tip.offsetWidth;
+        tip.style.animation = '';
+        return;
+      }
+    }
     tip.dataset.place = use;
 
     let top = 0, left = 0;
