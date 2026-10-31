@@ -3294,7 +3294,20 @@ html.reader-mode-class .reader__article {
   transition: background .15s;
 }
 .notify-item:hover { background: rgba(255, 255, 255, 0.75); }
-.notify-item--seen { opacity: 1; }
+.notify-item--seen .notify-item__dot {
+  background: transparent;
+  box-shadow: none;
+}
+.notify-item--seen .notify-item__title {
+  color: var(--text-soft);
+  font-weight: 500;
+}
+.notify-item--seen .notify-item__meta {
+  opacity: 0.7;
+}
+.notify-item--seen:hover .notify-item__dot {
+  background: transparent;
+}
 .notify-item__dot {
   width: 8px;
   height: 8px;

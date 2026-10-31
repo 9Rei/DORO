@@ -1542,15 +1542,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const willOpen = activePanel !== 'notify';
       setActivePanel(willOpen ? 'notify' : null);
       if (willOpen) {
-        const seenTopics = getSeenTopics();
-        getUpcomingTopics().forEach(t => seenTopics.add(topicId(t)));
-        saveSeenTopics(seenTopics);
-
-        const seenDev = getSeenDev();
-        DEV_NOTIFICATIONS.forEach(n => seenDev.add(n.id));
-        saveSeenDev(seenDev);
-
-        updateNotifyBadge();
         renderNotifyList();
       }
     });
@@ -1598,7 +1589,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------- УВЕДОМЛЕНИЯ ----------
-  const DEV_NOTIFICATIONS = [{ id: 'n-2026-10-29-1', text: 'Патч изменений 1.05. Пользователи и новый профиль!' }];
+  const DEV_NOTIFICATIONS = [{ id: 'n-2026-10-31-1', text: ' Патч 1.09. Тур по сайту, исправленная темная тема и многое другое!' }];
   const NOTIFY_SEEN_KEY = 'doro.seenTopics';
   const NOTIFY_SEEN_DEV_KEY = 'doro.seenDevNotifications';
 
