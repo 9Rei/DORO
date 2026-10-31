@@ -351,6 +351,19 @@
     root.appendChild(tip);
     document.body.appendChild(root);
 
+    /* Кнопка «Пропустить» */
+    const skipBtn = document.createElement('button');
+    skipBtn.type = 'button';
+    skipBtn.className = 'tour__skip';
+    skipBtn.textContent = 'Пропустить';
+    skipBtn.setAttribute('aria-label', 'Пропустить обучение');
+    skipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cleanupAction();
+      finish();
+    });
+    root.appendChild(skipBtn);
+
     counterEl = tip.querySelector('.tour__counter');
     titleEl   = tip.querySelector('.tour__title');
     textEl    = tip.querySelector('.tour__text');
@@ -410,6 +423,8 @@
     if (!isOpen) return;
     isOpen = false;
     root.classList.remove('is-open');
+    const skipEl = root.querySelector('.tour__skip');
+    if (skipEl) skipEl.style.display = '';
     root.classList.remove('has-spot');
     root.setAttribute('aria-hidden', 'true');
     spot.classList.remove('is-visible');
@@ -460,6 +475,9 @@
     renderStep(step, el);
   }
   function renderStep(step, el) {
+    // Скрываем «Пропустить» на финальном шаге — там уже есть понятное действие
+    const skipEl = root.querySelector('.tour__skip');
+    if (skipEl) skipEl.style.display = step.isFinal ? 'none' : '';
     const total = activeSteps.length;
     counterEl.textContent = `${currentIndex + 1} / ${total}`;
     titleEl.textContent = step.title;

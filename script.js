@@ -2,44 +2,70 @@
 //  ДЕРЗКИЕ ПРИВЕТСТВИЯ (тёмная тема) — РАЗ В ДЕНЬ
 // ============================================================
 const DARK_GREETINGS = [
-  "{name}, врубаем неон.",
-  "Режим тишины, {name}.",
-  "{name}, только ты и конспекты.",
-  "Тёмная сторона учёбы, {name}.",
-  "{name}, контраст и ясность.",
-  "Глаза отдыхают, {name}.",
-  "{name}, в потоке.",
-  "Ночная смена, {name}.",
-  "{name}, фокус на зелёном.",
-  "Без лишнего света, {name}."
+  "{name}, а ты сегодня в ударе.",
+  "О, {name} на связи.",
+  "{name}, выглядишь как человек с планом.",
+  "{name}, у тебя всё под контролем. Почти.",
+  "{name}, держим марку.",
+  "{name}, ты сегодня главный герой.",
+  "Ну что, {name}, зажжём?",
+  "{name}, без паники — ты справишься.",
+  "{name}, ты как всегда вовремя.",
+  "{name}, всё по плану. Даже если плана нет."
 ];
 
 const LIGHT_GREETINGS = [
-  "{name}, вдох-выдох.",
-  "Стекло и воздух, {name}.",
-  "{name}, всё прозрачно.",
-  "Светлый ум, {name}.",
-  "{name}, лёгкий старт.",
-  "Белый шум отключён, {name}.",
-  "{name}, ясность мысли.",
-  "Мягкий фокус, {name}.",
-  "{name}, на чистом листе.",
-  "Пространство для главного, {name}."
+  "{name}, доброе утро.",
+  "Рад тебя видеть, {name}.",
+  "{name}, день обещает быть хорошим.",
+  "{name}, у тебя всё получится.",
+  "{name}, начинаем спокойно.",
+  "Хорошего дня, {name}.",
+  "{name}, ты на верном пути.",
+  "{name}, сегодня — твой день.",
+  "Привет, {name}. Ты вовремя.",
+  "{name}, пусть всё идёт легко."
 ];
 
-function pickGreeting(list, name) {
-  const n = name || "друг";
-  const day = Math.floor(Date.now() / 86400000);
-  const idx = day % list.length;
+const _lastGreeting = { dark: null, light: null };
+
+function pickGreeting(list, name, kind) {
+  const n = (name && name.trim()) ? name.trim() : "друг";
+  if (!list || !list.length) return n;
+
+  let idx = Math.floor(Math.random() * list.length);
+
+  if (list.length > 1 && _lastGreeting[kind] === list[idx]) {
+    idx = (idx + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
+  }
+  _lastGreeting[kind] = list[idx];
+
   return list[idx].replace(/\{name\}/g, n);
 }
 
 function pickLightGreeting(name) {
-  return pickGreeting(LIGHT_GREETINGS, name);
+  return pickGreeting(LIGHT_GREETINGS, name, "light");
 }
 
 function pickDarkGreeting(name) {
-  return pickGreeting(DARK_GREETINGS, name);
+  return pickGreeting(DARK_GREETINGS, name, "dark");
+}
+
+// Кэш выбранной фразы на текущую сессию (перезагрузка страницы = новый выбор)
+let _greetingCache = { dark: null, light: null };
+
+function getGreeting(theme, name) {
+  const kind = theme === "dark" ? "dark" : "light";
+  const list = theme === "dark" ? DARK_GREETINGS : LIGHT_GREETINGS;
+  const n = (name && name.trim()) ? name.trim() : "друг";
+
+  if (_greetingCache[kind] && _greetingCache[kind].name === n) {
+    return _greetingCache[kind].text;
+  }
+
+  const text = pickGreeting(list, n, kind);
+  _greetingCache[kind] = { name: n, text };
+  return text;
 }
 
 
@@ -52,14 +78,15 @@ const subjects = {
     author: "Кайгородов Антон",
     tabs: ["questions", "problems", "tests"],
     topics: [
+      { num: "3.2", title: "Энергетический обмен. ЦТК. Свободно-радикальное окисление.", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-31", file: "content/biochem/БХ_3.2.md" },
       { num: "3.1", title: "Биологические мембраны. Трансмембранная передача сигнала", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-24", file: "content/biochem/БХ_3.1.md" },
       { num: "2.3", title: "Коллоквиум. Матричные биосинтезы", steps: ["Прочитать основной файл", "Прочитать файл с задачами"], date: "2026-10-17", file: "content/biochem/БХ_2.3.md" },
-      { num: "2.2", title: "Транскрипция, трансляция. ДНК технологии в медицине. Экспрессия генов", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-17", file: "content/biochem/БХ_2.2.md" },
-      { num: "2.1", title: "Строение нуклеиновых кислот, репликация ДНК", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-17", file: "content/biochem/БХ_2.1.md" },
-      { num: "1.4", title: "Энзимология", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-17", file: "content/biochem/БХ_1.4.md" },      
-      { num: "1.3", title: "Витамины", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-17", file: "content/biochem/БХ_1.3.md" },
-      { num: "1.2", title: "Ферменты", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-17", file: "content/biochem/БХ_1.2.md" },    
-      { num: "1.1", title: "Структура и функции белков", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-17", file: "content/biochem/БХ_1.1.md" },
+      { num: "2.2", title: "Транскрипция, трансляция. ДНК технологии в медицине. Экспрессия генов", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-12", file: "content/biochem/БХ_2.2.md" },
+      { num: "2.1", title: "Строение нуклеиновых кислот, репликация ДНК", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-05", file: "content/biochem/БХ_2.1.md" },
+      { num: "1.4", title: "Энзимология", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-09-28", file: "content/biochem/БХ_1.4.md" },      
+      { num: "1.3", title: "Витамины", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-09-21", file: "content/biochem/БХ_1.3.md" },
+      { num: "1.2", title: "Ферменты", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-09-14", file: "content/biochem/БХ_1.2.md" },    
+      { num: "1.1", title: "Структура и функции белков", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-09-07", file: "content/biochem/БХ_1.1.md" }
     ]
   },
   physio: {
@@ -689,12 +716,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function getThemeMode() { const m = localStorage.getItem(THEME_MODE_KEY); return (m === 'light' || m === 'dark' || m === 'auto') ? m : 'auto'; }
   function setThemeMode(mode) { localStorage.setItem(THEME_MODE_KEY, mode); }
   function resolveTheme(mode) { return mode === 'auto' ? getAutoTheme() : mode; }
-  function updateGreetingByTheme(theme) {
-    if (!greetTitle) return;
-    greetTitle.textContent = theme === 'dark'
-      ? pickDarkGreeting(user && user.name ? user.name : null)
-      : pickLightGreeting(user && user.name ? user.name : null);
-  }
+    function updateGreetingByTheme(theme) {
+      if (!greetTitle) return;
+      const name = (user && user.name) ? user.name : null;
+      greetTitle.textContent = getGreeting(theme, name);
+    }
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem(THEME_KEY, theme);
@@ -913,13 +939,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (avatarLetter) avatarLetter.textContent = initials;
       if (heroLetter) heroLetter.textContent = initials;
       paintAvatar(user.color || '#3b82f6');
-      if (greetTitle) greetTitle.textContent = isDark ? pickDarkGreeting(user.name) : pickLightGreeting(user.name);
+      if (greetTitle) greetTitle.textContent = getGreeting(isDark ? "dark" : "light", user.name);
       if (profileNameDisplay) profileNameDisplay.textContent = user.name;
     } else {
       if (avatarLetter) avatarLetter.textContent = '?';
       if (heroLetter) heroLetter.textContent = '?';
       if (avatar) { avatar.style.background = ''; avatar.style.color = ''; avatar.style.borderColor = ''; }
-      if (greetTitle) greetTitle.textContent = isDark ? pickDarkGreeting(null) : pickLightGreeting(null);
+      if (greetTitle) greetTitle.textContent = getGreeting(isDark ? "dark" : "light", null);
       if (profileNameDisplay) profileNameDisplay.textContent = 'Профиль';
     }
     if (heroAvatar) {
