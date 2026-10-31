@@ -27,6 +27,30 @@ const LIGHT_GREETINGS = [
   "{name}, пусть всё идёт легко."
 ];
 
+const PROFILE_QUOTES = {
+  light: [
+    "Ты справляешься лучше, чем думаешь.",
+    "Твой темп — правильный. Просто держи его.",
+    "Каждая открытая тема — уже шаг.",
+  ],
+  dark: [
+    "Соберись. Ты умеешь больше, чем кажется.",
+    "Не сбавляй. Ты уже близко.",
+    "Сегодня — твой день. Не отдавай его.",
+  ]
+};
+
+let _profileQuoteCache = { light: null, dark: null };
+
+function getProfileQuote(theme) {
+  const kind = theme === "dark" ? "dark" : "light";
+  if (_profileQuoteCache[kind]) return _profileQuoteCache[kind];
+  const list = PROFILE_QUOTES[kind];
+  const text = list[Math.floor(Math.random() * list.length)];
+  _profileQuoteCache[kind] = text;
+  return text;
+}
+
 const _lastGreeting = { dark: null, light: null };
 
 function pickGreeting(list, name, kind) {
@@ -725,6 +749,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem(THEME_KEY, theme);
     updateGreetingByTheme(theme);
+    const q = document.querySelector('.profile-thanks__short');
+    if (q) q.textContent = getProfileQuote(theme === 'dark' ? 'dark' : 'light') + ' ';
   }
   function syncThemeSeg() {
     const mode = getThemeMode();
@@ -933,6 +959,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusDisplay = $('profileStatusDisplay');
     const groupDisplay = $('profileGroupDisplay');
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const quoteShort = document.querySelector('.profile-thanks__short');
+    const quoteLong  = document.querySelector('.profile-thanks__long');
+    if (quoteShort) quoteShort.textContent = getProfileQuote(isDark ? 'dark' : 'light') + ' ';
+    if (quoteLong)  quoteLong.textContent  = '';
 
     if (user && user.name) {
       const initials = getInitials(user.name);
