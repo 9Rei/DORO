@@ -6362,3 +6362,73 @@ body.island-search-open .island > .island-progress {
     font-size: 12px;
   }
 }
+/* Гистология: кнопка «1 курс» — визуал 1-в-1 как .reader-topics__item, только шире */
+.reader-topics__semester-split {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;               /* 40 + 8 + 40 — ровно две темы */
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid rgba(20, 40, 80, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 249, 253, 0.7) 100%),
+    color-mix(in srgb, var(--subject-accent, var(--accent)) 8%, transparent);
+  border-radius: 999px;
+  cursor: default;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--subject-accent, var(--accent));
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+  backdrop-filter: blur(14px) saturate(170%);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 6px 14px -10px rgba(20, 40, 80, 0.2);
+  transition: border-color .15s, background .15s, transform .15s, box-shadow .2s;
+}
+
+/* Цветной внутренний слой — как .reader-topics__item-num, но растянутый */
+.reader-topics__semester-split::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--subject-accent, var(--accent)) 16%, transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+.reader-topics__semester-split {
+  position: relative;
+  isolation: isolate;
+}
+.reader-topics__semester-split > * { position: relative; z-index: 1; }
+
+.reader-topics__semester-split:hover {
+  border-color: var(--subject-accent, var(--accent));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.35) 100%),
+    color-mix(in srgb, var(--subject-accent, var(--accent)) 18%, transparent);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 22px -10px color-mix(in srgb, var(--subject-accent, var(--accent)) 55%, transparent);
+}
+
+/* Тёмная тема — как .reader-topics__item в темноте */
+[data-theme="dark"] .reader-topics__semester-split {
+  background: #1a1e14;
+  border-color: rgba(163, 230, 53, 0.15);
+  box-shadow: none;
+}
+[data-theme="dark"] .reader-topics__semester-split::before {
+  background: transparent;
+}
+[data-theme="dark"] .reader-topics__semester-split:hover {
+  background: rgba(163, 230, 53, 0.15);
+  border-color: var(--accent);
+}
