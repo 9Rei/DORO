@@ -496,6 +496,23 @@
     <div class="onboard__step-panel is-active" data-step="1">
       <h2 class="onboard__title" id="onboardTitle">Добро пожаловать</h2>
       <p class="onboard__sub">Давай познакомимся. Как тебя зовут?</p>
+
+      <!-- Подсказка для тех, кто уже регистрировался -->
+      <div class="onboard__note" role="note">
+        <span class="onboard__note-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </span>
+        <span class="onboard__note-text">
+          <strong>Пишите настоящее имя</strong>
+          Например, «Аня» или «Антон». Не «человек», не одна буква и не ник.
+          Если регистрировались раньше и ошиблись — исправьте сейчас.
+        </span>
+      </div>
+
       <input id="onboardName" class="onboard__input" type="text" placeholder="Например, Аня" maxlength="30" autocomplete="off" autocapitalize="words">
       <button type="button" class="onboard__btn" id="onboardNext" disabled>
         Дальше 
@@ -507,6 +524,21 @@
 <div class="onboard__step-panel" data-step="2">
   <h2 class="onboard__title">Твоя группа</h2>
   <p class="onboard__sub">Например: ЛД · 25 · 11</p>
+
+  <div class="onboard__note" role="note">
+    <span class="onboard__note-icon" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+    </span>
+    <span class="onboard__note-text">
+      <strong>Укажите полную группу</strong>
+      Буквы + год + номер. Например, <b>ЛД2511</b>. Без цифр нельзя.
+      Если раньше ввели неправильно — исправьте сейчас.
+    </span>
+  </div>
 
   <div class="group-picker">
     <input id="onboardGroupLetters" class="group-picker__letters" type="text" placeholder="ЛД" maxlength="4" autocomplete="off" autocapitalize="characters">

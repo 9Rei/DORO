@@ -116,7 +116,7 @@ const subjects = {
   physio: {
     num: "02", title: "Физиология",
     author: "Кайгородов Антон",
-    tabs: ["theory", "tests"],
+    tabs: ["theory", "solve", "read"],
     topics: [
       { num: "2.4", title: "Частная эндокринология. Клинико-физиологическая оценка гипо - и гиперфункции желёз", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-11-2", file: "content/physio/ФИЗА_2.4Т.md" },
       { num: "2.3", title: "Гуморально-гормональная регуляция. Гипоталамо-гипофизарная система", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-10-26", file: "content/physio/ФИЗА_2.3Т.md" },
@@ -531,6 +531,264 @@ function renderTopicContent(raw) {
     out.push(fnHtml);
   }
   return out.join('\n') || '<p class="reader__empty">Файл темы пуст.</p>';
+}
+
+function parseTestsToQuestions(raw) {
+  if (!raw) return [];
+
+  // Убираем заголовок секции "Тесты" и мусорные разделители
+  let text = raw
+    .replace(/^#{1,4}\s+(Тесты|Тест|Тестирование|Тестовые\s+задания)\s*$/gmi, '')
+    .replace(/^\s*(---+|\*\*\*+|___+)\s*$/gm, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/&nbsp;/gi, ' ')
+    .trim();
+
+  const lines = text.split('\n');
+
+  // Вопрос: **1. Вопрос?**  |  **1.**  |  1. Вопрос
+  const isQuestionStart = (l) =>
+    /^\s*\*\*\s*\d{1,3}[\.\)]\s+\S.*\*\*\s*$/.test(l) ||
+    /^\s*\*\*\s*\d{1,3}[\.\)]\s*\*\*\s*$/.test(l) ||
+    /^\s*\d{1,3}[\.\)]\s+\S/.test(l);
+
+  // Вариант: "- ", "* ", "+ ", "а) ", "б) ", "A) ", "1) "
+  const isOptionStart = (l) =>
+    /^\s*(?:[-*+]|[а-яa-z][\.\)]|\d{1,2}[\.\)])\s+\S/i.test(l);
+
+  const blocks = [];
+  let current = null;
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+
+    if (isQuestionStart(line)) {
+      if (current) blocks.push(current);
+      let q = line
+        .replace(/^\s*\*\*\s*/, '')
+        .replace(/\*\*\s*$/, '')
+        .replace(/^\s*\d{1,3}[\.\)]\s*/, '')
+        .trim();
+      current = { qText: q, options: [] };
+      continue;
+    }
+
+    if (current) {
+      if (isOptionStart(line)) current.options.push(line);
+      else if (current.options.length === 0) current.qText += ' ' + line.trim();
+    }
+  }
+  if (current) blocks.push(current);
+
+  const questions = [];
+  for (const block of blocks) {
+    const options = block.options.map(opt => {
+      const isCorrect =
+        /\*\*[^*]+\*\*/.test(opt) ||
+        /<strong>.*<\/strong>/i.test(opt) ||
+        /==[^=]+==/.test(opt) ||
+        /<mark>.*<\/mark>/i.test(opt);
+
+      const clean = opt
+        .replace(/^\s*(?:[-*+]|[а-яa-z][\.\)]|\d{1,2}[\.\)])\s+/i, '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/==(.*?)==/g, '$1')
+        .replace(/<strong>(.*?)<\/strong>/gi, '$1')
+        .replace(/<mark>(.*?)<\/mark>/gi, '$1')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+
+      return { text: clean, correct: isCorrect };
+    }).filter(o => o.text);
+
+    if (options.length < 2) continue;
+    if (!options.some(o => o.correct)) continue;
+
+    questions.push({ question: block.qText, options });
+  }
+  return questions;
+}
+
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const PHYSIO_QUIZ_LIMIT = 20;
+
+// Режим «Решать» — только решалка, без своего переключателя
+function renderPhysioSolveMode(raw, container) {
+  const allQuestions = parseTestsToQuestions(raw);
+
+  if (!allQuestions.length) {
+    container.innerHTML = '<p class="reader__empty">В этой теме нет распознанных тестов</p>';
+    return;
+  }
+
+  const pool = shuffleArray(allQuestions.slice());
+  const picked = pool.slice(0, Math.min(PHYSIO_QUIZ_LIMIT, pool.length));
+
+  let currentIdx = 0;
+  let score = 0;
+  let answered = false;
+  let selected = new Set();
+  const results = [];
+
+  function renderQuestion() {
+    if (currentIdx >= picked.length) { renderResult(); return; }
+    answered = false;
+    selected = new Set();
+    const q = picked[currentIdx];
+    const opts = shuffleArray(q.options);
+    const correctCount = opts.filter(o => o.correct).length;
+    const isMulti = correctCount > 1;
+
+    container.innerHTML = `
+      <div class="quiz">
+        <div class="quiz__head">
+          <span class="quiz__progress">Вопрос ${currentIdx + 1} из ${picked.length}</span>
+          <span class="quiz__score">Правильно: ${score}</span>
+        </div>
+        <div class="quiz__bar"><span style="width:${(currentIdx / picked.length) * 100}%"></span></div>
+        <p class="quiz__question">${escapeHtml(q.question)}</p>
+        <div class="quiz__options">
+          ${opts.map((o, i) => `
+            <button type="button" class="quiz__option" data-i="${i}" data-correct="${o.correct ? '1' : '0'}">
+              <span class="quiz__option-box" aria-hidden="true"></span>
+              <span class="quiz__option-text">${escapeHtml(o.text)}</span>
+            </button>
+          `).join('')}
+        </div>
+        <div class="quiz__actions">
+          <button type="button" class="quiz__answer" disabled>Ответить</button>
+          <button type="button" class="quiz__next" style="display:none;">Дальше</button>
+        </div>
+      </div>
+    `;
+
+    const optBtns = Array.from(container.querySelectorAll('.quiz__option'));
+    const answerBtn = container.querySelector('.quiz__answer');
+    const nextBtn = container.querySelector('.quiz__next');
+
+    optBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (answered) return;
+        const i = Number(btn.dataset.i);
+        if (isMulti) {
+          if (selected.has(i)) { selected.delete(i); btn.classList.remove('is-selected'); }
+          else { selected.add(i); btn.classList.add('is-selected'); }
+        } else {
+          selected.clear();
+          optBtns.forEach(b => b.classList.remove('is-selected'));
+          selected.add(i);
+          btn.classList.add('is-selected');
+        }
+        answerBtn.disabled = selected.size === 0;
+      });
+    });
+
+    answerBtn.addEventListener('click', () => {
+      if (answered) return;
+      answered = true;
+      answerBtn.style.display = 'none';
+      nextBtn.style.display = '';
+      nextBtn.focus();
+
+      optBtns.forEach((b, i) => {
+        b.disabled = true;
+        const isCorrect = b.dataset.correct === '1';
+        if (isCorrect) b.classList.add('quiz__option--correct');
+        else if (selected.has(i)) b.classList.add('quiz__option--wrong');
+      });
+
+      const correctIdx = opts.map((o, i) => o.correct ? i : -1).filter(i => i >= 0);
+      const chosenArr = [...selected];
+      const allCorrectChosen = correctIdx.every(i => selected.has(i));
+      const noWrongChosen = chosenArr.every(i => opts[i].correct);
+      const isFullyCorrect = allCorrectChosen && noWrongChosen;
+
+      if (isFullyCorrect) score++;
+      container.querySelector('.quiz__score').textContent = `Правильно: ${score}`;
+
+      results.push({
+        question: q.question,
+        chosen: chosenArr.map(i => opts[i].text).join('; '),
+        correct: isFullyCorrect,
+        correctText: correctIdx.map(i => opts[i].text).join('; ')
+      });
+    });
+
+    nextBtn.addEventListener('click', () => { currentIdx++; renderQuestion(); });
+  }
+
+  function renderResult() {
+    const total = picked.length;
+    const pct = Math.round((score / total) * 100);
+    let mark, color;
+    if (pct >= 90) { mark = 'Отлично'; color = '#16a34a'; }
+    else if (pct >= 70) { mark = 'Хорошо'; color = '#0891b2'; }
+    else if (pct >= 50) { mark = 'Неплохо'; color = '#d97706'; }
+    else { mark = 'Стоит повторить'; color = '#dc2626'; }
+
+    container.innerHTML = `
+      <div class="quiz quiz--result">
+        <div class="quiz__result-mark" style="color:${color}">${mark}</div>
+        <div class="quiz__result-score">${score} / ${total} <span>(${pct}%)</span></div>
+        <ul class="quiz__review">
+          ${results.map((r, i) => `
+            <li class="quiz__review-item ${r.correct ? 'is-correct' : 'is-wrong'}">
+              <span class="quiz__review-num">${i + 1}</span>
+              <div>
+                <div class="quiz__review-q">${escapeHtml(r.question)}</div>
+                <div class="quiz__review-a">
+                  Ваш ответ: <b>${escapeHtml(r.chosen || '—')}</b><br>
+                  ${!r.correct ? `Верно: <b>${escapeHtml(r.correctText)}</b>` : ''}
+                </div>
+              </div>
+            </li>
+          `).join('')}
+        </ul>
+        <button type="button" class="quiz__restart">Пройти заново (ещё 20 случайных)</button>
+      </div>
+    `;
+
+    container.querySelector('.quiz__restart').addEventListener('click', () => {
+      container.innerHTML = '';
+      renderPhysioSolveMode(raw, container);
+    });
+  }
+
+  renderQuestion();
+}
+
+// Режим «Читать» — все тесты с подсветкой верных
+function renderPhysioReadMode(raw, container) {
+  const allQuestions = parseTestsToQuestions(raw);
+  if (!allQuestions.length) {
+    container.innerHTML = '<p class="reader__empty">В этой теме нет распознанных тестов</p>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="quiz-read">
+      <div class="quiz-read__hint">Верные ответы выделены цветом. Всего вопросов: ${allQuestions.length}.</div>
+      <ol class="quiz-read__list">
+        ${allQuestions.map(q => `
+          <li class="quiz-read__item">
+            <div class="quiz-read__q">${escapeHtml(q.question)}</div>
+            <ul class="quiz-read__opts">
+              ${q.options.map(o => `
+                <li class="quiz-read__opt ${o.correct ? 'is-correct' : ''}">${escapeHtml(o.text)}</li>
+              `).join('')}
+            </ul>
+          </li>
+        `).join('')}
+      </ol>
+    </div>
+  `;
 }
 
 const SearchCtl = (function () {
@@ -1052,6 +1310,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!nameInput) return;
       let val = nameInput.value.trim();
       if (!val) return;
+      if (!/^[А-Яа-яЁёA-Za-z][А-Яа-яЁёA-Za-z\-]{1,}$/.test(val) ||
+          ['человек','чел','ник','никнейм','имя','тест','test','user','юзер','аноним','anon','none','нет','не знаю'].includes(val.toLowerCase())) {
+        alert('Пожалуйста, укажите настоящее имя (например, «Аня»). Ники и одна буква не подходят.');
+        return;
+      }
       val = val.split(/\s+/)[0];
       if (!val) return;
       user = user || {};
@@ -2096,7 +2359,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const tabConfigForRender = Array.isArray(t.tabs) ? t.tabs : (Array.isArray(subject.tabs) ? subject.tabs : []);
       if (readerTabs && tabConfigForRender.length) {
-        const TAB_LABELS = { theory: 'Теория', tests: 'Тесты', preparations: 'Препараты', questions: 'Вопросы', problems: 'Задачи' };
+       const TAB_LABELS = {
+          theory: 'Теория',
+          tests: 'Тесты',
+          solve: 'Решать',
+          read: 'Читать',
+          preparations: 'Препараты',
+          questions: 'Вопросы',
+          problems: 'Задачи'
+        };
         readerTabs.innerHTML = tabConfigForRender.map((tab, i) => `
           <button type="button" class="reader__tab${i === 0 ? ' is-active' : ''}" data-tab="${tab}">${TAB_LABELS[tab] || tab}</button>
         `).join('') + '<span class="reader__tab-indicator" id="readerTabIndicator"></span>';
@@ -2838,20 +3109,26 @@ function showView(name) {
     });
     return result;
   }
-  function buildTabSections(raw, tabConfig, topic) {
-    const result = {};
-    if (tabConfig.includes('theory')) { const s = splitTheoryAndTests(raw); result.theory = s.hasTabs ? s.theory : raw; }
-    if (tabConfig.includes('tests')) { const s = splitTheoryAndTests(raw); result.tests = s.hasTabs ? s.tests : ''; }
-    if (tabConfig.includes('preparations')) result.preparations = topic.pdf ? (Array.isArray(topic.pdf) ? topic.pdf : [topic.pdf]) : [];
-    if (tabConfig.includes('questions') || tabConfig.includes('problems')) {
-      const three = splitIntoThreeSections(raw);
-      if (tabConfig.includes('questions')) result.questions = three.questions;
-      if (tabConfig.includes('problems')) result.problems = three.problems;
-      if (tabConfig.includes('tests') && three.tests) result.tests = three.tests;
-      if (tabConfig.includes('theory') && !three.questions && !three.problems) result.theory = raw;
-    }
-    return result;
+function buildTabSections(raw, tabConfig, topic) {
+  const result = {};
+  if (tabConfig.includes('theory')) { const s = splitTheoryAndTests(raw); result.theory = s.hasTabs ? s.theory : raw; }
+  if (tabConfig.includes('tests')) { const s = splitTheoryAndTests(raw); result.tests = s.hasTabs ? s.tests : ''; }
+  if (tabConfig.includes('solve') || tabConfig.includes('read')) {
+    const s = splitTheoryAndTests(raw);
+    const testsPart = s.hasTabs ? s.tests : raw;
+    if (tabConfig.includes('solve')) result.solve = testsPart;
+    if (tabConfig.includes('read'))  result.read  = testsPart;
   }
+  if (tabConfig.includes('preparations')) result.preparations = topic.pdf ? (Array.isArray(topic.pdf) ? topic.pdf : [topic.pdf]) : [];
+  if (tabConfig.includes('questions') || tabConfig.includes('problems')) {
+    const three = splitIntoThreeSections(raw);
+    if (tabConfig.includes('questions')) result.questions = three.questions;
+    if (tabConfig.includes('problems')) result.problems = three.problems;
+    if (tabConfig.includes('tests') && three.tests) result.tests = three.tests;
+    if (tabConfig.includes('theory') && !three.questions && !three.problems) result.theory = raw;
+  }
+  return result;
+}
   function showTab(tab, contentEl, sections) {
     SearchCtl.clear();
     if (!contentEl || !readerTabs) return;
@@ -2866,18 +3143,28 @@ function showView(name) {
     } else if (tab === 'problems') {
       const raw = sections.problems || '';
       contentEl.innerHTML = raw.trim() ? renderTopicContent(raw) : '<p class="reader__empty">В этой теме нет задач</p>';
-    } else if (tab === 'tests') {
-      const testsRaw = sections.tests || '';
-      const cleaned = testsRaw
-        .replace(/^#{1,3}\s+(Тесты|Тест|Тестирование)\s*$/mi, '')
-        .replace(/^\s*(---+|\*\*\*+|___+)\s*$/gm, '')
-        .replace(/<br\s*\/?>/gi, '')
-        .replace(/&nbsp;/gi, '')
-        .replace(/<hr\s*\/?>/gi, '')
-        .trim();
-      const hasTests = /\*\*\d+\.\*\*|\d+\.\s|^\s*-\s/m.test(cleaned);
-      contentEl.innerHTML = hasTests ? renderTopicContent(testsRaw) : '<p class="reader__empty">В этой теме их нет, наслаждайся</p>';
-    } else {
+        } else if (tab === 'tests') {
+          const testsRaw = sections.tests || '';
+          const hasTests = /\*\*\d+\.\*\*|\d+\.\s|^\s*-\s/m.test(testsRaw);
+          contentEl.innerHTML = hasTests
+            ? renderTopicContent(testsRaw)
+            : '<p class="reader__empty">В этой теме их нет, наслаждайся</p>';
+        } else if (tab === 'solve') {
+          const testsRaw = sections.tests || sections.solve || '';
+          if (currentSubjectKey === 'physio' && testsRaw.trim()) {
+            renderPhysioSolveMode(testsRaw, contentEl);
+          } else {
+            contentEl.innerHTML = '<p class="reader__empty">Тесты не найдены</p>';
+          }
+        } else if (tab === 'read') {
+          const testsRaw = sections.tests || sections.read || '';
+          if (currentSubjectKey === 'physio' && testsRaw.trim()) {
+            renderPhysioReadMode(testsRaw, contentEl);
+          } else {
+            contentEl.innerHTML = '<p class="reader__empty">Тесты не найдены</p>';
+          }
+        }
+    else {
       contentEl.innerHTML = renderTopicContent(sections[tab] || '<p class="reader__empty">Раздел пуст</p>');
     }
     void contentEl.offsetWidth;
@@ -3208,6 +3495,17 @@ function showView(name) {
 
     let draft = { name: '', group: '', status: USER_STATUSES[0], color: '#3b82f6' };
 
+    // Предзаполнение из уже сохранённого профиля (если онбординг проходят повторно)
+    if (user) {
+      if (user.name && nameInp) { nameInp.value = user.name; draft.name = user.name; if (nextBtn) nextBtn.disabled = false; }
+      const parts = parseGroup(user.group || '');
+      if (lettersInp) lettersInp.value = parts.letters || '';
+      if (yearSel && parts.year) yearSel.value = parts.year;
+      if (numSel && parts.num) numSel.value = parts.num;
+      if (user.color) draft.color = user.color;
+      if (user.status) draft.status = user.status;
+    }
+
     if (yearSel) {
       yearSel.innerHTML = '';
       for (let i = 0; i <= GROUP_MAX_YEAR; i++) {
@@ -3270,6 +3568,8 @@ function showView(name) {
       });
     }
 
+    paintOnboardAvatar(); // сразу отрисовать аватар с предзаполненными данными
+
     function paintOnboardAvatar() {
       const name = draft.name.trim();
       if (avatarLetter) avatarLetter.textContent = name ? name[0].toUpperCase() : '?';
@@ -3296,10 +3596,32 @@ function showView(name) {
       });
       nameInp.addEventListener('keydown', e => { if (e.key === 'Enter' && nextBtn && !nextBtn.disabled) nextBtn.click(); });
     }
+    // Проверка «настоящего» имени: 2+ буквы, только буквы/дефис, не «человек»/«ник»
+    function isRealName(raw) {
+      const v = (raw || '').trim();
+      if (!v) return false;
+      if (!/^[А-Яа-яЁёA-Za-z][А-Яа-яЁёA-Za-z\-]{1,}$/.test(v)) return false; // минимум 2 буквы
+      const bad = ['человек','чел','ник','никнейм','имя','тест','test','user','юзер','аноним','anon','none','нет','не знаю'];
+      if (bad.includes(v.toLowerCase())) return false;
+      return true;
+    }
+
+    if (nameInp) {
+      nameInp.addEventListener('input', () => {
+        const ok = isRealName(nameInp.value);
+        if (nextBtn) nextBtn.disabled = !ok;
+      });
+    }
+
     if (nextBtn) {
       nextBtn.addEventListener('click', () => {
-        if (!nameInp || !nameInp.value.trim()) return;
-        draft.name = nameInp.value.trim().split(/\s+/)[0];
+        if (!nameInp) return;
+        const val = nameInp.value.trim();
+        if (!isRealName(val)) {
+          alert('Пожалуйста, укажите настоящее имя (например, «Аня» или «Антон»). Ники, «человек» и одна буква не подходят.');
+          return;
+        }
+        draft.name = val.split(/\s+/)[0];
         nameInp.value = draft.name;
         goTo(2);
       });
@@ -3308,7 +3630,9 @@ function showView(name) {
       // Изначально кнопка заблокирована, если нет букв
       const checkGroupValid = () => {
         const letters = normalizeGroupLetters(lettersInp ? lettersInp.value : '');
-        nextBtn2.disabled = !letters;
+        const year = yearSel ? yearSel.value : '';
+        const num = numSel ? numSel.value : '';
+        nextBtn2.disabled = !(letters && year && num);
       };
       
       // Слушаем ввод букв, чтобы разблокировать кнопку
