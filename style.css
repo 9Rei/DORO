@@ -1301,11 +1301,7 @@ mark.reader-search__hit--active {
   color: color-mix(in srgb, var(--subject-accent, var(--accent)) 60%, #1a1f2b);
 }
 .reader__content strong { font-weight: 700; color: var(--text); }
-/* Верные ответы (**...**) в тестах — акцентные в тёмной теме */
-/* Верные ответы (**...**) в тестах — акцентные в тёмной теме */
-[data-theme="dark"] .reader__content strong {
-  color: var(--text);
-}
+
 .reader__empty { color: var(--text-soft); font-style: italic; }
 .reader__gap { height: 20px; }
 
@@ -6087,9 +6083,32 @@ body.island-search-open .island > .island-progress {
   background: var(--accent);
   color: #0d0f0c;
 }
-/* Акцент только для **...** во вкладке «Тесты» (тёмная тема) */
+/* Верные ответы в тестах — акцент в обеих темах */
+.reader__content.reader-tab-tests strong {
+  color: color-mix(in srgb, var(--subject-accent, var(--accent)) 75%, var(--text));
+  font-weight: 700;
+}
 [data-theme="dark"] .reader__content.reader-tab-tests strong {
   color: var(--subject-accent, var(--accent));
+}
+
+/* sup/sub внутри тестов и внутри strong — не ломают строку и не «супят» */
+.reader__content.reader-tab-tests sup,
+.reader__content.reader-tab-tests sub,
+.reader__content.reader-tab-tests strong sup,
+.reader__content.reader-tab-tests strong sub {
+  font-size: 0.72em;
+  line-height: 0;
+  vertical-align: baseline;
+  position: relative;
+}
+.reader__content.reader-tab-tests sup,
+.reader__content.reader-tab-tests strong sup {
+  top: -0.45em;
+}
+.reader__content.reader-tab-tests sub,
+.reader__content.reader-tab-tests strong sub {
+  top: 0.25em;
 }
 /* ============================================================
    TOUR — интерактивное обучение по сайту
@@ -6998,4 +7017,237 @@ body.island-search-open .island > .island-progress {
   bottom: 20%;
   width: 1px;
   background: color-mix(in srgb, var(--subject-accent, var(--accent)) 25%, transparent);
+}
+/* ============================================================
+   БЛОК «СЛОЖНОСТЬ ТЕМЫ» + ПЕРЕХОД В «ДЛЯ ПОДГОТОВКИ»
+   ============================================================ */
+
+/* Контейнер, в который рендерится сначала «сложность», потом «для подготовки» */
+.reader__prep-slot {
+  position: relative;
+  margin-bottom: 28px;
+  min-height: 0;
+  transition: min-height 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- Окно сложности ---------- */
+.reader-difficulty {
+  --diff-accent: #16a34a;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px 20px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.7) 0%,
+      rgba(255, 255, 255, 0.4) 100%),
+    color-mix(in srgb, var(--diff-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--diff-accent) 22%, var(--island-border));
+  overflow: hidden;
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 10px 30px -20px color-mix(in srgb, var(--diff-accent) 50%, transparent);
+  animation: diffIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes diffIn {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.97); filter: blur(6px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* мягкое свечение сверху */
+.reader-difficulty::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 130%;
+  height: 100%;
+  background: radial-gradient(ellipse at center,
+    color-mix(in srgb, var(--diff-accent) 18%, transparent) 0%,
+    transparent 65%);
+  opacity: 0.6;
+  pointer-events: none;
+  animation: diffGlow 2.5s ease-in-out infinite;
+}
+@keyframes diffGlow {
+  0%, 100% { opacity: 0.4; transform: translateX(-50%) scale(1); }
+  50%      { opacity: 0.8; transform: translateX(-50%) scale(1.08); }
+}
+
+.reader-difficulty__top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reader-difficulty__label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--diff-accent) 80%, var(--text-soft));
+}
+
+.reader-difficulty__chars {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--diff-accent) 20%, transparent);
+}
+
+/* Индикатор-шкала */
+.reader-difficulty__scale {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  height: 8px;
+}
+.reader-difficulty__seg {
+  border-radius: 999px;
+  background: rgba(20, 40, 80, 0.08);
+  overflow: hidden;
+}
+.reader-difficulty__seg::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--diff-accent);
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reader-difficulty[data-level="easy"]  .reader-difficulty__seg:nth-child(1)::after { width: 100%; }
+.reader-difficulty[data-level="medium"] .reader-difficulty__seg:nth-child(-n+2)::after { width: 100%; }
+.reader-difficulty[data-level="hard"]  .reader-difficulty__seg::after { width: 100%; }
+
+/* Название уровня */
+.reader-difficulty__title {
+  position: relative;
+  z-index: 1;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: color-mix(in srgb, var(--diff-accent) 70%, var(--text));
+  line-height: 1.15;
+  margin: 2px 0 0;
+}
+.reader-difficulty__desc {
+  position: relative;
+  z-index: 1;
+  font-size: 13.5px;
+  color: var(--text-soft);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Плавный уход сложности */
+.reader-difficulty.is-leaving {
+  animation: diffOut 0.4s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+@keyframes diffOut {
+  0%   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); max-height: 300px; }
+  100% { opacity: 0; transform: translateY(-12px) scale(0.96); filter: blur(6px); max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
+}
+
+/* Появление «Для подготовки» */
+.reader__prep--enter {
+  animation: prepEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes prepEnter {
+  0%   { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+/* Тёмная тема */
+[data-theme="dark"] .reader-difficulty {
+  background:
+    linear-gradient(180deg,
+      rgba(20, 23, 15, 0.85) 0%,
+      rgba(20, 23, 15, 0.65) 100%),
+    color-mix(in srgb, var(--diff-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--diff-accent) 35%, rgba(163, 230, 53, 0.14));
+  box-shadow:
+    0 1px 0 rgba(163, 230, 53, 0.08) inset,
+    0 10px 30px -20px rgba(0, 0, 0, 0.6),
+    0 0 40px -20px color-mix(in srgb, var(--diff-accent) 50%, transparent);
+}
+[data-theme="dark"] .reader-difficulty__chars {
+  background: rgba(20, 23, 15, 0.6);
+  border-color: color-mix(in srgb, var(--diff-accent) 30%, transparent);
+}
+[data-theme="dark"] .reader-difficulty__seg {
+  background: rgba(163, 230, 53, 0.12);
+}
+
+@media (max-width: 640px) {
+  .reader-difficulty { padding: 16px 18px; border-radius: 16px; gap: 10px; }
+  .reader-difficulty__title { font-size: 19px; }
+  .reader-difficulty__desc { font-size: 12.5px; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .reader-difficulty,
+  .reader-difficulty::before,
+  .reader-difficulty.is-leaving,
+  .reader__prep--enter {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+/* ============================================================
+   ГИСТОЛОГИЯ: акцентные заголовки в светлой теме (потемнее)
+   ============================================================ */
+html:not([data-theme="dark"]) .reader__panel[data-accent="histology"] .reader__content h1,
+html:not([data-theme="dark"]) .reader__panel[data-accent="histology"] .reader__content h2,
+html:not([data-theme="dark"]) .reader__panel[data-accent="histology"] .reader__content h3,
+html:not([data-theme="dark"]) .reader__panel[data-accent="histology"] .reader__content h4 {
+  color: color-mix(in srgb, var(--subject-accent, var(--accent)) 65%, #1a1f2b);
+}
+@media (max-width: 640px) {
+  .reader__tabs.reader__tabs--grid4 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+  }
+  .reader__tabs.reader__tabs--grid4 .reader__tab {
+    padding: 9px 10px;
+    font-size: 13px;
+    text-align: center;
+    border-radius: 10px;
+  }
+  /* индикатор в сетке не нужен — он не умеет 2×2 */
+  .reader__tabs.reader__tabs--grid4 .reader__tab-indicator {
+    display: none;
+  }
+
+  /* Зато активная вкладка в сетке — белая плашка, как индикатор в ряду */
+  .reader__tabs.reader__tabs--grid4 .reader__tab.is-active {
+    background: #fff;
+    color: color-mix(in srgb, var(--subject-accent, var(--accent)) 85%, #0b1220);
+    box-shadow: 0 2px 10px rgba(20, 40, 80, 0.10);
+  }
+}
+@media (max-width: 640px) {
+  [data-theme="dark"] .reader__tabs.reader__tabs--grid4 .reader__tab.is-active {
+    background: color-mix(in srgb, var(--subject-accent, var(--accent)) 22%, #1a1e14);
+    color: color-mix(in srgb, var(--subject-accent, var(--accent)) 90%, #fff);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  }
 }

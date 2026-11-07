@@ -338,10 +338,15 @@
     tip.className = 'tour__tip';
     tip.setAttribute('role', 'dialog');
     tip.setAttribute('aria-modal', 'true');
+    tip.style.pointerEvents = 'auto';
     tip.innerHTML = `
       <div class="tour__head">
-        <span class="tour__counter"></span>
-        <span class="tour__hint"></span>
+        <button type="button" class="tour__skip" aria-label="Пропустить обучение" title="Пропустить">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+          </svg>
+        </button>
       </div>
       <h3 class="tour__title"></h3>
       <p class="tour__text"></p>
@@ -351,23 +356,19 @@
     root.appendChild(tip);
     document.body.appendChild(root);
 
-    /* Кнопка «Пропустить» */
-    const skipBtn = document.createElement('button');
-    skipBtn.type = 'button';
-    skipBtn.className = 'tour__skip';
-    skipBtn.textContent = 'Пропустить';
-    skipBtn.setAttribute('aria-label', 'Пропустить обучение');
-    skipBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      cleanupAction();
-      finish();
-    });
-    root.appendChild(skipBtn);
+    titleEl = tip.querySelector('.tour__title');
+    textEl  = tip.querySelector('.tour__text');
 
-    counterEl = tip.querySelector('.tour__counter');
-    titleEl   = tip.querySelector('.tour__title');
-    textEl    = tip.querySelector('.tour__text');
-    hintEl    = tip.querySelector('.tour__hint');
+    const skipBtn = tip.querySelector('.tour__skip');
+    if (skipBtn) {
+      skipBtn.style.pointerEvents = 'auto';
+      skipBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        cleanupAction();
+        finish();
+      });
+    }
 
     /* клик по фону ничего не делает (закрыть нельзя) */
     backdrop.addEventListener('click', (e) => { e.stopPropagation(); });
@@ -423,8 +424,6 @@
     if (!isOpen) return;
     isOpen = false;
     root.classList.remove('is-open');
-    const skipEl = root.querySelector('.tour__skip');
-    if (skipEl) skipEl.style.display = '';
     root.classList.remove('has-spot');
     root.setAttribute('aria-hidden', 'true');
     spot.classList.remove('is-visible');
@@ -475,16 +474,15 @@
     renderStep(step, el);
   }
   function renderStep(step, el) {
-    // Скрываем «Пропустить» на финальном шаге — там уже есть понятное действие
-    const skipEl = root.querySelector('.tour__skip');
-    if (skipEl) skipEl.style.display = step.isFinal ? 'none' : '';
-    const total = activeSteps.length;
-    counterEl.textContent = `${currentIndex + 1} / ${total}`;
     titleEl.textContent = step.title;
     textEl.textContent = step.text;
 
     const isFinal = !!step.isFinal;
-    hintEl.textContent = isFinal ? '' : 'нажми на элемент';
+
+    /* На финальном шаге кнопка «Пропустить» не нужна —
+       тур и так закрывается кликом по логотипу */
+    const skipBtn = tip.querySelector('.tour__skip');
+    if (skipBtn) skipBtn.style.display = isFinal ? 'none' : '';
 
     /* подсветка */
     const padding = step.padding ?? 8;

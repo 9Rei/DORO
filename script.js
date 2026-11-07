@@ -100,14 +100,15 @@ const subjects = {
   biochem: {
     num: "01", title: "Биохимия",
     author: "Кайгородов Антон",
-    tabs: ["questions", "problems", "tests"],
+    tabs: ["questions", "problems", "solve", "read"],
     topics: [
-      { num: "3.2", title: "Энергетический обмен. ЦТК. Свободно-радикальное окисление.", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-31", file: "content/biochem/БХ_3.2.md" },
+      {num: "3.2", title: "Коллоквиум по разделу: Биомембраны. Трансмембранная передача сигнала. Биоокисление", steps: ["Прочитать вопросы, задачи"], date: "2026-11-07", file: "content/biochem/БХ_3.3.md" },
+      { num: "3.2", title: "Энергетический обмен. ЦТК. Свободно-радикальное окисление", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-31", file: "content/biochem/БХ_3.2.md" },
       { num: "3.1", title: "Биологические мембраны. Трансмембранная передача сигнала", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-24", file: "content/biochem/БХ_3.1.md" },
       { num: "2.3", title: "Коллоквиум по разделу: Матричные биосинтезы", steps: ["Прочитать основной файл", "Прочитать файл с задачами"], date: "2026-10-17", file: "content/biochem/БХ_2.3.md" },
       { num: "2.2", title: "Транскрипция, трансляция. ДНК технологии в медицине. Экспрессия генов", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-12", file: "content/biochem/БХ_2.2.md" },
       { num: "2.1", title: "Строение нуклеиновых кислот, репликация ДНК", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-05", file: "content/biochem/БХ_2.1.md" },
-      { num: "1.4", title: "Коллоквиум по разделы: Энзимология", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-09-28", file: "content/biochem/БХ_1.4.md" },      
+      { num: "1.4", title: "Коллоквиум по разделу: Энзимология", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-09-28", file: "content/biochem/БХ_1.4.md" },      
       { num: "1.3", title: "Витамины", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-09-21", file: "content/biochem/БХ_1.3.md" },
       { num: "1.2", title: "Ферменты", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-09-14", file: "content/biochem/БХ_1.2.md" },    
       { num: "1.1", title: "Структура и функции белков", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-09-07", file: "content/biochem/БХ_1.1.md" }
@@ -118,6 +119,7 @@ const subjects = {
     author: "Кайгородов Антон",
     tabs: ["theory", "solve", "read"],
     topics: [
+      { num: "2.5", title: "Коллоквиум по разделу: Регуляция физиологических функций", steps: ["Прочитать файлик"], date: "2026-11-07", file: "content/physio/ФИЗА_2.5.md" },
       { num: "2.4", title: "Частная эндокринология. Клинико-физиологическая оценка гипо - и гиперфункции желёз", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-11-02", file: "content/physio/ФИЗА_2.4Т.md" },
       { num: "2.3", title: "Гуморально-гормональная регуляция. Гипоталамо-гипофизарная система", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-10-26", file: "content/physio/ФИЗА_2.3Т.md" },
       { num: "2.2", title: "Нервная регуляция вегетативных функций. Физиологические свойства и особенности вегетативной нервной системы, её клинико-физиологическая оценка", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-10-18", file: "content/physio/ФИЗА_2.2Т.md" },
@@ -328,9 +330,63 @@ function findNextLessonDate(subjectKey, fromDate) {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-
+// Экранирует всё, кроме <sup>, </sup>, <sub>, </sub> — чтобы верхние/нижние индексы жили
+function escapeHtmlKeepSupSub(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/&lt;(\/?)(sup|sub)&gt;/gi, '<$1$2>');
+}
 function toDateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ============================================================
+//  ДЛИНА ТЕМЫ БЕЗ БЛОКА «ТЕСТЫ»
+// ============================================================
+function getTheoryCharCount(raw) {
+  if (!raw) return 0;
+  // Заголовок секции тестов: ## Тесты / # Тест / ### Тестирование ...
+  const m = raw.match(/^#{1,4}\s+(Тесты|Тест|Тестирование|Тестовые\s+задания)\s*$/mi);
+  if (!m) return raw.length;
+  const cut = raw.slice(0, m.index);
+  // Если до тестов есть «Вопросы»/«Задачи» — они считаются, это норм (это теория)
+  return cut.trim().length;
+}
+
+// ============================================================
+//  СЛОЖНОСТЬ ТЕМЫ ПО ОБЪЁМУ ФАЙЛА
+// ============================================================
+function getTopicDifficulty(charCount) {
+  if (charCount < 30000) {
+    return {
+      level: "easy",
+      label: "Легко",
+      title: "Лёгкая тема",
+      desc: "Небольшой объём — можно прочитать за один подход.",
+      accent: "#16a34a",
+      accentDark: "#a3e635"
+    };
+  }
+  if (charCount <= 50000) {
+    return {
+      level: "medium",
+      label: "Средне",
+      title: "Средняя тема",
+      desc: "Придётся вчитаться. Лучше разбить на пару заходов.",
+      accent: "#d97706",
+      accentDark: "#fbbf24"
+    };
+  }
+  return {
+    level: "hard",
+    label: "Сложно",
+    title: "Объёмная тема",
+    desc: "Материала очень много — запасись терпением и временем.",
+    accent: "#dc2626",
+    accentDark: "#f87171"
+  };
 }
 
 // ============================================================
@@ -339,7 +395,9 @@ function toDateKey(d) {
 function renderTopicContent(raw) {
   if (!raw) return '<p class="reader__empty">Файл темы пуст.</p>';
 
-  const looksLikeHtml = /<\w+[\s>]/.test(raw) && !/^#{1,6}\s/m.test(raw) && !/^\s*[-*+]\s/m.test(raw);
+  const looksLikeHtml = /<(p|div|table|h[1-6]|ul|ol|blockquote|section|article)\b[^>]*>/i.test(raw)
+    && !/^#{1,6}\s/m.test(raw)
+    && !/^\s*[-*+]\s/m.test(raw);
   if (looksLikeHtml) return raw;
 
   const lines = raw.replace(/\r\n?/g, '\n').split('\n');
@@ -595,9 +653,9 @@ function parseTestsToQuestions(raw) {
         .replace(/==(.*?)==/g, '$1')
         .replace(/<strong>(.*?)<\/strong>/gi, '$1')
         .replace(/<mark>(.*?)<\/mark>/gi, '$1')
-        .replace(/<[^>]+>/g, '')
+        // сохраняем <sup> и <sub>, остальные теги вырезаем
+        .replace(/<(?!\/?(?:sup|sub)\b)[^>]+>/gi, '')
         .trim();
-
       return { text: clean, correct: isCorrect };
     }).filter(o => o.text);
 
@@ -654,12 +712,12 @@ function renderPhysioSolveMode(raw, container) {
           <span class="quiz__score">Правильно: ${score}</span>
         </div>
         <div class="quiz__bar"><span style="width:${(currentIdx / picked.length) * 100}%"></span></div>
-        <p class="quiz__question">${escapeHtml(q.question)}</p>
+        <p class="quiz__question">${escapeHtmlKeepSupSub(q.question)}</p>
         <div class="quiz__options">
           ${opts.map((o, i) => `
             <button type="button" class="quiz__option" data-i="${i}" data-correct="${o.correct ? '1' : '0'}">
               <span class="quiz__option-box" aria-hidden="true"></span>
-              <span class="quiz__option-text">${escapeHtml(o.text)}</span>
+              <span class="quiz__option-text">${escapeHtmlKeepSupSub(o.text)}</span>
             </button>
           `).join('')}
         </div>
@@ -743,10 +801,10 @@ function renderPhysioSolveMode(raw, container) {
             <li class="quiz__review-item ${r.correct ? 'is-correct' : 'is-wrong'}">
               <span class="quiz__review-num">${i + 1}</span>
               <div>
-                <div class="quiz__review-q">${escapeHtml(r.question)}</div>
+                <div class="quiz__review-q">${escapeHtmlKeepSupSub(r.question)}</div>
                 <div class="quiz__review-a">
-                  Ваш ответ: <b>${escapeHtml(r.chosen || '—')}</b><br>
-                  ${!r.correct ? `Верно: <b>${escapeHtml(r.correctText)}</b>` : ''}
+                  Ваш ответ: <b>${escapeHtmlKeepSupSub(r.chosen || '—')}</b><br>
+                  ${!r.correct ? `Верно: <b>${escapeHtmlKeepSupSub(r.correctText)}</b>` : ''}
                 </div>
               </div>
             </li>
@@ -766,22 +824,26 @@ function renderPhysioSolveMode(raw, container) {
 }
 
 // Режим «Читать» — все тесты с подсветкой верных
-function renderPhysioReadMode(raw, container) {
+function renderPhysioReadMode(raw, container, subjectKey) {
   const allQuestions = parseTestsToQuestions(raw);
   if (!allQuestions.length) {
     container.innerHTML = '<p class="reader__empty">В этой теме нет распознанных тестов</p>';
     return;
   }
+  const isBiochem = subjectKey === 'biochem';
+  const hintText = isBiochem
+    ? `Верные ответы выделены цветом. Неправильные варианты сгенерированы ИИ. Всего вопросов: ${allQuestions.length}.`
+    : `Верные ответы выделены цветом. Всего вопросов: ${allQuestions.length}.`;
   container.innerHTML = `
     <div class="quiz-read">
-      <div class="quiz-read__hint">Верные ответы выделены цветом. Всего вопросов: ${allQuestions.length}.</div>
+      <div class="quiz-read__hint">${hintText}</div>
       <ol class="quiz-read__list">
         ${allQuestions.map(q => `
           <li class="quiz-read__item">
-            <div class="quiz-read__q">${escapeHtml(q.question)}</div>
+            <div class="quiz-read__q">${escapeHtmlKeepSupSub(q.question)}</div>
             <ul class="quiz-read__opts">
               ${q.options.map(o => `
-                <li class="quiz-read__opt ${o.correct ? 'is-correct' : ''}">${escapeHtml(o.text)}</li>
+                <li class="quiz-read__opt ${o.correct ? 'is-correct' : ''}">${escapeHtmlKeepSupSub(o.text)}</li>
               `).join('')}
             </ul>
           </li>
@@ -1808,11 +1870,28 @@ document.addEventListener('DOMContentLoaded', () => {
       setActivePanel(activePanel === 'lectures' ? null : 'lectures');
     });
   }
+  function markAllNotificationsRead() {
+    // Помечаем все крупные обновления прочитанными
+    const devSet = getSeenDev();
+    DEV_NOTIFICATIONS.forEach(n => devSet.add(n.id));
+    saveSeenDev(devSet);
+
+    // Помечаем все ближайшие темы прочитанными
+    const topicSet = getSeenTopics();
+    getUpcomingTopics().forEach(t => topicSet.add(topicId(t)));
+    saveSeenTopics(topicSet);
+
+    // Обновляем бейджи
+    updateNotifyBadge();
+  }
+
   if (tileNotify) {
     tileNotify.addEventListener('click', () => {
       const willOpen = activePanel !== 'notify';
       setActivePanel(willOpen ? 'notify' : null);
       if (willOpen) {
+        // Помечаем всё прочитанным сразу при открытии панели
+        markAllNotificationsRead();
         renderNotifyList();
       }
     });
@@ -1917,8 +1996,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </span>
       `;
       btn.addEventListener('click', () => {
-        const s = getSeenDev(); s.add(n.id); saveSeenDev(s);
-        updateNotifyBadge(); renderDevNotifications();
+        // Уже помечено прочитанным при открытии панели
+        renderDevNotifications();
       });
       section.appendChild(btn);
     });
@@ -1957,8 +2036,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </span>
       `;
       btn.addEventListener('click', () => {
-        const s = getSeenTopics(); s.add(id); saveSeenTopics(s);
-        updateNotifyBadge(); showView('files');
+        // Уже помечено прочитанным при открытии панели
+        showView('files');
         setTimeout(() => openTopic(t.key, t.num), 50);
       });
       section.appendChild(btn);
@@ -2348,18 +2427,74 @@ document.addEventListener('DOMContentLoaded', () => {
       const authorInline = subject.author
         ? `<span class="reader__author-inline"><span class="reader__author-by">made by</span><span class="reader__author-name">${escapeHtml(subject.author)}</span></span>`
         : '';
+
       readerArticle.innerHTML = `
         <div class="reader__num">${t.num ? 'Тема ' + t.num : ''}${authorInline}</div>
         <h1 class="reader__heading" role="button" tabindex="0" aria-expanded="false">${t.title}</h1>
-        ${t.steps && t.steps.length ? `<div class="reader__prep"><span class="reader__prep-label">Для подготовки</span><ul>${t.steps.map(s => `<li>${s}</li>`).join('')}</ul></div>` : ''}
+        <div class="reader__prep-slot" id="readerPrepSlot"></div>
         <div class="reader__tabs" id="readerTabs" hidden></div>
         <div class="reader__content"><p class="reader__empty">Загрузка темы…</p></div>
       `;
       readerTabs = $('readerTabs');
 
-      const tabConfigForRender = Array.isArray(t.tabs) ? t.tabs : (Array.isArray(subject.tabs) ? subject.tabs : []);
-      if (readerTabs && tabConfigForRender.length) {
-       const TAB_LABELS = {
+      // --- Сложность темы ---
+        const raw = await loadTopicContent(t);
+
+        // --- Сложность темы (считаем только теорию, без блока «Тесты») ---
+        const prepSlot = $('readerPrepSlot');
+        if (prepSlot) {
+          const theoryLen = getTheoryCharCount(raw);
+          const diff = getTopicDifficulty(theoryLen);
+          const accent = document.documentElement.getAttribute('data-theme') === 'dark'
+            ? diff.accentDark : diff.accent;
+          prepSlot.innerHTML = `
+            <div class="reader-difficulty" data-level="${diff.level}" style="--diff-accent:${accent}">
+              <div class="reader-difficulty__top">
+                <span class="reader-difficulty__label">Сложность темы</span>
+                <span class="reader-difficulty__chars">${theoryLen.toLocaleString('ru-RU')} симв.</span>
+              </div>
+            <div class="reader-difficulty__scale">
+              <span class="reader-difficulty__seg"></span>
+              <span class="reader-difficulty__seg"></span>
+              <span class="reader-difficulty__seg"></span>
+            </div>
+            <h2 class="reader-difficulty__title">${diff.title}</h2>
+            <p class="reader-difficulty__desc">${diff.desc}</p>
+          </div>
+        `;
+        setTimeout(() => {
+          const diffEl = prepSlot.querySelector('.reader-difficulty');
+          if (!diffEl) return;
+          diffEl.classList.add('is-leaving');
+          setTimeout(() => {
+            prepSlot.innerHTML = t.steps && t.steps.length
+              ? `<div class="reader__prep reader__prep--enter"><span class="reader__prep-label">Для подготовки</span><ul>${t.steps.map(s => `<li>${s}</li>`).join('')}</ul></div>`
+              : '';
+          }, 400);
+        }, 3500);
+      }
+      // --- конец блока сложности ---
+
+    let tabConfigForRender = Array.isArray(t.tabs) ? t.tabs : (Array.isArray(subject.tabs) ? subject.tabs : []);
+
+    // Если в заголовке темы есть слово «Коллоквиум» — принудительно убираем вкладки тестов
+    const isColloquium = /коллоквиум/i.test(t.title);
+
+    // Для «Решать» / «Читать» — показываем только если в файле реально есть тесты И это не коллоквиум
+    if (tabConfigForRender.includes('solve') || tabConfigForRender.includes('read')) {
+      const hasTests = parseTestsToQuestions(raw).length > 0;
+      if (!hasTests || isColloquium) {
+        tabConfigForRender = tabConfigForRender.filter(tab => tab !== 'solve' && tab !== 'read');
+      }
+    }
+
+    // Также убираем вкладку «Тесты», если это коллоквиум и она там есть
+    if (isColloquium && tabConfigForRender.includes('tests')) {
+      tabConfigForRender = tabConfigForRender.filter(tab => tab !== 'tests');
+    }
+
+      if (readerTabs && tabConfigForRender.length >= 1) {
+        const TAB_LABELS = {
           theory: 'Теория',
           tests: 'Тесты',
           solve: 'Решать',
@@ -2371,9 +2506,11 @@ document.addEventListener('DOMContentLoaded', () => {
         readerTabs.innerHTML = tabConfigForRender.map((tab, i) => `
           <button type="button" class="reader__tab${i === 0 ? ' is-active' : ''}" data-tab="${tab}">${TAB_LABELS[tab] || tab}</button>
         `).join('') + '<span class="reader__tab-indicator" id="readerTabIndicator"></span>';
+        readerTabs.classList.toggle('reader__tabs--grid4', tabConfigForRender.length === 4);
         readerTabs.hidden = false; readerTabs.style.display = '';
       } else if (readerTabs) {
         readerTabs.hidden = true; readerTabs.style.display = 'none'; readerTabs.innerHTML = '';
+        readerTabs.classList.remove('reader__tabs--grid4');
       }
 
       const headingEl = readerArticle.querySelector('.reader__heading');
@@ -2402,12 +2539,10 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`;
       }
 
-      const raw = await loadTopicContent(t);
-      const tabConfig = Array.isArray(t.tabs) ? t.tabs : (Array.isArray(subject.tabs) ? subject.tabs : []);
-      if (tabConfig.length) {
-        const sections = buildTabSections(raw, tabConfig, t);
-        setupTabs(sections, tabConfig);
-        showTab(tabConfig[0], contentEl, sections);
+      if (tabConfigForRender.length >= 1) {
+        const sections = buildTabSections(raw, tabConfigForRender, t);
+        setupTabs(sections, tabConfigForRender);
+        showTab(tabConfigForRender[0], contentEl, sections);
       } else {
         contentEl.innerHTML = renderTopicContent(raw);
       }
@@ -3149,21 +3284,21 @@ function buildTabSections(raw, tabConfig, topic) {
           contentEl.innerHTML = hasTests
             ? renderTopicContent(testsRaw)
             : '<p class="reader__empty">В этой теме их нет, наслаждайся</p>';
-        } else if (tab === 'solve') {
-          const testsRaw = sections.tests || sections.solve || '';
-          if (currentSubjectKey === 'physio' && testsRaw.trim()) {
-            renderPhysioSolveMode(testsRaw, contentEl);
-          } else {
-            contentEl.innerHTML = '<p class="reader__empty">Тесты не найдены</p>';
-          }
-        } else if (tab === 'read') {
-          const testsRaw = sections.tests || sections.read || '';
-          if (currentSubjectKey === 'physio' && testsRaw.trim()) {
-            renderPhysioReadMode(testsRaw, contentEl);
-          } else {
-            contentEl.innerHTML = '<p class="reader__empty">Тесты не найдены</p>';
-          }
-        }
+          } else if (tab === 'solve') {
+            const testsRaw = sections.tests || sections.solve || '';
+            if (parseTestsToQuestions(testsRaw).length) {
+              renderPhysioSolveMode(testsRaw, contentEl);
+            } else {
+              contentEl.innerHTML = '<p class="reader__empty">Тесты не найдены</p>';
+            }
+              } else if (tab === 'read') {
+                const testsRaw = sections.tests || sections.read || '';
+                if (parseTestsToQuestions(testsRaw).length) {
+                  renderPhysioReadMode(testsRaw, contentEl, currentSubjectKey);
+                } else {
+                  contentEl.innerHTML = '<p class="reader__empty">Тесты не найдены</p>';
+                }
+              }
     else {
       contentEl.innerHTML = renderTopicContent(sections[tab] || '<p class="reader__empty">Раздел пуст</p>');
     }
