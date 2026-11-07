@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDocs, collection, serverTimestamp, query, orderBy, limit }
+import { getFirestore, doc, setDoc, getDocs, collection, serverTimestamp, query, orderBy, limit, getCountFromServer }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -30,7 +30,7 @@ signInAnonymously(auth)
           color: p.color || '#3b82f6', updatedAt: serverTimestamp()
         }, { merge: true });
       },
-      async listUsers(maxCount = 200) {
+      async listUsers(maxCount = 700) {
         // Тянем только последних активных, чтобы не читать всю коллекцию
         const q = query(
           collection(db, 'users'),
@@ -43,6 +43,11 @@ signInAnonymously(auth)
           ...d.data(), 
           updatedAt: d.data().updatedAt?.toMillis?.() || 0 
         }));
+      },
+      async countUsers() {
+        // 1 read вместо 700 — только число документов в коллекции
+        const snap = await getCountFromServer(collection(db, 'users'));
+        return snap.data().count;
       }
     };
     readyResolve(window.doroCloud);

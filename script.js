@@ -1732,8 +1732,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------- КЭШ ПОЛЬЗОВАТЕЛЕЙ ----------
-  const USERS_CACHE_KEY = 'doro.usersCache.v1';
-  const USERS_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 часов
+  const USERS_CACHE_KEY = 'doro.usersCache.v2'; // v2 — сбросит старый кэш на 200 записей
+  const USERS_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 дней
   let usersFetching = false;
 
   // Пытаемся загрузить кэш из localStorage при старте
@@ -1759,7 +1759,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!profileUsersBody) return;
     const now = Date.now();
 
-    // Если кэш свежий и не force — рисуем из кэша
+    // 1) Число — всегда через count() (1 read, не зависит от размера коллекции)
+    try {
+      if (window.doroCloudReady) {
+        const cloud = await window.doroCloudReady;
+        if (cloud && cloud.countUsers) {
+          const total = await cloud.countUsers();
+          if (profileUsersCount) profileUsersCount.textContent = String(total);
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // 2) Список — из кэша или пачкой до 700
     if (!force && usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
       paintUsersList(usersCache);
       return;
@@ -1770,7 +1781,7 @@ document.addEventListener('DOMContentLoaded', () => {
     usersFetching = true;
 
     profileUsersBody.innerHTML = '<div class="profile-users__empty">Загрузка пользователей…</div>';
-    if (profileUsersCount) profileUsersCount.textContent = '';
+    // ❗ Не очищаем profileUsersCount — число уже выставлено через countUsers()
 
     try {
       if (!window.doroCloudReady) {
@@ -1783,8 +1794,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       
-      // Тянем только 200 последних активных
-      const allUsers = await cloud.listUsers(200);
+      // Тянем всех (до 700) — но кэш на 7 дней спасает от лишних чтений
+      const allUsers = await cloud.listUsers(700);
       usersCache = allUsers;
       usersCacheTime = Date.now();
       saveUsersCacheToLS(allUsers);
@@ -1811,11 +1822,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!merged.length) {
       profileUsersBody.innerHTML = '<div class="profile-users__empty">Пока никого нет.</div>';
-      if (profileUsersCount) profileUsersCount.textContent = '0';
+      // Число в шапке уже выставлено через countUsers() — не трогаем
       return;
     }
 
-    if (profileUsersCount) profileUsersCount.textContent = String(merged.length);
+    // Число в шапке уже выставлено через countUsers() — не перезаписываем длиной списка
 
     const authors = merged.filter(u => isSectionAuthor(u.name));
     const groups = new Map();
