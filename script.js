@@ -131,6 +131,7 @@ const subjects = {
     author: "Мария Прокопьева",
     tabs: ["theory", "preparations"],
     topics: [
+      { num: "28", title: "Коллоквиум по разделу: Органы пищеварительной системы, органы дыхания, кожа и ее производные. Диагностика препаратов.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_28.md", pdf: "content/histology/27П.pdf" },
       { num: "27", title: "Морфологическая характеристика кожи и ее производных. Морфологическая характеристика органов дыхания", steps: ["Прочитать файлик","Тема разделена на 2 части", "В конце темы краткий вариант", "Решить тест"], date: "2026-11-02", file: "content/histology/ГИСТА_27.md", pdf: "content/histology/27П.pdf" },
       { num: "26", title: "Пищеварительная система. Морфологическая характеристика печени и поджелудочной железы", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-27", file: "content/histology/ГИСТА_26.md", pdf: "content/histology/26П.pdf" },
       { num: "25", title: "Пищеварительная система. Морфологическая характеристика кишечника", steps: ["Прочитать файлик (в нем препараты)", "Решить тест"], date: "2026-10-20", file: "content/histology/ГИСТА_25.md", pdf: "content/histology/25П.pdf" },
@@ -591,9 +592,73 @@ function renderTopicContent(raw) {
   return out.join('\n') || '<p class="reader__empty">Файл темы пуст.</p>';
 }
 
+// ============================================================
+//  Пошаговый рендер: размазываем вставку узлов по кадрам
+// ============================================================
+let _renderToken = 0;
+
+function renderHtmlInChunks(container, htmlString, options) {
+  options = options || {};
+  const chunkSize = options.chunkSize || 30;
+  const onDone = options.onDone || null;
+  const myToken = ++_renderToken;
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = htmlString;
+  const nodes = Array.from(tmp.childNodes);
+
+  container.innerHTML = '';
+  if (!nodes.length) {
+    if (onDone && myToken === _renderToken) onDone();
+    return;
+  }
+
+  // Короткие темы — вставляем сразу, без разбивки
+  if (nodes.length <= chunkSize * 2) {
+    container.appendChild(tmp);
+    if (onDone && myToken === _renderToken) onDone();
+    return;
+  }
+
+  let i = 0;
+  function step() {
+    if (myToken !== _renderToken) return; // тему уже переключили
+    const frag = document.createDocumentFragment();
+    const end = Math.min(i + chunkSize, nodes.length);
+    for (; i < end; i++) frag.appendChild(nodes[i]);
+    container.appendChild(frag);
+
+    if (i < nodes.length) {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(step, { timeout: 100 });
+      } else {
+        setTimeout(step, 0);
+      }
+    } else if (onDone && myToken === _renderToken) {
+      onDone();
+    }
+  }
+  step();
+}
+
+const _testsCache = new Map();
+const _TESTS_CACHE_MAX = 6;
+
 function parseTestsToQuestions(raw) {
   if (!raw) return [];
+  if (_testsCache.has(raw)) return _testsCache.get(raw);
 
+  const result = _parseTestsToQuestionsImpl(raw);
+
+  _testsCache.set(raw, result);
+  if (_testsCache.size > _TESTS_CACHE_MAX) {
+    const firstKey = _testsCache.keys().next().value;
+    _testsCache.delete(firstKey);
+  }
+  return result;
+}
+
+function _parseTestsToQuestionsImpl(raw) {
   // Убираем заголовок секции "Тесты" и мусорные разделители
   let text = raw
     .replace(/^#{1,4}\s+(Тесты|Тест|Тестирование|Тестовые\s+задания)\s*$/gmi, '')
@@ -2179,21 +2244,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const topicsList = $('topics-list');
     if (!titleEl || !lessonsEl) return;
     let targetDate, isToday = false;
+
     if (!selectedDay) {
-      targetDate = new Date();
-      if (targetDate.getHours() >= 15) {
-        targetDate.setDate(targetDate.getDate() + 1);
-        selectedDay = targetDate.getDate(); selectedMonth = targetDate.getMonth(); selectedYear = targetDate.getFullYear();
-        renderCalendar(); isToday = false;
-      } else {
-        const dow = targetDate.getDay();
-        if (dow === 0 || dow === 6) {
-          targetDate.setDate(targetDate.getDate() + (dow === 6 ? 2 : 1));
-          selectedDay = targetDate.getDate(); selectedMonth = targetDate.getMonth(); selectedYear = targetDate.getFullYear();
-          renderCalendar(); isToday = false;
-        } else isToday = true;
+      // Автовыбор: если сейчас >= 13:00 — показываем следующий учебный день.
+      // Если < 13:00 — сегодняшний (если он учебный).
+      const now = new Date();
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+
+      const isSchoolDay = (d) => d.getDay() !== 0 && d.getDay() !== 6;
+
+      let d = new Date(start);
+
+      if (now.getHours() >= 13) {
+        // смотрим на следующий день
+        d.setDate(d.getDate() + 1);
       }
+
+      // листаем вперёд до учебного дня (пятница/суббота/воскресенье → понедельник)
+      while (!isSchoolDay(d)) {
+        d.setDate(d.getDate() + 1);
+      }
+
+      targetDate = d;
+      isToday = (targetDate.getTime() === start.getTime());
+
+      selectedDay = targetDate.getDate();
+      selectedMonth = targetDate.getMonth();
+      selectedYear = targetDate.getFullYear();
+      renderCalendar();
+
     } else {
+      // Пользователь выбрал день в календаре вручную
       targetDate = new Date(selectedYear, selectedMonth, selectedDay);
       const dow = targetDate.getDay();
       if (dow === 0 || dow === 6) {
@@ -2205,6 +2287,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       isToday = false;
     }
+
     const daysOfWeekAcc = ['воскресенье','понедельник','вторник','среду','четверг','пятницу','субботу'];
     titleEl.textContent = isToday ? 'Сегодня' : 'На ' + daysOfWeekAcc[targetDate.getDay()];
     const dayKey = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'][targetDate.getDay()];
@@ -2272,7 +2355,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   (function scheduleDaySwitch() {
-    const DAY_SWITCH_HOUR = 15;
+    const DAY_SWITCH_HOUR = 13;
     function msUntilSwitch() {
       const now = new Date(); const next = new Date(now);
       next.setHours(DAY_SWITCH_HOUR, 0, 0, 0);
@@ -2471,7 +2554,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ? `<div class="reader__prep reader__prep--enter"><span class="reader__prep-label">Для подготовки</span><ul>${t.steps.map(s => `<li>${s}</li>`).join('')}</ul></div>`
               : '';
           }, 400);
-        }, 3500);
+        }, 5000);
       }
       // --- конец блока сложности ---
 
@@ -2544,7 +2627,12 @@ document.addEventListener('DOMContentLoaded', () => {
         setupTabs(sections, tabConfigForRender);
         showTab(tabConfigForRender[0], contentEl, sections);
       } else {
-        contentEl.innerHTML = renderTopicContent(raw);
+        renderHtmlInChunks(contentEl, renderTopicContent(raw), {
+          onDone: () => {
+            contentEl.classList.add('is-loaded');
+            document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
+          }
+        });
       }
 
       const extraFiles = extractPdfLinksFromMarkdown(raw);
@@ -2995,9 +3083,13 @@ function showView(name) {
   }
 
   if (readerArticle) {
+    let _tocDebounce = null;
     const mo = new MutationObserver(() => {
       tocBuiltForArticle = null;
-      if (readerSettings && readerSettings.classList.contains('open')) buildToc();
+      if (readerSettings && readerSettings.classList.contains('open')) {
+        clearTimeout(_tocDebounce);
+        _tocDebounce = setTimeout(() => buildToc(), 150);
+      }
     });
     mo.observe(readerArticle, { childList: true, subtree: true });
   }
@@ -3271,20 +3363,46 @@ function buildTabSections(raw, tabConfig, topic) {
   moveTabIndicator();
   contentEl.classList.remove('is-loaded');
   contentEl.classList.toggle('reader-tab-tests', tab === 'tests');
-  if (tab === 'preparations') contentEl.innerHTML = renderPreparations(sections.preparations || []);
-    else if (tab === 'questions') {
-      const raw = sections.questions || '';
-      contentEl.innerHTML = raw.trim() ? renderTopicContent(raw) : '<p class="reader__empty">В этой теме нет вопросов</p>';
-    } else if (tab === 'problems') {
-      const raw = sections.problems || '';
-      contentEl.innerHTML = raw.trim() ? renderTopicContent(raw) : '<p class="reader__empty">В этой теме нет задач</p>';
-        } else if (tab === 'tests') {
-          const testsRaw = sections.tests || '';
-          const hasTests = /\*\*\d+\.\*\*|\d+\.\s|^\s*-\s/m.test(testsRaw);
-          contentEl.innerHTML = hasTests
-            ? renderTopicContent(testsRaw)
-            : '<p class="reader__empty">В этой теме их нет, наслаждайся</p>';
-          } else if (tab === 'solve') {
+  if (tab === 'preparations') {
+    contentEl.innerHTML = renderPreparations(sections.preparations || []);
+  } else if (tab === 'questions') {
+    const raw = sections.questions || '';
+    if (raw.trim()) {
+      renderHtmlInChunks(contentEl, renderTopicContent(raw), {
+        onDone: () => {
+          contentEl.classList.add('is-loaded');
+          document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
+        }
+      });
+    } else {
+      contentEl.innerHTML = '<p class="reader__empty">В этой теме нет вопросов</p>';
+    }
+  } else if (tab === 'problems') {
+    const raw = sections.problems || '';
+    if (raw.trim()) {
+      renderHtmlInChunks(contentEl, renderTopicContent(raw), {
+        onDone: () => {
+          contentEl.classList.add('is-loaded');
+          document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
+        }
+      });
+    } else {
+      contentEl.innerHTML = '<p class="reader__empty">В этой теме нет задач</p>';
+    }
+  } else if (tab === 'tests') {
+    const testsRaw = sections.tests || '';
+    const hasTests = /\*\*\d+\.\*\*|\d+\.\s|^\s*-\s/m.test(testsRaw);
+    if (hasTests) {
+      renderHtmlInChunks(contentEl, renderTopicContent(testsRaw), {
+        onDone: () => {
+          contentEl.classList.add('is-loaded');
+          document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
+        }
+      });
+    } else {
+      contentEl.innerHTML = '<p class="reader__empty">В этой теме их нет, наслаждайся</p>';
+    }
+  } else if (tab === 'solve') {
             const testsRaw = sections.tests || sections.solve || '';
             if (parseTestsToQuestions(testsRaw).length) {
               renderPhysioSolveMode(testsRaw, contentEl);
@@ -3300,7 +3418,13 @@ function buildTabSections(raw, tabConfig, topic) {
                 }
               }
     else {
-      contentEl.innerHTML = renderTopicContent(sections[tab] || '<p class="reader__empty">Раздел пуст</p>');
+      const rawSection = sections[tab] || '<p class="reader__empty">Раздел пуст</p>';
+      renderHtmlInChunks(contentEl, renderTopicContent(rawSection), {
+        onDone: () => {
+          contentEl.classList.add('is-loaded');
+          document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
+        }
+      });
     }
     void contentEl.offsetWidth;
     contentEl.classList.add('is-loaded');
