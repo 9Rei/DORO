@@ -605,7 +605,178 @@
     </div>
   </div>
 </div>
+<!-- ================= МОДАЛКА ВХОДА / РЕГИСТРАЦИИ ================= -->
+<div class="onboard" id="authModal" aria-hidden="true">
+  <div class="onboard__backdrop"></div>
+  <div class="onboard__box" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="onboard__glow" aria-hidden="true"></div>
 
+    <div class="onboard__hero">
+      <div class="onboard__avatar" id="authAvatar">
+        <span id="authAvatarLetter">?</span>
+      </div>
+      <span class="onboard__step" id="authStep">Вход в doro</span>
+    </div>
+
+    <!-- Экран выбора: войти или зарегистрироваться -->
+    <div class="onboard__step-panel is-active" data-auth-step="choice">
+      <h2 class="onboard__title" id="authTitle">С возвращением!</h2>
+      <p class="onboard__sub">
+        Войдите по имени и паролю, чтобы ваши данные были на любом устройстве.
+      </p>
+      <p class="onboard__sub" style="font-size:12.5px; opacity:0.75; margin-top:-2px;">
+        Если вы уже заходили раньше (но без пароля) — нажмите «Войти» и введите имя, группу и <b>новый</b> пароль. Мы найдём ваш старый профиль и перенесём его.
+      </p>
+
+      <div class="onboard__actions" style="flex-direction: column; gap: 8px;">
+        <button type="button" class="onboard__btn" id="authShowLogin">
+          Войти
+        </button>
+        <button type="button" class="onboard__btn onboard__btn--ghost" id="authShowRegister">
+          Зарегистрироваться
+        </button>
+      </div>
+    </div>
+
+    <!-- Форма: Логин (имя + группа) + пароль -->
+    <div class="onboard__step-panel" data-auth-step="form">
+      <h2 class="onboard__title" id="authFormTitle">Вход</h2>
+      <p class="onboard__sub" id="authFormSub">Введите логин и пароль.</p>
+
+      <span class="onboard__label">Имя</span>
+      <input id="authName" class="onboard__input" type="text" placeholder="Например, Аня" maxlength="30" autocomplete="username">
+
+      <span class="onboard__label">Группа</span>
+      <div class="group-picker">
+        <input id="authGroupLetters" class="group-picker__letters" type="text" placeholder="ЛД" maxlength="4" autocomplete="off" autocapitalize="characters">
+        <select id="authGroupYear" class="group-picker__select"></select>
+        <select id="authGroupNum" class="group-picker__select"></select>
+      </div>
+
+      <span class="onboard__label">Пароль</span>
+      <div class="password-wrap">
+        <input id="authPassword" class="onboard__input" type="password" placeholder="Минимум 6 символов" minlength="6" autocomplete="current-password">
+        <button type="button" class="password-toggle" data-target="authPassword" aria-label="Показать пароль" title="Показать пароль">
+          <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          <svg class="eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+        </button>
+      </div>
+
+      <div class="onboard__actions" style="margin-top: 4px;">
+        <button type="button" class="onboard__btn onboard__btn--ghost" id="authBack" style="flex: 0 0 auto;">
+          Назад
+        </button>
+        <button type="button" class="onboard__btn" id="authSubmit">
+          Войти
+        </button>
+      </div>
+      <p id="authError" style="color: #ef4444; font-size: 12.5px; text-align: center; margin: 0; display: none;"></p>
+    </div>
+
+    <!-- Для старых пользователей: привязать пароль к анонимному uid -->
+    <div class="onboard__step-panel" data-auth-step="link">
+      <h2 class="onboard__title">Придумайте пароль</h2>
+      <p class="onboard__sub">
+        У вас уже есть аккаунт на этом устройстве. Придумайте пароль, чтобы заходить с любого другого устройства.
+      </p>
+
+      <span class="onboard__label">Пароль</span>
+      <div class="password-wrap">
+        <input id="linkPassword" class="onboard__input" type="password" placeholder="Минимум 6 символов" minlength="6" autocomplete="new-password">
+        <button type="button" class="password-toggle" data-target="linkPassword" aria-label="Показать пароль" title="Показать пароль">
+          <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          <svg class="eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+        </button>
+      </div>
+
+      <button type="button" class="onboard__btn" id="linkSubmit" style="margin-top: 8px;">
+        Сохранить пароль
+      </button>
+      <button type="button" class="onboard__btn onboard__btn--ghost" id="linkSkip">
+        Пропустить
+      </button>
+      <p id="linkError" style="color: #ef4444; font-size: 12.5px; text-align: center; margin: 0; display: none;"></p>
+    </div>
+  </div>
+</div>
+<!-- ================= МОДАЛКА УБОРКИ ПРИЗРАКОВ ================= -->
+<div class="ghost-cleanup" id="ghostCleanup" aria-hidden="true">
+  <div class="ghost-cleanup__backdrop"></div>
+  <div class="ghost-cleanup__box" role="dialog" aria-modal="true" aria-labelledby="ghostTitle">
+    <div class="ghost-cleanup__glow" aria-hidden="true"></div>
+
+    <div class="ghost-cleanup__hero">
+      <div class="ghost-cleanup__icon" id="ghostIcon">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 10h.01M15 10h.01M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"></path>
+        </svg>
+      </div>
+      <span class="ghost-cleanup__step" id="ghostStep">Найдены призраки</span>
+    </div>
+
+    <!-- Экран 1: предложение -->
+    <div class="ghost-cleanup__panel is-active" data-ghost-step="offer">
+      <h2 class="ghost-cleanup__title" id="ghostTitle">В базе завелись призраки</h2>
+      <p class="ghost-cleanup__sub">
+        Это ваши старые записи с других устройств. Они дублируют ваш профиль. Удалим только ваши копии — чужие профили не тронем.
+      </p>
+
+      <div class="ghost-cleanup__stats">
+        <div class="ghost-cleanup__stat">
+          <span class="ghost-cleanup__stat-num" id="ghostCount">0</span>
+          <span class="ghost-cleanup__stat-label">ваших копий</span>
+        </div>
+        <div class="ghost-cleanup__stat">
+          <span class="ghost-cleanup__stat-num" id="ghostKeepCount">0</span>
+          <span class="ghost-cleanup__stat-label">всего в базе</span>
+        </div>
+      </div>
+
+      <div class="ghost-cleanup__actions" style="grid-template-columns: 1fr;">
+        <button type="button" class="ghost-cleanup__btn ghost-cleanup__btn--primary" id="ghostClean">
+          Убрать призраков
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Экран 2: прогресс -->
+    <div class="ghost-cleanup__panel" data-ghost-step="progress">
+      <h2 class="ghost-cleanup__title">Убираем призраков…</h2>
+      <p class="ghost-cleanup__sub" id="ghostProgressText">Это займёт пару секунд.</p>
+
+      <div class="ghost-cleanup__progress">
+        <div class="ghost-cleanup__progress-bar" id="ghostProgressBar"></div>
+      </div>
+
+      <div class="ghost-cleanup__ghosts" id="ghostVisual" aria-hidden="true"></div>
+    </div>
+
+    <!-- Экран 3: готово -->
+    <div class="ghost-cleanup__panel" data-ghost-step="done">
+      <h2 class="ghost-cleanup__title">Чисто!</h2>
+      <p class="ghost-cleanup__sub" id="ghostDoneText">Призраки развеялись. Теперь в базе один профиль на человека.</p>
+
+      <div class="ghost-cleanup__done-icon">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+
+      <div class="ghost-cleanup__done-actions">
+        <button type="button" class="ghost-cleanup__btn ghost-cleanup__btn--primary" id="ghostDone">
+          Закрыть и продолжить
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
   <script type="module" src="firebase.js"></script>
   <script src="schedules.js"></script> 
   <script src="script.js"></script>

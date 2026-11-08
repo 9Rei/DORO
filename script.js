@@ -1421,6 +1421,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && profileSheet && profileSheet.classList.contains('is-open')) closeProfileSheet();
   });
+    // Запрещаем закрывать окно призраков по Esc
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const ghostModal = document.getElementById('ghostCleanup');
+      if (ghostModal && ghostModal.classList.contains('is-open')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+  }, true);
   if (saveNameBtn) {
     saveNameBtn.addEventListener('click', async () => {
       if (!nameInput) return;
@@ -1439,7 +1449,21 @@ document.addEventListener('DOMContentLoaded', () => {
       nameInput.value = val;
       renderProfile();
       closeProfileSheet();
-      await syncProfileToCloud();
+      
+      // Вызываем claimIdentity, чтобы объединить/удалить дубликаты при смене имени
+      try {
+        if (window.doroCloudReady) {
+          const cloud = await window.doroCloudReady;
+          if (cloud && cloud.claimIdentity) {
+            const result = await cloud.claimIdentity(user);
+            if (result && result.removed > 0) {
+              try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
+              usersCache = null;
+              usersCacheTime = 0;
+            }
+          }
+        }
+      } catch (e) { console.warn('Cloud claim failed:', e); }
     });
   }
   if (nameInput && saveNameBtn) nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveNameBtn.click(); });
@@ -1493,7 +1517,23 @@ document.addEventListener('DOMContentLoaded', () => {
       saveUser();
       renderProfile();
       if (typeof window.__refreshSchedule === 'function') window.__refreshSchedule();
-      syncProfileToCloud();
+      
+      // Вызываем claimIdentity при смене группы
+      (async () => {
+        try {
+          if (window.doroCloudReady) {
+            const cloud = await window.doroCloudReady;
+            if (cloud && cloud.claimIdentity) {
+              const result = await cloud.claimIdentity(user);
+              if (result && result.removed > 0) {
+                try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
+                usersCache = null;
+                usersCacheTime = 0;
+              }
+            }
+          }
+        } catch (e) { console.warn('Cloud claim failed:', e); }
+      })();
     }
 
     lettersInp.addEventListener('input', () => {
@@ -1668,9 +1708,24 @@ document.addEventListener('DOMContentLoaded', () => {
     { name: 'Петросян',   group: 'ЛД2511' },
   ];
 
-  function normalizeUserName(name) {
-    return (name || '').trim().replace(/\s+/g, ' ');
-  }
+// Только для ключа слияния — не трогает отображение
+function normalizeUserName(name) {
+  return (name || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/ë/g, 'е')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+// Для отображения — как есть, только с заглавной первой буквы
+function displayUserName(name) {
+  const n = (name || '').trim().replace(/\s+/g, ' ');
+  if (!n) return '';
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
 
   // Редактор — если:
   // 1) полное имя совпадает с subjects.author («Мария Прокопьева»), или
@@ -1708,7 +1763,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function mergeUsers(list) {
     const map = new Map();
     list.forEach(u => {
-      const name = normalizeUserName(u.name);
+      const name = (u.name || '').trim().replace(/\s+/g, ' ');
       if (!name) return;
       const key = userKey({ name, group: u.group });
       if (!map.has(key)) {
@@ -1754,7 +1809,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     row.innerHTML = `
       <span class="user-chip__avatar" style="background:linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 55%, #fff))">${initial}</span>
-      <span class="user-chip__name">${escapeHtml(u.name)}</span>
+      <span class="user-chip__name">${escapeHtml(displayUserName(u.name))}</span>
       ${badges.join('')}
     `;
     return row;
@@ -1788,29 +1843,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!profileUsersBody) return;
     const now = Date.now();
 
-    // 1) Число — всегда через count() (1 read, не зависит от размера коллекции)
-    try {
-      if (window.doroCloudReady) {
-        const cloud = await window.doroCloudReady;
-        if (cloud && cloud.countUsers) {
-          const total = await cloud.countUsers();
-          if (profileUsersCount) profileUsersCount.textContent = String(total);
-        }
-      }
-    } catch (e) { /* ignore */ }
-
-    // 2) Список — из кэша или пачкой до 700
+    // Если есть свежий кэш — используем его и для числа, и для списка
     if (!force && usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
+      if (profileUsersCount) profileUsersCount.textContent = String(usersCache.length);
       paintUsersList(usersCache);
       return;
     }
 
-    // Если уже идёт загрузка — ждём
     if (usersFetching) return;
     usersFetching = true;
 
     profileUsersBody.innerHTML = '<div class="profile-users__empty">Загрузка пользователей…</div>';
-    // ❗ Не очищаем profileUsersCount — число уже выставлено через countUsers()
 
     try {
       if (!window.doroCloudReady) {
@@ -1818,17 +1861,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const cloud = await window.doroCloudReady;
-      if (!cloud) {
+      if (!cloud || !cloud.listAllUsers) {
         profileUsersBody.innerHTML = '<div class="profile-users__empty">Firebase не подключён.</div>';
         return;
       }
-      
-      // Тянем всех (до 700) — но кэш на 7 дней спасает от лишних чтений
-      const allUsers = await cloud.listUsers(700);
+
+      // Тянем всех (по 500 за раз, без ограничения в 700)
+      const allUsers = await cloud.listAllUsers(500);
       usersCache = allUsers;
       usersCacheTime = Date.now();
       saveUsersCacheToLS(allUsers);
-      
+
+      // Число = ВСЕ реальные документы из базы (включая дубликаты)
+      if (profileUsersCount) profileUsersCount.textContent = String(allUsers.length);
+
       paintUsersList(allUsers);
     } catch (err) {
       console.error('renderProfileUsers error:', err);
@@ -2039,7 +2085,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           tag.innerHTML = `
             <span class="users-group-card__avatar" style="background:linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 55%, #fff))">${initial}</span>
-            <span class="users-group-card__tag-name">${escapeHtml(u.name)}</span>
+            <span class="users-group-card__tag-name">${escapeHtml(displayUserName(u.name))}</span>
             ${badges.join('')}
           `;
           tagsWrap.appendChild(tag);
@@ -4055,7 +4101,7 @@ function buildTabSections(raw, tabConfig, topic) {
   // ============================================================
   //  ОНБОРДИНГ НОВОГО ПОЛЬЗОВАТЕЛЯ
   // ============================================================
-  const ONBOARD_DONE_KEY = 'doro.onboarded.v3'; // v2 сбросит всех
+  const ONBOARD_DONE_KEY = 'doro.onboarded.v4'; // v4 заставит всех пройти регистрацию заново
 
     (function initOnboard() {
     const onboard       = $('onboard');
@@ -4272,9 +4318,19 @@ function buildTabSections(raw, tabConfig, topic) {
         try {
           if (window.doroCloudReady) {
             const cloud = await window.doroCloudReady;
-            if (cloud) await cloud.saveProfile(user);
+            if (cloud) {
+              const result = await cloud.claimIdentity(user);
+              if (result && result.removed > 0) {
+                try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
+                usersCache = null;
+                usersCacheTime = 0;
+              }
+            }
           }
-        } catch (e) { console.warn('Cloud save failed:', e); }
+        } catch (e) { 
+          // Если лимит превышен или ошибка сети — не блокируем вход!
+          console.warn('Ошибка облака (пропускаем):', e.message); 
+        }
 
         onboard.classList.remove('is-open');
         onboard.setAttribute('aria-hidden', 'true');
@@ -4287,16 +4343,7 @@ function buildTabSections(raw, tabConfig, topic) {
       });
     }
 
-    const alreadyDone = localStorage.getItem(ONBOARD_DONE_KEY) === '1';
-    if (!alreadyDone) {
-      if (user) { user.name = ''; saveUser(); }
-      setTimeout(() => {
-        onboard.classList.add('is-open');
-        onboard.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('onboard-open');
-        goTo(1);
-      }, 500);
-    }
+    // Старый онбординг полностью отключён — его заменила authModal.
   })();
     // ============================================================
   //  МОДАЛКА: ОБЯЗАТЕЛЬНАЯ ГРУППА
@@ -4381,6 +4428,643 @@ function buildTabSections(raw, tabConfig, topic) {
       }, 1000); // Небольшая задержка, чтобы страница успела прогрузиться
     }
   })();
+  // ============================================================
+  //  ВХОД / РЕГИСТРАЦИЯ
+  // ============================================================
+  const AUTH_LOGIN_KEY = 'doro.lastLogin'; // помним логин для удобства
+  const authModal = $('authModal');
+  const authPanels = authModal ? authModal.querySelectorAll('[data-auth-step]') : [];
+  const authStep = $('authStep');
+  const authFormTitle = $('authFormTitle');
+  const authFormSub = $('authFormSub');
+  const authName = $('authName');
+  const authLetters = $('authGroupLetters');
+  const authYear = $('authGroupYear');
+  const authNum = $('authGroupNum');
+  const authPassword = $('authPassword');
+  const authSubmit = $('authSubmit');
+  const authError = $('authError');
+  const authBack = $('authBack');
+  const authAvatarLetter = $('authAvatarLetter');
+  const linkPassword = $('linkPassword');
+  const linkSubmit = $('linkSubmit');
+  const linkSkip = $('linkSkip');
+  const linkError = $('linkError');
+
+  let authMode = 'login'; // 'login' | 'register'
+  let currentAuthUser = null;
+
+  function showAuthStep(name) {
+    authPanels.forEach(p => p.classList.toggle('is-active', p.dataset.authStep === name));
+  }
+
+  function buildAuthLogin() {
+    if (!authName) return '';
+    const parts = parseGroup(localStorage.getItem(AUTH_LOGIN_KEY) || '');
+    const letters = normalizeGroupLetters(authLetters ? authLetters.value : '') || parts.letters || '';
+    const year = authYear ? authYear.value : (parts.year || GROUP_DEFAULT.year);
+    const num = authNum ? authNum.value : (parts.num || GROUP_DEFAULT.num);
+    const name = (authName.value || '').trim().split(/\s+/)[0] || '';
+    if (!name) return '';
+    // Логин = имя_группа (в нижнем регистре, без пробелов)
+    const group = formatGroup({ letters, year, num });
+    return (name.toLowerCase() + '_' + group.toLowerCase());
+  }
+
+  function showAuthError(msg) {
+    if (authError) { authError.textContent = msg; authError.style.display = 'block'; }
+  }
+  function clearAuthError() {
+    if (authError) { authError.textContent = ''; authError.style.display = 'none'; }
+  }
+
+  function openAuth(mode) {
+    if (!authModal) return;
+    authMode = mode || 'register';
+    clearAuthError();
+
+    // Предзаполняем из старого профиля (если был) — человек не вводит заново
+    const savedName  = (user && user.name)  ? user.name  : '';
+    const savedGroup = (user && user.group) ? user.group : '';
+
+    if (authName)     authName.value     = savedName;
+    if (authPassword) authPassword.value = '';
+
+    if (savedGroup) {
+      const parts = parseGroup(savedGroup);
+      if (authLetters) authLetters.value = parts.letters || '';
+      if (authYear)    authYear.value    = parts.year    || GROUP_DEFAULT.year;
+      if (authNum)     authNum.value     = parts.num     || GROUP_DEFAULT.num;
+    } else {
+      if (authLetters) authLetters.value = GROUP_DEFAULT.letters;
+      if (authYear)    authYear.value    = GROUP_DEFAULT.year;
+      if (authNum)     authNum.value     = GROUP_DEFAULT.num;
+    }
+
+    authStep.textContent = authMode === 'register' ? 'Регистрация' : 'Вход в doro';
+    syncAuthSubmitLabel();
+
+    // 'register' → сразу форма. 'login' → экран выбора (Войти / Зарегистрироваться)
+    showAuthStep(authMode === 'register' ? 'form' : 'choice');
+
+    authModal.classList.add('is-open');
+    authModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('onboard-open');
+  }
+
+  function closeAuth() {
+    if (!authModal) return;
+    authModal.classList.remove('is-open');
+    authModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('onboard-open');
+  }
+
+  function syncAuthSubmitLabel() {
+    if (!authSubmit) return;
+    authSubmit.textContent = authMode === 'register' ? 'Создать аккаунт' : 'Войти';
+    if (authFormTitle) authFormTitle.textContent = authMode === 'register' ? 'Регистрация' : 'Вход';
+    if (authFormSub) authFormSub.textContent = authMode === 'register'
+      ? 'Придумайте логин (имя + группа) и пароль.'
+      : 'Введите логин (имя + группа) и пароль.';
+    if (authPassword) authPassword.setAttribute('autocomplete', authMode === 'register' ? 'new-password' : 'current-password');
+  }
+
+  if (authModal) {
+    // Заполняем селекты годов и номеров
+    if (authYear) {
+      authYear.innerHTML = '';
+      for (let i = 0; i <= GROUP_MAX_YEAR; i++) {
+        const v = String(i).padStart(2, '0');
+        const o = document.createElement('option'); o.value = v; o.textContent = v;
+        authYear.appendChild(o);
+      }
+    }
+    if (authNum) {
+      authNum.innerHTML = '';
+      for (let i = 1; i <= GROUP_MAX_NUM; i++) {
+        const v = String(i).padStart(2, '0');
+        const o = document.createElement('option'); o.value = v; o.textContent = v;
+        authNum.appendChild(o);
+      }
+    }
+
+    // Кнопки «Войти» / «Зарегистрироваться» на первом экране
+    const showLoginBtn = $('authShowLogin');
+    const showRegBtn = $('authShowRegister');
+    if (showLoginBtn) showLoginBtn.addEventListener('click', () => {
+      authMode = 'login'; syncAuthSubmitLabel(); showAuthStep('form');
+    });
+    if (showRegBtn) showRegBtn.addEventListener('click', () => {
+      authMode = 'register'; syncAuthSubmitLabel(); showAuthStep('form');
+    });
+    if (authBack) authBack.addEventListener('click', () => showAuthStep('choice'));
+    if (authLetters) authLetters.addEventListener('input', () => {
+      authLetters.value = normalizeGroupLetters(authLetters.value);
+    });
+
+    // Ввод: обновить аватар и кнопку
+    function syncAuthPreview() {
+      const name = (authName.value || '').trim();
+      if (authAvatarLetter) authAvatarLetter.textContent = name ? name[0].toUpperCase() : '?';
+    }
+    if (authName) authName.addEventListener('input', syncAuthPreview);
+    // Кнопка «Показать/скрыть пароль»
+    authModal.querySelectorAll('.password-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const targetId = btn.dataset.target;
+        const input = document.getElementById(targetId);
+        if (!input) return;
+
+        const eyeOpen = btn.querySelector('.eye-open');
+        const eyeClosed = btn.querySelector('.eye-closed');
+
+        if (input.type === 'password') {
+          input.type = 'text';
+          btn.title = 'Скрыть пароль';
+          btn.setAttribute('aria-label', 'Скрыть пароль');
+          if (eyeOpen) eyeOpen.style.display = 'none';
+          if (eyeClosed) eyeClosed.style.display = 'block';
+        } else {
+          input.type = 'password';
+          btn.title = 'Показать пароль';
+          btn.setAttribute('aria-label', 'Показать пароль');
+          if (eyeOpen) eyeOpen.style.display = 'block';
+          if (eyeClosed) eyeClosed.style.display = 'none';
+        }
+      });
+    });
+    // Отправка формы
+    if (authSubmit) authSubmit.addEventListener('click', async () => {
+      clearAuthError();
+      const nameRaw = (authName.value || '').trim();
+      if (!nameRaw) { showAuthError('Введите имя'); return; }
+      const name = nameRaw.split(/\s+/)[0];
+      const letters = normalizeGroupLetters(authLetters.value);
+      const year = authYear.value;
+      const num = authNum.value;
+      if (!letters) { showAuthError('Введите буквы группы (например, ЛД)'); return; }
+      const group = formatGroup({ letters, year, num });
+      const password = authPassword.value;
+      if (!password || password.length < 6) { showAuthError('Пароль должен быть минимум 6 символов'); return; }
+
+      const login = (name.toLowerCase() + '_' + group.toLowerCase());
+
+      authSubmit.disabled = true;
+      authSubmit.textContent = authMode === 'register' ? 'Создаю…' : 'Вхожу…';
+
+      try {
+        const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
+
+        // OFFLINE-режим: просто сохраняем профиль локально и пропускаем
+        if (!cloud) {
+          if (!user) user = {};
+          user.name   = name;
+          user.group  = group;
+          user.status = user.status || USER_STATUSES[0];
+          user.color  = user.color  || '#3b82f6';
+          saveUser();
+          localStorage.setItem(ONBOARD_DONE_KEY, '1');
+          localStorage.setItem(AUTH_LOGIN_KEY, login);
+          localStorage.setItem('doro.hasPasswordAccount', '1');
+          closeAuth();
+          renderProfile();
+          showView('profile');
+          return;
+        }
+
+        if (authMode === 'register') {
+          await cloud.register(login, password);
+          currentAuthUser = { uid: cloud.uid, isAnonymous: false };
+
+          // Сохраняем профиль
+          user = user || {};
+          user.name = name;
+          user.group = group;
+          user.status = user.status || USER_STATUSES[0];
+          user.color = user.color || '#3b82f6';
+          saveUser();
+
+          // Пытаемся вычистить дубликаты (если они были)
+          try {
+            const claim = await cloud.claimIdentity(user);
+            if (claim && claim.removed > 0) {
+              try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
+              usersCache = null; usersCacheTime = 0;
+            }
+          } catch (e) { console.warn('claimIdentity:', e); }
+
+          localStorage.setItem(ONBOARD_DONE_KEY, '1');
+          localStorage.setItem(AUTH_LOGIN_KEY, login);
+          localStorage.setItem('doro.hasPasswordAccount', '1');   // ← ДОБАВЛЕНО
+          closeAuth();
+          renderProfile();
+          showView('profile');
+        } else {
+          // Вход: если email ещё не создан (старый анонимный профиль),
+          // loginOrMigrate создаст его и перенесёт данные.
+          const result = await cloud.loginOrMigrate(
+            { name, group, status: user?.status || USER_STATUSES[0], color: user?.color || '#3b82f6' },
+            password
+          );
+          currentAuthUser = { uid: result.uid, isAnonymous: false };
+
+          // Подтягиваем профиль из Firestore
+          let profile = await cloud.getMyProfile();
+          
+          // Если по какой-то причине профиля в базе нет, создаем его прямо сейчас
+          if (!profile) {
+            user = {
+              name: name,
+              group: group,
+              status: user?.status || USER_STATUSES[0],
+              color: user?.color || '#3b82f6'
+            };
+            await cloud.saveProfile(user);
+          } else {
+            user = {
+              name: profile.name || name,
+              group: profile.group || group,
+              status: profile.status || USER_STATUSES[0],
+              color: profile.color || '#3b82f6'
+            };
+          }
+          
+          saveUser();
+
+          if (result.migrated) {
+            if (result.restored) {
+              alert('Нашли ваш старый профиль и перенесли его на это устройство. Теперь вы можете заходить с любого устройства по этим имени и паролю.');
+            } else {
+              alert('Пароль создан. Теперь вы можете заходить с любого устройства по этим имени и паролю.');
+            }
+            // Сбросить кэш пользователей, т.к. старый UID удалён
+            try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
+            usersCache = null;
+            usersCacheTime = 0;
+          }
+
+          localStorage.setItem(ONBOARD_DONE_KEY, '1');
+          localStorage.setItem(AUTH_LOGIN_KEY, login);
+          localStorage.setItem('doro.hasPasswordAccount', '1');   // ← ДОБАВЛЕНО
+          closeAuth();
+          renderProfile();
+          showView('profile');
+        }
+      } catch (err) {
+        console.error('Auth error:', err);
+        let msg = err.message || 'Ошибка';
+        if (msg.includes('email-already-in-use')) msg = 'Этот логин уже занят. Попробуйте войти.';
+        else if (msg.includes('user-not-found')) msg = 'Пользователь не найден. Зарегистрируйтесь.';
+        else if (msg.includes('wrong-password') || msg.includes('invalid-credential')) msg = 'Неверный пароль.';
+        else if (msg.includes('invalid-email')) msg = 'Логин составлен неправильно.';
+        else if (msg.includes('weak-password')) msg = 'Слишком простой пароль.';
+        showAuthError(msg);
+      } finally {
+        authSubmit.disabled = false;
+        syncAuthSubmitLabel();
+      }
+    });
+
+    // Привязка пароля (для старых пользователей)
+    if (linkSubmit) linkSubmit.addEventListener('click', async () => {
+      if (linkError) { linkError.textContent = ''; linkError.style.display = 'none'; }
+      const password = linkPassword.value;
+      if (!password || password.length < 6) {
+        if (linkError) { linkError.textContent = 'Пароль минимум 6 символов'; linkError.style.display = 'block'; }
+        return;
+      }
+      linkSubmit.disabled = true;
+      linkSubmit.textContent = 'Сохраняю…';
+      try {
+        const cloud = await window.doroCloudReady;
+        if (!cloud) throw new Error('Firebase не подключён');
+        const name = (user && user.name) || 'user';
+        const group = (user && user.group) || '';
+        const login = (name.toLowerCase() + '_' + group.toLowerCase());
+        await cloud.linkAnonymous(login, password);
+        localStorage.setItem(AUTH_LOGIN_KEY, login);
+        closeAuth();
+      } catch (err) {
+        console.error('Link error:', err);
+        let msg = err.message || 'Ошибка';
+        if (msg.includes('email-already-in-use')) msg = 'Этот логин уже занят. Возможно, вы уже зарегистрированы.';
+        else if (msg.includes('provider-already-linked')) msg = 'Аккаунт уже привязан.';
+        if (linkError) { linkError.textContent = msg; linkError.style.display = 'block'; }
+      } finally {
+        linkSubmit.disabled = false;
+        linkSubmit.textContent = 'Сохранить пароль';
+      }
+    });
+    if (linkSkip) linkSkip.addEventListener('click', () => closeAuth());
+  }
+
+  async function bootAuth() {
+    // Ждём Firebase (максимум 8 секунд)
+    let waitTime = 0;
+    while (!window.doroCloudReady && waitTime < 8000) {
+      await new Promise(r => setTimeout(r, 100));
+      waitTime += 100;
+    }
+
+    const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
+    const offline = !cloud;
+
+    if (offline) {
+      console.warn('[bootAuth] Firebase недоступен — окно покажем, регистрация локальная');
+      window.__doroOfflineAuth = true;
+    }
+
+    currentAuthUser = cloud
+      ? { uid: cloud.uid, isAnonymous: cloud.isAnonymous }
+      : { uid: null, isAnonymous: true };
+
+    // Признак «уже зарегистрирован по паролю» — флаг в localStorage.
+    // Ставится ТОЛЬКО после успешного register()/login().
+    const hasPasswordAccount = localStorage.getItem('doro.hasPasswordAccount') === '1';
+
+    if (hasPasswordAccount && !offline && !cloud.isAnonymous) {
+      // Уже зарегистрирован и сессия жива — просто подтягиваем профиль
+      try {
+        const profile = await cloud.getMyProfile();
+        if (profile) {
+          user = {
+            name: profile.name || '',
+            group: profile.group || '',
+            status: profile.status || USER_STATUSES[0],
+            color: profile.color || '#3b82f6'
+          };
+          saveUser();
+        }
+      } catch (e) { console.warn('profile load:', e); }
+      renderProfile();
+      return;
+    }
+
+    // Всем остальным — ОБЯЗАТЕЛЬНАЯ регистрация.
+    // openAuth('register') сразу откроет форму (правка в openAuth ниже).
+    setTimeout(() => openAuth('register'), 400);
+  }
+  console.log('[debug] 1. Скрипт дошел до вызова bootAuth');
+  bootAuth();
+
+  // ============================================================
+  //  ОДНОРАЗОВАЯ УБОРКА ПРИЗРАКОВ
+  // ============================================================
+  const GHOST_CLEANUP_KEY = 'doro.ghostCleanupDone.v1';
+
+  async function checkAndShowGhostCleanup() {
+    // Показываем только один раз в жизни браузера
+    if (localStorage.getItem(GHOST_CLEANUP_KEY) === '1') return;
+
+    // Нужен Firebase
+    if (!window.doroCloudReady) return;
+    const cloud = await window.doroCloudReady;
+    if (!cloud) return;
+
+    // Нужен зарегистрированный пользователь (не аноним)
+    if (cloud.isAnonymous) return;
+
+    // Только владельцу (тот, у кого есть имя и группа в localStorage)
+    if (!user || !user.name || !user.group) return;
+
+    // Тянем всех и ищем дубликаты
+    let all = [];
+    try { all = await cloud.listAllUsers(500); }
+    catch (e) { console.warn('ghost cleanup: listAllUsers failed', e); return; }
+
+    const norm = (s) => (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const myUid = cloud.uid;
+    const myKey = norm(user.name) + '::' + (user.group || '').trim().toUpperCase();
+
+    // Ищем ТОЛЬКО свои дубликаты — те, у кого name::group совпадает с моим
+    const myCopies = all.filter(u => {
+      const nameKey = norm(u.name);
+      if (!nameKey) return false;
+      const key = nameKey + '::' + (u.group || '').trim().toUpperCase();
+      return key === myKey;
+    });
+
+    // Призраки = мои копии, кроме одного самого свежего (или меня самого)
+    const toDelete = [];
+    if (myCopies.length > 1) {
+      // Ищем ТОЛЬКО текущий uid, остальные — на удаление
+      const winner = myCopies.find(u => u.id === myUid);
+      // Если текущего uid почему-то нет в списке (баг кэша), берем самый свежий
+      const finalWinner = winner || myCopies.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+      
+      myCopies.forEach(u => {
+        if (u.id !== finalWinner.id) toDelete.push(u.id);
+      });
+    }
+
+    // Сколько останется ВСЕГО профилей в базе после уборки
+    const keepCount = all.length - toDelete.length;
+
+    if (!toDelete.length) {
+      // Дубликатов нет — ставим флаг, чтобы больше не проверять
+      localStorage.setItem(GHOST_CLEANUP_KEY, '1');
+      return;
+    }
+
+    // --- Показываем модалку ---
+    const modal = $('ghostCleanup');
+    if (!modal) return;
+
+    const countEl = $('ghostCount');
+    const keepEl = $('ghostKeepCount');
+    if (countEl) countEl.textContent = String(toDelete.length);
+    if (keepEl) keepEl.textContent = String(keepCount);
+
+    const panels = modal.querySelectorAll('.ghost-cleanup__panel');
+    const showStep = (name) => panels.forEach(p => p.classList.toggle('is-active', p.dataset.ghostStep === name));
+
+    showStep('offer');
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    const cleanBtn = $('ghostClean');
+    const doneBtn = $('ghostDone');
+    const progressBar = $('ghostProgressBar');
+    const progressText = $('ghostProgressText');
+    const ghostVisual = $('ghostVisual');
+    const ghostIcon = $('ghostIcon');
+    const ghostStep = $('ghostStep');
+
+    function closeModal() {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      localStorage.setItem(GHOST_CLEANUP_KEY, '1');
+      
+      // сбросить кэш списка пользователей
+      try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
+      usersCache = null;
+      usersCacheTime = 0;
+
+      // Если панель "Пользователи" открыта — принудительно обновляем её
+      if (typeof activePanel !== 'undefined' && activePanel === 'users') {
+        renderProfileUsers(true);
+      } else {
+        // Иначе просто обновим цифру в шапке (если элемент есть)
+        if (profileUsersCount) {
+          const cloud = window.doroCloudReady; // не ждём, просто проверяем
+          if (cloud) {
+            // Тихонько обновляем в фоне
+            cloud.then(c => c.listAllUsers(500)).then(all => {
+              if (profileUsersCount) profileUsersCount.textContent = String(all.length);
+            }).catch(() => {});
+          }
+        }
+      }
+    }
+
+    // Кнопка «Закрыть» работает всегда, с момента открытия модалки
+    if (doneBtn) doneBtn.onclick = () => closeModal();
+
+    // --- Звук «пуф» через WebAudio ---
+    let audioCtx = null;
+    function playPoofSound() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        // Короткий низкий «пуф»
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.15);
+        
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.15);
+      } catch (e) { /* без звука */ }
+    }
+
+    // --- Частицы ---
+    function spawnParticles(element) {
+      const rect = element.getBoundingClientRect();
+      const parentRect = ghostVisual.getBoundingClientRect();
+      const x = rect.left - parentRect.left + rect.width / 2;
+      const y = rect.top - parentRect.top + rect.height / 2;
+      
+      const colors = ['#a78bfa', '#818cf8', '#c084fc', '#e879f9', '#f0abfc'];
+      for (let i = 0; i < 6; i++) {
+        const p = document.createElement('span');
+        p.className = 'ghost-particle';
+        p.style.left = x + 'px';
+        p.style.top = y + 'px';
+        p.style.background = colors[Math.floor(Math.random() * colors.length)];
+        
+        const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
+        const dist = 20 + Math.random() * 30;
+        p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+        p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+        
+        ghostVisual.appendChild(p);
+        setTimeout(() => p.remove(), 650);
+      }
+    }
+
+    if (cleanBtn) {
+      cleanBtn.onclick = async () => {
+        cleanBtn.disabled = true;
+        showStep('progress');
+        if (ghostStep) ghostStep.textContent = 'Уборка';
+
+        // Разбрасываем кружки-призраки для визуала
+        if (ghostVisual) {
+          ghostVisual.innerHTML = '';
+          const visible = Math.min(toDelete.length, 24);
+          for (let i = 0; i < visible; i++) {
+            const dot = document.createElement('span');
+            dot.className = 'ghost-dot';
+            ghostVisual.appendChild(dot);
+          }
+        }
+
+        const total = toDelete.length;
+        let done = 0;
+        if (progressText) progressText.textContent = `0 / ${total}`;
+
+        const box = modal.querySelector('.ghost-cleanup__box');
+
+        for (const id of toDelete) {
+          try {
+            if (cloud.deleteUserDoc) {
+              await cloud.deleteUserDoc(id);
+            } else {
+              await window.doroCloud.deleteUserDoc(id);
+            }
+            done++;
+          } catch (e) {
+            console.warn('ghost cleanup: не удалось удалить', id, e);
+          }
+
+          // Прогресс
+          if (progressBar) progressBar.style.width = Math.round((done / total) * 100) + '%';
+          if (progressText) progressText.textContent = `${done} / ${total}`;
+
+          // Каждая удалённая — «взрывается»
+          if (ghostVisual) {
+            const dots = ghostVisual.querySelectorAll('.ghost-dot:not(.is-poof)');
+            if (dots.length) {
+              const dot = dots[dots.length - 1];
+              spawnParticles(dot);
+              dot.classList.add('is-poof');
+              playPoofSound();
+              
+              // Тряска
+              if (box) {
+                box.classList.remove('is-shaking');
+                void box.offsetWidth;
+                box.classList.add('is-shaking');
+                setTimeout(() => box.classList.remove('is-shaking'), 200);
+              }
+            }
+          }
+          
+          // Небольшая пауза для анимации
+          await new Promise(r => setTimeout(r, Math.max(80, 800 / total)));
+        }
+
+        // Финальный «пуф» иконки
+        if (ghostIcon) ghostIcon.classList.add('is-poof');
+        await new Promise(r => setTimeout(r, 700));
+
+        showStep('done');
+        if (ghostStep) ghostStep.textContent = 'Готово';
+        
+        const doneText = $('ghostDoneText');
+        if (doneText) {
+          doneText.innerHTML = `Призраков развеялось: <b style="color:#16a34a;font-size:1.2em;">${done}</b>.<br>База стала чище и легче!`;
+        }
+
+      };
+    }
+    // Клик по фону НИЧЕГО не делает
+    const backdrop = modal.querySelector('.ghost-cleanup__backdrop');
+    if (backdrop) backdrop.onclick = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    };
+  }
+
+  // Запускаем проверку через 3 секунды после старта,
+  // чтобы не мешать онбордингу/входу
+  setTimeout(() => {
+    // Только если пользователь уже зарегистрирован (есть пароль)
+    if (localStorage.getItem('doro.hasPasswordAccount') === '1') {
+      checkAndShowGhostCleanup();
+    }
+  }, 3000);
+
   // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
   renderProfile();
   showView('home');
