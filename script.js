@@ -1657,17 +1657,48 @@ document.addEventListener('DOMContentLoaded', () => {
   const SECTION_AUTHOR_FIRSTNAMES = SECTION_AUTHORS
     .map(a => a.split(/\s+/)[0].toLowerCase());
 
+  // Явный список редакторов: «имя, как в Firebase» + «группа»
+  // Сюда добавляй тех, кто реально редактирует раздел.
+  const SECTION_AUTHOR_GROUPS = [
+    { name: 'Мария',    group: 'ЛД2511' }, // Мария Прокопьева — гистология
+    { name: 'Антон',    group: 'ЛД2511' }, // Кайгородов Антон — биохимия/физиология
+    { name: 'Сюзи',     group: 'ЛД2511' }, // Сюзи Петросян — микробиология
+    { name: 'Кайгородов', group: 'ЛД2511' },
+    { name: 'Прокопьева', group: 'ЛД2511' },
+    { name: 'Петросян',   group: 'ЛД2511' },
+  ];
+
   function normalizeUserName(name) {
     return (name || '').trim().replace(/\s+/g, ' ');
   }
 
-  // Редактор — только конкретный человек (имя + фамилия), а не любой тёзка.
-  // Группа не должна влиять: редактор один и тот же во всех группах.
-  function isSectionAuthor(name) {
+  // Редактор — если:
+  // 1) полное имя совпадает с subjects.author («Мария Прокопьева»), или
+  // 2) имя+группа есть в SECTION_AUTHOR_GROUPS («Мария» + «ЛД2511»),
+  // 3) или имя совпадает с первым словом автора и группа совпадает.
+  function isSectionAuthor(name, group) {
     const n = normalizeUserName(name).toLowerCase();
     if (!n) return false;
-    // Строгое совпадение по полному «Имя Фамилия» (как в subjects.author)
-    return SECTION_AUTHORS.some(a => a.toLowerCase() === n);
+
+    // 1. Полное совпадение с автором раздела
+    if (SECTION_AUTHORS.some(a => a.toLowerCase() === n)) return true;
+
+    const g = (group || '').trim().toUpperCase();
+
+    // 2. Явный список «имя + группа»
+    if (g && SECTION_AUTHOR_GROUPS.some(a =>
+      a.name.toLowerCase() === n && a.group.toUpperCase() === g
+    )) return true;
+
+    // 3. Первое слово автора + группа
+    if (g && SECTION_AUTHOR_FIRSTNAMES.includes(n)) {
+      // Проверяем, что этот автор «привязан» к группе g через SECTION_AUTHOR_GROUPS
+      return SECTION_AUTHOR_GROUPS.some(a =>
+        a.group.toUpperCase() === g && a.name.toLowerCase() === n
+      );
+    }
+
+    return false;
   }
 
   function userKey(u) {
@@ -1709,7 +1740,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isMe = !!(user && user.name
       && user.name.toLowerCase() === u.name.toLowerCase()
       && ((user.group || '').toLowerCase() === (u.group || '').toLowerCase()));
-    const isAuthor = honorAuthor && isSectionAuthor(u.name);
+    const isAuthor = honorAuthor && isSectionAuthor(u.name, u.group);
 
     const row = document.createElement('div');
     row.className = 'user-chip'
@@ -1959,7 +1990,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // 6. «Редактор» — если в группе есть автор раздела (со значком)
-      const hasAuthor = list.some(u => isSectionAuthor(u.name));
+      const hasAuthor = list.some(u => isSectionAuthor(u.name, u.group));
       if (hasAuthor) {
         const t = document.createElement('span');
         t.className = 'group-tag group-tag--author';
@@ -1983,8 +2014,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       list
         .sort((a, b) => {
-          const aAuth = isSectionAuthor(a.name) ? 0 : 1;
-          const bAuth = isSectionAuthor(b.name) ? 0 : 1;
+          const aAuth = isSectionAuthor(a.name, a.group) ? 0 : 1;
+          const bAuth = isSectionAuthor(b.name, b.group) ? 0 : 1;
           if (aAuth !== bAuth) return aAuth - bAuth;
           return a.name.localeCompare(b.name, 'ru');
         })
@@ -1992,7 +2023,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const isMe = !!(user && user.name
             && user.name.toLowerCase() === u.name.toLowerCase()
             && ((user.group || '').toLowerCase() === (u.group || '').toLowerCase()));
-          const isAuthor = isSectionAuthor(u.name);
+          const isAuthor = isSectionAuthor(u.name, u.group);
           const initial = u.name ? u.name[0].toUpperCase() : '?';
           const color = u.color || '#3b82f6';
 
