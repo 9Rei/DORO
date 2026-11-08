@@ -1661,15 +1661,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return (name || '').trim().replace(/\s+/g, ' ');
   }
 
+  // Редактор — только конкретный человек (имя + фамилия), а не любой тёзка.
+  // Группа не должна влиять: редактор один и тот же во всех группах.
   function isSectionAuthor(name) {
     const n = normalizeUserName(name).toLowerCase();
     if (!n) return false;
-    if (SECTION_AUTHORS.some(a => a.toLowerCase() === n)) return true;
-    if (SECTION_AUTHOR_FIRSTNAMES.includes(n)) return true;
-    return SECTION_AUTHORS.some(a => {
-      const parts = a.toLowerCase().split(/\s+/);
-      return parts.some(p => p.length > 2 && n.includes(p));
-    });
+    // Строгое совпадение по полному «Имя Фамилия» (как в subjects.author)
+    return SECTION_AUTHORS.some(a => a.toLowerCase() === n);
   }
 
   function userKey(u) {
