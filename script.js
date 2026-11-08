@@ -247,10 +247,18 @@ function isFirstWeek(date) {
 function getDaySchedule(dayKey, date) {
   const sch = currentSchedule();
   const base = (sch[dayKey] || []).slice();
+  const first = isFirstWeek(date);
+
   const firstWeekOnly = sch._firstWeekOnly || {};
-  if (isFirstWeek(date) && Array.isArray(firstWeekOnly[dayKey])) {
+  if (first && Array.isArray(firstWeekOnly[dayKey])) {
     base.push(...firstWeekOnly[dayKey]);
   }
+
+  const secondWeekOnly = sch._secondWeekOnly || {};
+  if (!first && Array.isArray(secondWeekOnly[dayKey])) {
+    base.push(...secondWeekOnly[dayKey]);
+  }
+
   return base;
 }
 // ============================================================
@@ -1470,8 +1478,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const letters = normalizeGroupLetters(lettersInp.value);
       const year = yearSel.value;
       const num = numSel.value;
+      const groupStr = (letters && year && num) ? formatGroup({ letters, year, num }) : '';
+      
       lettersInp.value = letters;
-      user.group = (letters && year && num) ? formatGroup({ letters, year, num }) : '';
+      
+      // Проверка: если группа меняется на закрытую
+      if (groupStr && groupStr !== user.group && isGroupFull(groupStr)) {
+        alert(`Группа ${groupStr} закрыта для новых участников (полная группа).`);
+        if (typeof window.__refreshGroupFields === 'function') window.__refreshGroupFields();
+        return;
+      }
+
+      user.group = groupStr;
       saveUser();
       renderProfile();
       if (typeof window.__refreshSchedule === 'function') window.__refreshSchedule();
@@ -1790,98 +1808,297 @@ document.addEventListener('DOMContentLoaded', () => {
       usersFetching = false;
     }
   }
+  // ---------- СПИСОК ЗАКРЫТЫХ ГРУПП ----------
+  // Просто напиши сюда нужные группы в кавычках (БОЛЬШИМИ БУКВАМИ, без пробелов)
+  const CLOSED_GROUPS = [
+    "ЛД2511",
+  ];
+
+  function isGroupFull(group) {
+    if (!group) return false;
+    return CLOSED_GROUPS.includes(group.trim().toUpperCase());
+  }
 
   // Отдельная функция отрисовки (без запроса)
   function paintUsersList(allUsers) {
     const merged = mergeUsers(allUsers);
 
-    merged.sort((a, b) => {
-      const aAuth = isSectionAuthor(a.name) ? 0 : 1;
-      const bAuth = isSectionAuthor(b.name) ? 0 : 1;
-      if (aAuth !== bAuth) return aAuth - bAuth;
-      return a.name.localeCompare(b.name, 'ru');
-    });
-
     if (!merged.length) {
       profileUsersBody.innerHTML = '<div class="profile-users__empty">Пока никого нет.</div>';
-      // Число в шапке уже выставлено через countUsers() — не трогаем
       return;
     }
 
-    // Число в шапке уже выставлено через countUsers() — не перезаписываем длиной списка
-
-    const authors = merged.filter(u => isSectionAuthor(u.name));
+    // Группируем по группам
     const groups = new Map();
     merged.forEach(u => {
       const g = u.group || '';
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g).push(u);
     });
+    // Сортировка групп: сначала по количеству человек (по убыванию),
+    // при равенстве — по алфавиту. «Без группы» — всегда в конце.
     const sortedGroups = [...groups.keys()].sort((a, b) => {
       if (!a && b) return 1;
       if (a && !b) return -1;
+      const diff = groups.get(b).length - groups.get(a).length;
+      if (diff !== 0) return diff;
       return a.localeCompare(b, 'ru');
     });
 
+    const myGroup = (user && user.group) ? user.group.trim().toUpperCase() : '';
+
     profileUsersBody.innerHTML = '';
 
-    if (authors.length) {
-      const block = document.createElement('div');
-      block.className = 'users-block users-block--authors';
-      block.innerHTML = '<div class="users-block__title">Редакторы разделов</div><div class="users-block__list"></div>';
-      const listEl = block.querySelector('.users-block__list');
-      authors
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
-        .forEach(u => listEl.appendChild(paintUserRow(u, { honorAuthor: true })));
-      profileUsersBody.appendChild(block);
-    }
+    const sortNote = document.createElement('div');
+    sortNote.className = 'users-sort-note';
+    sortNote.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <polyline points="19 12 12 19 5 12"></polyline>
+      </svg>
+      <span>Сортировка по количеству человек в группе — от больших к меньшим</span>
+    `;
+    profileUsersBody.appendChild(sortNote);
+
+    const grid = document.createElement('div');
+    grid.className = 'users-cards-grid';
 
     sortedGroups.forEach(g => {
       const list = groups.get(g);
       if (!list.length) return;
-      const block = document.createElement('div');
-      block.className = 'users-block';
-      const title = g ? `Группа ${escapeHtml(g)}` : 'Без группы';
 
-      // Кнопка «расписание» — только если для группы есть SCHEDULES
+      const groupFull = isGroupFull(g);
       const hasSchedule = g && window.SCHEDULES && window.SCHEDULES[g.toUpperCase()];
-      const scheduleBtn = hasSchedule
-        ? `<button type="button" class="users-block__schedule" data-group="${escapeHtml(g)}" title="Открыть расписание группы ${escapeHtml(g)}">
-             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-               <line x1="16" y1="2" x2="16" y2="6"></line>
-               <line x1="8" y1="2" x2="8" y2="6"></line>
-               <line x1="3" y1="10" x2="21" y2="10"></line>
-             </svg>
-             расписание
-           </button>`
-        : '';
+      const isMyGroup = !!myGroup && g.trim().toUpperCase() === myGroup;
 
-      block.innerHTML = `<div class="users-block__title">${title} <span class="users-block__count">${list.length}</span>${scheduleBtn}</div><div class="users-block__list"></div>`;
-      const listEl = block.querySelector('.users-block__list');
-      list
-        .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
-        .forEach(u => listEl.appendChild(paintUserRow(u, { honorAuthor: false })));
+      const card = document.createElement('div');
+      card.className = 'users-group-card'
+        + (groupFull ? ' users-group-card--full' : '')
+        + (isMyGroup ? ' users-group-card--mine' : '');
 
-      // Клик по кнопке «расписание»
-      const btn = block.querySelector('.users-block__schedule');
-      if (btn) {
-        btn.addEventListener('click', (e) => {
+      // Шапка карточки — название группы
+      const header = document.createElement('div');
+      header.className = 'users-group-card__head';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'users-group-card__name';
+      nameEl.textContent = g || 'Без группы';
+      header.appendChild(nameEl);
+
+      // Количество человек — в том же ряду, справа от названия
+      if (g) {
+        const cnt = list.length;
+        const m10 = cnt % 10, m100 = cnt % 100;
+        let pWord = 'человек';
+        if (m10 === 1 && m100 !== 11) pWord = 'человек';
+        else if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) pWord = 'человека';
+        const countEl = document.createElement('span');
+        countEl.className = 'users-group-card__count';
+        countEl.textContent = `${cnt} ${pWord}`;
+        header.appendChild(countEl);
+      }
+
+      card.appendChild(header);
+
+      // ----- Система тегов под названием группы -----
+      const tagsBar = document.createElement('div');
+      tagsBar.className = 'users-group-card__badges';
+
+      // 1. Полная группа
+      if (groupFull) {
+        const t = document.createElement('span');
+        t.className = 'group-tag group-tag--full';
+        t.textContent = 'полная';
+        tagsBar.appendChild(t);
+      }
+      // 2. Количество человек — теперь в шапке рядом с названием (см. выше)
+
+      // 3. «Самая большая» — если группа первая в отсортированном списке
+      if (sortedGroups[0] === g && groups.get(g).length > 1) {
+        const t = document.createElement('span');
+        t.className = 'group-tag group-tag--top';
+        t.innerHTML = `
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <path d="M12 2l2.9 6.9L22 9.3l-5.5 4.8L18.2 22 12 18.3 5.8 22l1.7-7.9L2 9.3l7.1-.4L12 2z"/>
+          </svg>
+          <span>самая большая</span>
+        `;
+        tagsBar.appendChild(t);
+      }
+
+      // 4. «Ваша группа»
+      if (isMyGroup) {
+        const t = document.createElement('span');
+        t.className = 'group-tag group-tag--mine';
+        t.textContent = 'ваша группа';
+        tagsBar.appendChild(t);
+      }
+
+      // 5. «Своё расписание» — кликабельный тег
+      if (hasSchedule) {
+        const t = document.createElement('button');
+        t.type = 'button';
+        t.className = 'group-tag group-tag--schedule';
+        t.innerHTML = `
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <span>своё расписание</span>
+        `;
+        t.title = 'Открыть расписание группы ' + g;
+        t.addEventListener('click', (e) => {
           e.stopPropagation();
-          const group = btn.dataset.group;
-          if (!group) return;
-          setViewAsGroup(group);
-          setActivePanel(null);   // закрыть панель «Пользователи»
+          setViewAsGroup(g);
+          setActivePanel(null);
           showView('home');
           updateViewAsBanner();
           window.__refreshSchedule();
         });
+        tagsBar.appendChild(t);
       }
 
-      profileUsersBody.appendChild(block);
+      // 6. «Редактор» — если в группе есть автор раздела (со значком)
+      const hasAuthor = list.some(u => isSectionAuthor(u.name));
+      if (hasAuthor) {
+        const t = document.createElement('span');
+        t.className = 'group-tag group-tag--author';
+        t.innerHTML = `
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+          <span>есть редактор</span>
+        `;
+        tagsBar.appendChild(t);
+      }
+
+      if (tagsBar.children.length) {
+        card.appendChild(tagsBar);
+      }
+
+      // Тэги пользователей
+      const tagsWrap = document.createElement('div');
+      tagsWrap.className = 'users-group-card__tags';
+
+      list
+        .sort((a, b) => {
+          const aAuth = isSectionAuthor(a.name) ? 0 : 1;
+          const bAuth = isSectionAuthor(b.name) ? 0 : 1;
+          if (aAuth !== bAuth) return aAuth - bAuth;
+          return a.name.localeCompare(b.name, 'ru');
+        })
+        .forEach(u => {
+          const isMe = !!(user && user.name
+            && user.name.toLowerCase() === u.name.toLowerCase()
+            && ((user.group || '').toLowerCase() === (u.group || '').toLowerCase()));
+          const isAuthor = isSectionAuthor(u.name);
+          const initial = u.name ? u.name[0].toUpperCase() : '?';
+          const color = u.color || '#3b82f6';
+
+          const tag = document.createElement('span');
+          tag.className = 'users-group-card__tag'
+            + (isMe ? ' users-group-card__tag--me' : '')
+            + (isAuthor ? ' users-group-card__tag--author' : '');
+          tag.title = [u.name, u.status || ''].filter(Boolean).join(' · ');
+
+          const badges = [];
+          if (isAuthor) badges.push('<span class="users-group-card__badge users-group-card__badge--author">ред.</span>');
+          if (isMe) badges.push('<span class="users-group-card__badge users-group-card__badge--me">вы</span>');
+
+          tag.innerHTML = `
+            <span class="users-group-card__avatar" style="background:linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 55%, #fff))">${initial}</span>
+            <span class="users-group-card__tag-name">${escapeHtml(u.name)}</span>
+            ${badges.join('')}
+          `;
+          tagsWrap.appendChild(tag);
+        });
+
+      card.appendChild(tagsWrap);
+      grid.appendChild(card);
     });
+
+    profileUsersBody.appendChild(grid);
+    layoutUsersMasonry(grid);
   }
+
+  // ============================================================
+  //  MASONRY ПО ВЫСОТЕ: раскладываем карточки в колонки
+  //  по наименьшей текущей высоте — без рядов, плотно, по размеру.
+  // ============================================================
+  function layoutUsersMasonry(grid) {
+    if (!grid) return;
+    const cards = Array.from(grid.children);
+    if (!cards.length) return;
+
+    // Сбрасываем предыдущую раскладку
+    grid.style.position = 'relative';
+    cards.forEach(c => {
+      c.style.position = '';
+      c.style.left = '';
+      c.style.top = '';
+      c.style.width = '';
+    });
+
+    const containerWidth = grid.clientWidth;
+    if (containerWidth <= 0) return;
+
+    // Определяем колонки: на ПК — 3, планшет — 2, телефон — 1
+    const isMobile = window.matchMedia('(max-width: 640px)').matches;
+    const isTablet = window.matchMedia('(max-width: 860px)').matches;
+    let columns = 3;
+    if (isMobile) columns = 1;
+    else if (isTablet) columns = 2;
+
+    // Ширина колонки и отступ (совпадает с gap)
+    const gap = isMobile ? 8 : (isTablet ? 10 : 12);
+    const colWidth = (containerWidth - gap * (columns - 1)) / columns;
+
+    // Ставим всем карточкам одинаковую ширину, чтобы masonry был ровным
+    cards.forEach(c => { c.style.width = colWidth + 'px'; });
+
+    // Массив текущих высот колонок
+    const colHeights = new Array(columns).fill(0);
+
+    // Для каждой карточки: меряем высоту, ставим в самую низкую колонку
+    cards.forEach(card => {
+      // временно: absolute, чтобы измерить натуральную высоту
+      card.style.position = 'absolute';
+      card.style.width = colWidth + 'px';
+      const h = card.offsetHeight;
+
+      // находим самую низкую колонку
+      let minIdx = 0;
+      for (let i = 1; i < columns; i++) {
+        if (colHeights[i] < colHeights[minIdx]) minIdx = i;
+      }
+
+      const x = minIdx * (colWidth + gap);
+      const y = colHeights[minIdx];
+
+      card.style.left = x + 'px';
+      card.style.top = y + 'px';
+
+      colHeights[minIdx] = y + h + gap;
+    });
+
+    // Высота контейнера — максимальная колонка
+    const maxH = Math.max(...colHeights) - gap;
+    grid.style.height = Math.max(0, maxH) + 'px';
+    grid.style.display = 'block';
+  }
+
+  // Пересчитываем masonry при ресайзе
+  let _masonryResizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(_masonryResizeTimer);
+    _masonryResizeTimer = setTimeout(() => {
+      const grid = document.querySelector('.users-cards-grid');
+      if (grid && grid.children.length) layoutUsersMasonry(grid);
+    }, 150);
+  });
 
   // ---------- Управление плитками и панелями ----------
   const tileUsers = $('tileUsers');
@@ -3988,9 +4205,15 @@ function buildTabSections(raw, tabConfig, topic) {
         }
         const year = yearSel ? yearSel.value : '';
         const num = numSel ? numSel.value : '';
+        const groupStr = formatGroup({ letters, year, num });
         
-        // Собираем группу
-        draft.group = formatGroup({ letters, year, num });
+        // Проверка: закрыта ли группа
+        if (isGroupFull(groupStr)) {
+          alert(`Группа ${groupStr} закрыта для новых участников (полная группа). Выберите другую группу.`);
+          return;
+        }
+
+        draft.group = groupStr;
         
         // Сохраняем в черновик и переходим к шагу 3
         goTo(3);
