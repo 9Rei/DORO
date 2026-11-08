@@ -131,7 +131,7 @@ const subjects = {
     author: "Мария Прокопьева",
     tabs: ["theory", "preparations"],
     topics: [
-      { num: "28", title: "Коллоквиум по разделу: Органы пищеварительной системы, органы дыхания, кожа и ее производные. Диагностика препаратов.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_28.md", pdf: "content/histology/27П.pdf" },
+      { num: "28", title: "Коллоквиум по разделу: Органы пищеварительной системы, органы дыхания, кожа и ее производные. Диагностика препаратов.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_28.md", pdf: "content/histology/Появятся чуть позже" },
       { num: "27", title: "Морфологическая характеристика кожи и ее производных. Морфологическая характеристика органов дыхания", steps: ["Прочитать файлик","Тема разделена на 2 части", "В конце темы краткий вариант", "Решить тест"], date: "2026-11-02", file: "content/histology/ГИСТА_27.md", pdf: "content/histology/27П.pdf" },
       { num: "26", title: "Пищеварительная система. Морфологическая характеристика печени и поджелудочной железы", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-27", file: "content/histology/ГИСТА_26.md", pdf: "content/histology/26П.pdf" },
       { num: "25", title: "Пищеварительная система. Морфологическая характеристика кишечника", steps: ["Прочитать файлик (в нем препараты)", "Решить тест"], date: "2026-10-20", file: "content/histology/ГИСТА_25.md", pdf: "content/histology/25П.pdf" },
@@ -205,101 +205,79 @@ function parseGroup(str) {
   if (m2) return { letters: m2[1], year: m2[2], num: m2[3] };
   return { letters: s.replace(/\d/g, ""), year: "", num: "" };
 }
+// ============================================================
+//  РАСПИСАНИЕ ПО ГРУППЕ
+// ============================================================
+function getScheduleForGroup(group) {
+  const cfg = window.SCHEDULE_CONFIG || {};
+  const all = window.SCHEDULES || {};
+  const key = (group || "").trim().toUpperCase();
+  if (key && all[key]) return all[key];
+  if (cfg.fallbackGroup && all[cfg.fallbackGroup]) return all[cfg.fallbackGroup];
+  return {};
+}
 
-const schedule = {
-  "ПН": [
-    { time: "8:00–10:25", title: "Микробио", subjectKey: "microbio", room: "239 каб.", teacher: "Бжитских Екатерина Евгеньевна" },
-    { time: "10:40–13:05", title: "Биохимия", subjectKey: "biochem", room: "305 каб.", teacher: "Волобой Нина Леонидовна" }
-  ],
-  "ВТ": [
-    { time: "8:00–9:30", title: "ОМиПК", subjectKey: "omipk", subgroups: [{ label: "А", room: "48 каб.", teacher: "Старчикова М.В." }, { label: "Б", room: "43 каб.", teacher: "Кленова А.Ф." }] },
-    { time: "9:40–11:10", title: "Биоэтика", subjectKey: "bioethics", subgroups: [{ label: "А", room: "53 каб.", teacher: "Кочетова Ю.Ю." }, { label: "Б", room: "55 каб.", teacher: "Вольферц М.В." }] }
-  ],
-  "СР": [
-    { time: "8:00–10:25", title: "БЖД", subjectKey: "hygiene", room: "220 каб.", teacher: "Асманова Мария Андреевна" },
-    { time: "10:40–13:05", title: "Гигиена", subjectKey: "hygiene", room: "133 каб.", teacher: "Ушаков Александр Анатольевич" }
-  ],
-  "ЧТ": [
-    { time: "8:00–10:25", title: "Норм физа", subjectKey: "physio", room: "409 каб.", teacher: "Шахматов Игорь Ильич" }
-  ],
-  "ПТ": [
-    { time: "10:30–12:00", title: "Физра", subjectKey: "physio", room: "4 каб.", teacher: "Воронцов Павел Геннадьевич" },
-    { time: "13:30–15:55", title: "Гиста", subjectKey: "histology", room: "433 каб.", teacher: "Грибанова Ольга Геннадьевна" }
-  ]
-};
+// Временный просмотр чужой группы (не меняет профиль)
+let _viewAsGroup = null;
+function setViewAsGroup(group) { _viewAsGroup = (group || '').trim().toUpperCase() || null; }
+function getViewAsGroup() { return _viewAsGroup; }
 
-// История — только на первой неделе (чётность от 29.10.2026)
-// 29.10.2026 — четверг, это «первая» неделя.
-const WEEK_ANCHOR = new Date(2026, 9, 29); // 29 октября 2026
+function getEffectiveGroup() {
+  if (_viewAsGroup) return _viewAsGroup;
+  try {
+    const u = JSON.parse(localStorage.getItem('doro.user') || 'null');
+    return (u && u.group) || '';
+  } catch (e) { return ''; }
+}
+
+function currentSchedule() {
+  return getScheduleForGroup(getEffectiveGroup());
+}
 function isFirstWeek(date) {
-  const d = new Date(date); d.setHours(0,0,0,0);
-  const anchor = new Date(WEEK_ANCHOR); anchor.setHours(0,0,0,0);
-  const diffDays = Math.floor((d - anchor) / 86400000);
+  const cfg = window.SCHEDULE_CONFIG || {};
+  const anchorStr = cfg.weekAnchor || "2026-10-29";
+  const [y, m, d] = anchorStr.split("-").map(Number);
+  const anchor = new Date(y, m - 1, d);
+  anchor.setHours(0,0,0,0);
+  const target = new Date(date); target.setHours(0,0,0,0);
+  const diffDays = Math.floor((target - anchor) / 86400000);
   const weeks = Math.floor(diffDays / 7);
-  return ((weeks % 2) + 2) % 2 === 0; // чётные недели от якоря — «первая»
+  return ((weeks % 2) + 2) % 2 === 0;
 }
 function getDaySchedule(dayKey, date) {
-  const base = (schedule[dayKey] || []).slice();
-  // История (истмед) — только на первой неделе
-  if (dayKey === 'ЧТ' && isFirstWeek(date)) {
-    base.push({ time: "10:35–12:05", title: "Истмед", room: "326 каб.", teacher: "Кулипанова Наталья Викторовна" });
+  const sch = currentSchedule();
+  const base = (sch[dayKey] || []).slice();
+  const firstWeekOnly = sch._firstWeekOnly || {};
+  if (isFirstWeek(date) && Array.isArray(firstWeekOnly[dayKey])) {
+    base.push(...firstWeekOnly[dayKey]);
   }
   return base;
 }
-
 // ============================================================
-//  ЛЕКЦИИ
+//  ЛЕКЦИИ ПО ГРУППЕ
 // ============================================================
 var LECTURE_YEAR = 2026;
-var lectureDates = {
-  "Биохимия": [
-    { d: "01.09", t: "13:00" }, { d: "22.09", t: "13:00" }, { d: "13.10", t: "13:00" },
-    { d: "03.11", t: "13:00" }, { d: "17.11", t: "13:00" }, { d: "01.12", t: "13:00" },
-    { d: "15.12", t: "13:00" }, { d: "22.12", t: "13:00" }
-  ],
-  "Микра": [
-    { d: "08.09", t: "13:00" }, { d: "29.09", t: "13:00" },
-    { d: "20.10", t: "13:00" }, { d: "10.11", t: "13:00" }
-  ],
-  "Биоэтика": [
-    { d: "15.09", t: "13:00" }, { d: "06.10", t: "13:00" }, { d: "27.10", t: "13:00" }
-  ],
-  "Гигиена": [
-    { d: "01.09", t: "14:40" }, { d: "22.09", t: "14:40" }, { d: "13.10", t: "14:40" },
-    { d: "27.10", t: "14:40" }, { d: "10.11", t: "14:40" }, { d: "24.11", t: "14:40" },
-    { d: "08.12", t: "14:40" }, { d: "22.12", t: "14:40" }
-  ],
-  "БЖД": [
-    { d: "08.09", t: "14:40" }, { d: "29.09", t: "14:40" }, { d: "20.10", t: "14:40" },
-    { d: "03.11", t: "14:40" }, { d: "17.11", t: "14:40" }, { d: "01.12", t: "14:40" },
-    { d: "15.12", t: "14:40" }
-  ],
-  "Истмед": [
-    { d: "12.09", t: "09:40" }, { d: "15.09", t: "09:40" }, { d: "26.09", t: "09:40" },
-    { d: "06.10", t: "09:40" }, { d: "10.10", t: "09:40" }, { d: "24.10", t: "09:40" },
-    { d: "07.11", t: "09:40" }, { d: "21.11", t: "09:40" }, { d: "29.12", t: "09:40" }
-  ],
-  "Н. физ": [
-    { d: "02.09", t: "14:40" }, { d: "16.09", t: "14:40" }, { d: "30.09", t: "14:40" },
-    { d: "14.10", t: "14:40" }, { d: "28.10", t: "14:40" }, { d: "18.11", t: "14:40" },
-    { d: "02.12", t: "14:40" }, { d: "16.12", t: "14:40" }, { d: "30.12", t: "14:40" }
-  ],
-  "Гиста": [
-    { d: "09.09", t: "14:40" }, { d: "07.10", t: "14:40" }, { d: "11.11", t: "14:40" },
-    { d: "09.12", t: "14:40" }, { d: "13.01", t: "14:40" }
-  ],
-  "ОМиПК": [
-    { d: "23.09", t: "14:40" }, { d: "21.10", t: "14:40" },
-    { d: "25.11", t: "14:40" }, { d: "23.12", t: "14:40" }
-  ]
-};
+
+function getLecturesForGroup(group) {
+  const cfg = window.SCHEDULE_CONFIG || {};
+  const all = window.LECTURES || {};
+  const key = (group || "").trim().toUpperCase();
+  if (key && all[key]) return all[key];
+  if (cfg.fallbackGroup && all[cfg.fallbackGroup]) return all[cfg.fallbackGroup];
+  return {};
+}
+
+function currentLectures() {
+  return getLecturesForGroup(getEffectiveGroup());
+}
 
 function getUpcomingLectures(daysAhead) {
   var today = new Date(); today.setHours(0, 0, 0, 0);
   var limit = new Date(today); limit.setDate(limit.getDate() + daysAhead);
   var list = [];
-  Object.keys(lectureDates).forEach(function (subject) {
-    lectureDates[subject].forEach(function (item) {
+  var lectures = currentLectures();
+  Object.keys(lectures).forEach(function (subject) {
+    lectures[subject].forEach(function (item) {
       var parts = item.d.split(".");
       if (parts.length !== 2) return;
       var d = new Date(LECTURE_YEAR, parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
@@ -311,17 +289,14 @@ function getUpcomingLectures(daysAhead) {
   return list;
 }
 
-// ============================================================
-//  ВСПОМОГАТЕЛЬНЫЕ
-// ============================================================
 function findNextLessonDate(subjectKey, fromDate) {
-  const dayMap = { 1: schedule["ПН"] || [], 2: schedule["ВТ"] || [], 3: schedule["СР"] || [], 4: schedule["ЧТ"] || [], 5: schedule["ПТ"] || [] };
+  const DOW_KEYS = ['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'];
   const start = new Date(fromDate); start.setHours(0, 0, 0, 0);
   for (let i = 0; i < 60; i++) {
     const d = new Date(start); d.setDate(d.getDate() + i);
     const dow = d.getDay();
     if (dow === 0 || dow === 6) continue;
-    const lessons = getDaySchedule(['ВС','ПН','ВТ','СР','ЧТ','ПТ','СБ'][dow], d);
+    const lessons = getDaySchedule(DOW_KEYS[dow], d);
     if (!lessons.some(l => l.subjectKey === subjectKey)) continue;
     return d;
   }
@@ -1123,6 +1098,12 @@ document.addEventListener('DOMContentLoaded', () => {
     user.group = user.group || '';
     user.status = user.status || '';
   }
+
+  // Единая точка сохранения пользователя
+  function saveUser() {
+    if (!user || typeof user !== 'object') return;
+    localStorage.setItem('doro.user', JSON.stringify(user));
+  }
   const AVATAR_COLORS = ['#3b82f6','#16a34a','#ea580c','#9333ea','#0891b2','#e11d48','#ca8a04','#475569'];
 
   // ---------- ТЕМА ----------
@@ -1446,7 +1427,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!val) return;
       user = user || {};
       user.name = val;
-      localStorage.setItem('doro.user', JSON.stringify(user));
+      saveUser();
       nameInput.value = val;
       renderProfile();
       closeProfileSheet();
@@ -1491,8 +1472,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const num = numSel.value;
       lettersInp.value = letters;
       user.group = (letters && year && num) ? formatGroup({ letters, year, num }) : '';
-      localStorage.setItem('doro.user', JSON.stringify(user));
+      saveUser();
       renderProfile();
+      if (typeof window.__refreshSchedule === 'function') window.__refreshSchedule();
       syncProfileToCloud();
     }
 
@@ -1530,7 +1512,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (user && !user.status) {
       user.status = defaultStatus();
-      localStorage.setItem('doro.user', JSON.stringify(user));
+      saveUser();
       syncProfileToCloud();
     }
 
@@ -1556,7 +1538,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function selectValue(val) {
       if (!user) user = {};
       user.status = val || defaultStatus();
-      localStorage.setItem('doro.user', JSON.stringify(user));
+      saveUser();
       paintTrigger(); closeMenu(); renderProfile();
       syncProfileToCloud();
     }
@@ -1618,7 +1600,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', () => {
         if (!user) user = {};
         user.color = color;
-        localStorage.setItem('doro.user', JSON.stringify(user));
+        saveUser();
         palette.querySelectorAll('.profile-color__swatch').forEach(b => {
           b.setAttribute('aria-selected', b.dataset.color === color ? 'true' : 'false');
         });
@@ -1861,11 +1843,42 @@ document.addEventListener('DOMContentLoaded', () => {
       const block = document.createElement('div');
       block.className = 'users-block';
       const title = g ? `Группа ${escapeHtml(g)}` : 'Без группы';
-      block.innerHTML = `<div class="users-block__title">${title} <span class="users-block__count">${list.length}</span></div><div class="users-block__list"></div>`;
+
+      // Кнопка «расписание» — только если для группы есть SCHEDULES
+      const hasSchedule = g && window.SCHEDULES && window.SCHEDULES[g.toUpperCase()];
+      const scheduleBtn = hasSchedule
+        ? `<button type="button" class="users-block__schedule" data-group="${escapeHtml(g)}" title="Открыть расписание группы ${escapeHtml(g)}">
+             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+               <line x1="16" y1="2" x2="16" y2="6"></line>
+               <line x1="8" y1="2" x2="8" y2="6"></line>
+               <line x1="3" y1="10" x2="21" y2="10"></line>
+             </svg>
+             расписание
+           </button>`
+        : '';
+
+      block.innerHTML = `<div class="users-block__title">${title} <span class="users-block__count">${list.length}</span>${scheduleBtn}</div><div class="users-block__list"></div>`;
       const listEl = block.querySelector('.users-block__list');
       list
         .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
         .forEach(u => listEl.appendChild(paintUserRow(u, { honorAuthor: false })));
+
+      // Клик по кнопке «расписание»
+      const btn = block.querySelector('.users-block__schedule');
+      if (btn) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const group = btn.dataset.group;
+          if (!group) return;
+          setViewAsGroup(group);
+          setActivePanel(null);   // закрыть панель «Пользователи»
+          showView('home');
+          updateViewAsBanner();
+          window.__refreshSchedule();
+        });
+      }
+
       profileUsersBody.appendChild(block);
     });
   }
@@ -2160,6 +2173,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return { hasTopics, hasColloq };
   }
+
+  window.__refreshSchedule = function () {
+    renderCalendar();
+    if (rendered.home) updateTodayView();
+    if (rendered.tasks) renderTasks();
+    if (activePanel === 'lectures') renderLectureInfo();
+  };
+
+  // ---------- Просмотр чужого расписания ----------
+  function updateViewAsBanner() {
+    const banner = $('viewAsBanner');
+    const nameEl = $('viewAsGroupName');
+    const g = getViewAsGroup();
+    if (!banner) return;
+    if (g) {
+      if (nameEl) nameEl.textContent = g;
+      banner.hidden = false;
+    } else {
+      banner.hidden = true;
+      if (nameEl) nameEl.textContent = '—';
+    }
+  }
+
+  window.__exitViewAs = function () {
+    setViewAsGroup(null);
+    updateViewAsBanner();
+    window.__refreshSchedule();
+    // вернуть лекции к своей группе, если панель открыта
+    if (activePanel === 'lectures') renderLectureInfo();
+  };
+
+  const viewAsBackBtn = $('viewAsBackBtn');
+  if (viewAsBackBtn) {
+    viewAsBackBtn.addEventListener('click', () => window.__exitViewAs());
+  }
+
+  // При уходе с Главной — сбрасываем просмотр чужой группы
+  // (встроим в showView ниже — см. шаг 7)
 
   function renderCalendar() {
     if (!calendarEl) return;
@@ -2771,12 +2822,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------- VIEWS ----------
-function showView(name) {
+  function showView(name) {
     Object.values(views).forEach(v => { if (v) v.classList.remove('is-active'); });
     const v = views[name];
     if (!v) return;
     void v.offsetWidth;
     v.classList.add('is-active');
+
+    // При уходе с Главной — сбрасываем просмотр чужой группы
+    if (name !== 'home' && getViewAsGroup()) {
+      setViewAsGroup(null);
+      updateViewAsBanner();
+    }
 
     // Профиль: сброс и перезапуск анимации при каждом входе
     if (name === 'profile') {
@@ -2828,7 +2885,16 @@ function showView(name) {
   function renderLectureInfo() {
     if (!lectureInfo) return;
     var lectures = getUpcomingLectures(60).slice(0, 2);
-    if (!lectures.length) { lectureInfo.innerHTML = '<div class="pop-lecture__empty">Ближайших лекций нет</div>'; return; }
+    const groupLabel = (function () {
+      try {
+        const u = JSON.parse(localStorage.getItem('doro.user') || 'null');
+        return u && u.group ? u.group : '';
+      } catch (e) { return ''; }
+    })();
+    if (!lectures.length) {
+      lectureInfo.innerHTML = '<div class="pop-lecture__empty">Ближайших лекций нет' + (groupLabel ? ' для группы ' + escapeHtml(groupLabel) : '') + '</div>';
+      return;
+    }
     var today = new Date(); today.setHours(0, 0, 0, 0);
     var html = '<div class="pop-lecture__list">';
     lectures.forEach(function (lec) {
@@ -3948,7 +4014,7 @@ function buildTabSections(raw, tabConfig, topic) {
         user.group  = draft.group; // Теперь тут точно не пусто
         user.status = draft.status || USER_STATUSES[0];
         user.color  = draft.color;
-        localStorage.setItem('doro.user', JSON.stringify(user));
+        saveUser();
         localStorage.setItem(ONBOARD_DONE_KEY, '1');
 
         try {
@@ -3964,13 +4030,14 @@ function buildTabSections(raw, tabConfig, topic) {
 
         renderProfile();
         if (typeof paintThemeToggleBtn === 'function') paintThemeToggleBtn();
+        if (typeof window.__refreshSchedule === 'function') window.__refreshSchedule();
         showView('profile');
       });
     }
 
     const alreadyDone = localStorage.getItem(ONBOARD_DONE_KEY) === '1';
     if (!alreadyDone) {
-      if (user) { user.name = ''; localStorage.setItem('doro.user', JSON.stringify(user)); }
+      if (user) { user.name = ''; saveUser(); }
       setTimeout(() => {
         onboard.classList.add('is-open');
         onboard.setAttribute('aria-hidden', 'false');
@@ -4032,8 +4099,7 @@ function buildTabSections(raw, tabConfig, topic) {
 
       if (!user) user = {};
       user.group = formatGroup({ letters, year: yearSel.value, num: numSel.value });
-      
-      localStorage.setItem('doro.user', JSON.stringify(user));
+      saveUser();
       
       try {
         if (window.doroCloudReady) {
@@ -4047,6 +4113,7 @@ function buildTabSections(raw, tabConfig, topic) {
       document.body.classList.remove('onboard-open');
 
       renderProfile();
+      if (typeof window.__refreshSchedule === 'function') window.__refreshSchedule();
     });
 
     // Проверяем, нужно ли показать модалку
@@ -4065,4 +4132,5 @@ function buildTabSections(raw, tabConfig, topic) {
   // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
   renderProfile();
   showView('home');
+  updateViewAsBanner();
 });

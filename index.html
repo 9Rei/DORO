@@ -82,6 +82,14 @@
 
     <!-- VIEW: Главная -->
     <section class="view is-active" id="view-home">
+      <div class="view-as-banner" id="viewAsBanner" hidden>
+        <span class="view-as-banner__text">
+          Вы смотрите расписание группы <b id="viewAsGroupName">—</b>
+        </span>
+        <button type="button" class="view-as-banner__back" id="viewAsBackBtn">
+          Вернуться к своей
+        </button>
+      </div>
       <div class="greet">
         <h1 id="greetTitle">Привет!</h1>
         <p id="greetDate">Сегодня —</p>
@@ -600,6 +608,7 @@
 </div>
 
   <script type="module" src="firebase.js"></script>
+  <script src="schedules.js"></script> 
   <script src="script.js"></script>
   <script src="tour.js"></script>
 </body>
