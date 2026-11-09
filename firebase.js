@@ -119,21 +119,39 @@ function initCloud(user) {
       await signOut(auth);
     },
 
+    // Детерминированный ID: "имя__ГРУППА" в нижнем регистре.
+    // Один человек = один документ, независимо от количества uid.
+    _profileDocId(p) {
+      const norm = (s) => (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+      const name = norm(p && p.name);
+      const group = ((p && p.group) || '').trim().toUpperCase();
+      if (!name || !group) return null;
+      return `${name}__${group}`;
+    },
+
     async saveProfile(p) {
-      await setDoc(doc(db, 'users', user.uid), {
-        name: p.name || '', status: p.status || '', group: p.group || '',
-        color: p.color || '#3b82f6', updatedAt: serverTimestamp()
+      const id = window.doroCloud._profileDocId(p);
+      if (!id) { console.warn('saveProfile: нет имени или группы — пропускаю'); return; }
+      await setDoc(doc(db, 'users', id), {
+        uid: user.uid,                 // кто последний писал
+        name: p.name || '',
+        status: p.status || '',
+        group: (p.group || '').trim().toUpperCase(),
+        color: p.color || '#3b82f6',
+        updatedAt: serverTimestamp()
       }, { merge: true });
     },
 
-    async getMyProfile() {
+    async getMyProfile(profile) {
       const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-      const docRef = doc(db, 'users', user.uid);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        return { id: snap.id, ...snap.data() };
-      }
-      return null;
+      const p = profile || (() => {
+        try { return JSON.parse(localStorage.getItem('doro.user') || 'null'); }
+        catch (e) { return null; }
+      })();
+      const id = window.doroCloud._profileDocId(p);
+      if (!id) return null;
+      const snap = await getDoc(doc(db, 'users', id));
+      return snap.exists() ? { id: snap.id, ...snap.data() } : null;
     },
 
     async listAllUsers(pageSize = 500) {
@@ -164,57 +182,15 @@ function initCloud(user) {
     },
 
     async claimIdentity(profile) {
-      const norm = (s) => (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
-      const targetName = norm(profile.name);
-      const targetGroup = (profile.group || '').trim().toUpperCase();
-
-      await setDoc(doc(db, 'users', user.uid), {
-        name: profile.name || '',
-        status: profile.status || '',
-        group: profile.group || '',
-        color: profile.color || '#3b82f6',
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-
-      if (!targetName || !targetGroup) {
-        return { removed: 0, kept: user.uid };
-      }
-
-      let allUsers = [];
-      try { allUsers = await window.doroCloud.listAllUsers(500); }
-      catch (e) { console.warn('claimIdentity: listAllUsers failed', e); return { removed: 0, kept: user.uid }; }
-
-      const dupes = allUsers.filter(u =>
-        u.id !== user.uid &&
-        norm(u.name) === targetName &&
-        (u.group || '').trim().toUpperCase() === targetGroup
-      );
-
-      let restoredProfile = null;
-      if (dupes.length > 0) {
-        // Берем самый свежий для переноса статуса
-        dupes.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-        const best = dupes[0];
-        restoredProfile = {
-          status: best.status || profile.status,
-          color: best.color || profile.color,
-          group: best.group || profile.group
-        };
-        await setDoc(doc(db, 'users', user.uid), {
-          status: restoredProfile.status,
-          color: restoredProfile.color,
-          group: restoredProfile.group,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-      }
-
-      let removed = 0;
-      for (const d of dupes) {
-        try { await deleteDoc(doc(db, 'users', d.id)); removed++; }
-        catch (e) { console.warn('claimIdentity: не удалось удалить', d.id, e); }
-      }
-
-      return { removed, kept: user.uid, restored: restoredProfile };
+      // Дубликатов больше нет: ID документа детерминирован (name__group).
+      // Firestore физически не даст создать второй документ с тем же ID.
+      // Метод оставлен для совместимости со старым кодом (script.js его ещё вызывает).
+      await window.doroCloud.saveProfile(profile);
+      return {
+        removed: 0,
+        kept: window.doroCloud._profileDocId(profile),
+        restored: null
+      };
     },
     async deleteUserDoc(uid) {
       await deleteDoc(doc(db, 'users', uid));

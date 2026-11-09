@@ -131,7 +131,7 @@ const subjects = {
     author: "Мария Прокопьева",
     tabs: ["theory", "preparations"],
     topics: [
-      { num: "28", title: "Коллоквиум по разделу: Органы пищеварительной системы, органы дыхания, кожа и ее производные. Диагностика препаратов.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_28.md", pdf: "content/histology/Появятся чуть позже" },
+      { num: "28", title: "Коллоквиум по разделу: Органы пищеварительной системы, органы дыхания, кожа и ее производные. Диагностика препаратов.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_28.md", pdf: "content/histology/28П.pdf" },
       { num: "27", title: "Морфологическая характеристика кожи и ее производных. Морфологическая характеристика органов дыхания", steps: ["Прочитать файлик","Тема разделена на 2 части", "В конце темы краткий вариант", "Решить тест"], date: "2026-11-02", file: "content/histology/ГИСТА_27.md", pdf: "content/histology/27П.pdf" },
       { num: "26", title: "Пищеварительная система. Морфологическая характеристика печени и поджелудочной железы", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-27", file: "content/histology/ГИСТА_26.md", pdf: "content/histology/26П.pdf" },
       { num: "25", title: "Пищеварительная система. Морфологическая характеристика кишечника", steps: ["Прочитать файлик (в нем препараты)", "Решить тест"], date: "2026-10-20", file: "content/histology/ГИСТА_25.md", pdf: "content/histology/25П.pdf" },
@@ -188,7 +188,114 @@ const USER_STATUSES = [
 const GROUP_DEFAULT = { letters: "ЛД", year: "25", num: "11" };
 const GROUP_MAX_YEAR = 26;
 const GROUP_MAX_NUM = 30;
+// ============================================================
+//  ЦЕПОЧКА ГРУППЫ: БУКВЫ → ГОД → НОМЕР
+//  Автопереход по заполнению, серые подсказки, единый вид.
+// ============================================================
+function setupGroupChain(opts) {
+  // opts: { letters, year, num, onChange }
+  const letters = opts.letters;
+  const year    = opts.year;
+  const num     = opts.num;
+  if (!letters || !year || !num) return null;
 
+  const wrap = letters.closest('.group-picker');
+  if (wrap) wrap.classList.add('group-picker--ready');
+
+  const fields = [letters, year, num];
+
+  function paintFilled(el) {
+    const cell = el.closest('.group-picker__cell');
+    if (!cell) return;
+    cell.classList.toggle('is-filled', !!el.value);
+    cell.classList.toggle('is-empty', !el.value);
+    cell.classList.toggle('is-focused', document.activeElement === el);
+  }
+  function paintAll() { fields.forEach(paintFilled); }
+
+  function getParts() {
+    return {
+      letters: normalizeGroupLetters(letters.value),
+      year:    (year.value || '').replace(/\D/g, '').slice(0, 2),
+      num:     (num.value || '').replace(/\D/g, '').slice(0, 2),
+    };
+  }
+  function isComplete() {
+    const p = getParts();
+    return !!(p.letters && p.year && p.num);
+  }
+
+  // Ввод букв — только буквы
+  letters.addEventListener('input', () => {
+    const cleaned = normalizeGroupLetters(letters.value);
+    if (letters.value !== cleaned) letters.value = cleaned;
+    paintFilled(letters);
+    // Автопереход, когда букв >= 1 и следующее поле пустое? — нет, ждём пробел/Enter
+    if (opts.onChange) opts.onChange(getParts(), isComplete());
+  });
+
+  // В год — только цифры, максимум 2
+  year.addEventListener('input', () => {
+    let v = (year.value || '').replace(/\D/g, '').slice(0, 2);
+    if (year.value !== v) year.value = v;
+    paintFilled(year);
+    if (v.length === 2) num.focus();   // автопереход
+    if (opts.onChange) opts.onChange(getParts(), isComplete());
+  });
+
+  // В номер — только цифры, максимум 2
+  num.addEventListener('input', () => {
+    let v = (num.value || '').replace(/\D/g, '').slice(0, 2);
+    if (num.value !== v) num.value = v;
+    paintFilled(num);
+    if (opts.onChange) opts.onChange(getParts(), isComplete());
+  });
+
+  // Клик в любое поле — фокус на первое незаполненное
+  wrap.addEventListener('click', (e) => {
+    if (e.target === letters || e.target === year || e.target === num) return;
+    if (!getParts().letters) letters.focus();
+    else if (!getParts().year) year.focus();
+    else if (!getParts().num) num.focus();
+  });
+
+  // Фокус/блюр — перекрасить
+  fields.forEach(el => {
+    el.addEventListener('focus', () => paintAll());
+    el.addEventListener('blur',  () => paintAll());
+  });
+
+  // Enter из любого поля: если всё заполнено — клик по «Дальше»/«Войти»
+  fields.forEach(el => {
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      if (!isComplete()) return;
+      const form = wrap.closest('.onboard__step-panel, .profile-sheet__box, .onboard__box');
+      const btn = form && form.querySelector('#onboardNext2, #authSubmit, #reqGroupSave, #saveNameBtn');
+      if (btn && !btn.disabled) { e.preventDefault(); btn.click(); }
+    });
+  });
+
+  paintAll();
+
+  return {
+    setParts(parts) {
+      if (!parts) return;
+      if (letters) letters.value = normalizeGroupLetters(parts.letters || '');
+      if (year)    year.value    = (parts.year || '').replace(/\D/g, '').slice(0, 2);
+      if (num)     num.value     = (parts.num || '').replace(/\D/g, '').slice(0, 2);
+      paintAll();
+      if (opts.onChange) opts.onChange(getParts(), isComplete());
+    },
+    getParts,
+    isComplete,
+    focusFirst() {
+      if (!getParts().letters) letters.focus();
+      else if (!getParts().year) year.focus();
+      else if (!getParts().num) num.focus();
+    }
+  };
+}
 function normalizeGroupLetters(raw) {
   return (raw || "").toUpperCase().replace(/[^А-ЯЁA-Z]/g, "").slice(0, 4);
 }
@@ -1444,16 +1551,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && profileSheet && profileSheet.classList.contains('is-open')) closeProfileSheet();
   });
-    // Запрещаем закрывать окно призраков по Esc
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      const ghostModal = document.getElementById('ghostCleanup');
-      if (ghostModal && ghostModal.classList.contains('is-open')) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }
-  }, true);
   if (saveNameBtn) {
     saveNameBtn.addEventListener('click', async () => {
       if (!nameInput) return;
@@ -1466,107 +1563,117 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       val = val.split(/\s+/)[0];
       if (!val) return;
+
+      const oldUser = JSON.parse(localStorage.getItem('doro.user') || 'null');
+      const oldId = (oldUser && oldUser.name && oldUser.group)
+        ? ((oldUser.name.trim().toLowerCase().replace(/\s+/g, ' ')) + '__' + oldUser.group.trim().toUpperCase())
+        : null;
+
       user = user || {};
       user.name = val;
       saveUser();
       nameInput.value = val;
       renderProfile();
       closeProfileSheet();
-      
-      // Вызываем claimIdentity, чтобы объединить/удалить дубликаты при смене имени
+
       try {
         if (window.doroCloudReady) {
           const cloud = await window.doroCloudReady;
-          if (cloud && cloud.claimIdentity) {
-            const result = await cloud.claimIdentity(user);
-            if (result && result.removed > 0) {
+          if (cloud) {
+            // Сохраняем новый документ (ID = name__group)
+            await cloud.saveProfile(user);
+            // Удаляем старый, если он был и отличается
+            const newId = user.name.trim().toLowerCase().replace(/\s+/g, ' ') + '__' + (user.group || '').trim().toUpperCase();
+            if (oldId && oldId !== newId && cloud.deleteUserDoc) {
+              try { await cloud.deleteUserDoc(oldId); } catch (e) {}
               try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
               usersCache = null;
               usersCacheTime = 0;
             }
           }
         }
-      } catch (e) { console.warn('Cloud claim failed:', e); }
+      } catch (e) { console.warn('Cloud save failed:', e); }
     });
   }
   if (nameInput && saveNameBtn) nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveNameBtn.click(); });
 
   (function initGroups() {
     const lettersInp = $('groupLettersInput');
-    const yearSel = $('groupYearSelect');
-    const numSel = $('groupNumSelect');
-    if (!lettersInp || !yearSel || !numSel) return;
+    const yearInp    = $('groupYearSelect');
+    const numInp     = $('groupNumSelect');
+    if (!lettersInp || !yearInp || !numInp) return;
 
-    yearSel.innerHTML = '';
-    for (let i = 0; i <= GROUP_MAX_YEAR; i++) {
-      const v = String(i).padStart(2, '0');
-      const o = document.createElement('option');
-      o.value = v; o.textContent = v;
-      yearSel.appendChild(o);
-    }
-    numSel.innerHTML = '';
-    for (let i = 1; i <= GROUP_MAX_NUM; i++) {
-      const v = String(i).padStart(2, '0');
-      const o = document.createElement('option');
-      o.value = v; o.textContent = v;
-      numSel.appendChild(o);
-    }
+    let chain = null;
 
     function applyUserGroup() {
       const parts = parseGroup(user && user.group);
-      lettersInp.value = parts.letters || '';
-      yearSel.value = parts.year || GROUP_DEFAULT.year;
-      numSel.value = parts.num || GROUP_DEFAULT.num;
+      if (chain) {
+        chain.setParts({
+          letters: parts.letters || '',
+          year:    parts.year    || '',
+          num:     parts.num     || ''
+        });
+      } else {
+        lettersInp.value = parts.letters || '';
+        yearInp.value    = parts.year    || '';
+        numInp.value     = parts.num     || '';
+      }
     }
-    applyUserGroup();
 
-    function saveGroup() {
-      if (!user) user = {};
-      const letters = normalizeGroupLetters(lettersInp.value);
-      const year = yearSel.value;
-      const num = numSel.value;
-      const groupStr = (letters && year && num) ? formatGroup({ letters, year, num }) : '';
-      
-      lettersInp.value = letters;
-      
-      // Проверка: если группа меняется на закрытую
+    async function saveGroup() {
+      if (!chain || !chain.isComplete()) return;
+      const p = chain.getParts();
+      const groupStr = formatGroup(p);
+
       if (groupStr && groupStr !== user.group && isGroupFull(groupStr)) {
         alert(`Группа ${groupStr} закрыта для новых участников (полная группа).`);
-        if (typeof window.__refreshGroupFields === 'function') window.__refreshGroupFields();
+        applyUserGroup();
         return;
       }
 
+      const oldUser = JSON.parse(localStorage.getItem('doro.user') || 'null');
+      const oldId = (oldUser && oldUser.name && oldUser.group)
+        ? ((oldUser.name.trim().toLowerCase().replace(/\s+/g, ' ')) + '__' + oldUser.group.trim().toUpperCase())
+        : null;
+
+      if (!user) user = {};
       user.group = groupStr;
       saveUser();
       renderProfile();
       if (typeof window.__refreshSchedule === 'function') window.__refreshSchedule();
-      
-      // Вызываем claimIdentity при смене группы
-      (async () => {
-        try {
-          if (window.doroCloudReady) {
-            const cloud = await window.doroCloudReady;
-            if (cloud && cloud.claimIdentity) {
-              const result = await cloud.claimIdentity(user);
-              if (result && result.removed > 0) {
-                try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
-                usersCache = null;
-                usersCacheTime = 0;
-              }
+
+      try {
+        if (window.doroCloudReady) {
+          const cloud = await window.doroCloudReady;
+          if (cloud) {
+            await cloud.saveProfile(user);
+            const newId = (user.name || '').trim().toLowerCase().replace(/\s+/g, ' ') + '__' + groupStr.trim().toUpperCase();
+            if (oldId && oldId !== newId && cloud.deleteUserDoc) {
+              try { await cloud.deleteUserDoc(oldId); } catch (e) {}
+              try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
+              usersCache = null;
+              usersCacheTime = 0;
             }
           }
-        } catch (e) { console.warn('Cloud claim failed:', e); }
-      })();
+        }
+      } catch (e) { console.warn('Cloud save failed:', e); }
     }
 
-    lettersInp.addEventListener('input', () => {
-      const cleaned = normalizeGroupLetters(lettersInp.value);
-      if (lettersInp.value !== cleaned) lettersInp.value = cleaned;
+    // Цепочка: ввёл всё — сохраняем автоматически
+    let saveTimer = null;
+    chain = setupGroupChain({
+      letters: lettersInp,
+      year:    yearInp,
+      num:     numInp,
+      onChange: (parts, complete) => {
+        clearTimeout(saveTimer);
+        if (complete) {
+          saveTimer = setTimeout(saveGroup, 500);
+        }
+      }
     });
-    lettersInp.addEventListener('change', saveGroup);
-    yearSel.addEventListener('change', saveGroup);
-    numSel.addEventListener('change', saveGroup);
 
+    applyUserGroup();
     window.__refreshGroupFields = applyUserGroup;
   })();
   (function initStatus() {
@@ -4157,33 +4264,6 @@ function buildTabSections(raw, tabConfig, topic) {
       if (user.status) draft.status = user.status;
     }
 
-    if (yearSel) {
-      yearSel.innerHTML = '';
-      for (let i = 0; i <= GROUP_MAX_YEAR; i++) {
-        const v = String(i).padStart(2, '0');
-        const o = document.createElement('option');
-        o.value = v; o.textContent = v;
-        yearSel.appendChild(o);
-      }
-      yearSel.value = GROUP_DEFAULT.year;
-    }
-    if (numSel) {
-      numSel.innerHTML = '';
-      for (let i = 1; i <= GROUP_MAX_NUM; i++) {
-        const v = String(i).padStart(2, '0');
-        const o = document.createElement('option');
-        o.value = v; o.textContent = v;
-        numSel.appendChild(o);
-      }
-      numSel.value = GROUP_DEFAULT.num;
-    }
-    if (lettersInp) {
-      lettersInp.value = GROUP_DEFAULT.letters;
-      lettersInp.addEventListener('input', () => {
-        const cleaned = normalizeGroupLetters(lettersInp.value);
-        if (lettersInp.value !== cleaned) lettersInp.value = cleaned;
-      });
-    }
 
     if (chipsWrap) {
       chipsWrap.innerHTML = '';
@@ -4277,43 +4357,41 @@ function buildTabSections(raw, tabConfig, topic) {
         goTo(2);
       });
     }
-    if (nextBtn2) {
-      // Изначально кнопка заблокирована, если нет букв
-      const checkGroupValid = () => {
-        const letters = normalizeGroupLetters(lettersInp ? lettersInp.value : '');
-        const year = yearSel ? yearSel.value : '';
-        const num = numSel ? numSel.value : '';
-        nextBtn2.disabled = !(letters && year && num);
-      };
-      
-      // Слушаем ввод букв, чтобы разблокировать кнопку
-      if (lettersInp) {
-        lettersInp.addEventListener('input', checkGroupValid);
-        lettersInp.addEventListener('change', checkGroupValid);
+    // ---------- Пикер группы: цепочка Буквы → Год → Номер ----------
+    let chain = null;
+    if (lettersInp && yearSel && numSel) {
+      chain = setupGroupChain({
+        letters: lettersInp,
+        year:    yearSel,   // теперь это <input>, ID оставили
+        num:     numSel,
+        onChange: (parts, complete) => {
+          if (nextBtn2) nextBtn2.disabled = !complete;
+        }
+      });
+      // предзаполнение из уже сохранённого профиля (если есть)
+      const parts = parseGroup((user && user.group) || '');
+      if (parts.letters || parts.year || parts.num) {
+        chain.setParts({
+          letters: parts.letters || '',
+          year:    parts.year    || '',
+          num:     parts.num     || ''
+        });
       }
-      
-      // Проверяем при инициализации (вдруг там уже есть буквы)
-      setTimeout(checkGroupValid, 100);
+      if (nextBtn2) nextBtn2.disabled = !chain.isComplete();
+    }
 
+    if (nextBtn2) {
       nextBtn2.addEventListener('click', () => {
-        const letters = normalizeGroupLetters(lettersInp ? lettersInp.value : '');
-        if (!letters) {
-          alert('Пожалуйста, введи буквы группы (например, ЛД)');
+        if (!chain || !chain.isComplete()) {
+          alert('Заполните все три поля группы: буквы, год, номер.');
           return;
         }
-        const year = yearSel ? yearSel.value : '';
-        const num = numSel ? numSel.value : '';
-        const groupStr = formatGroup({ letters, year, num });
-        
-        // Проверка: закрыта ли группа
+        const groupStr = formatGroup(chain.getParts());
         if (isGroupFull(groupStr)) {
           alert(`Группа ${groupStr} закрыта для новых участников (полная группа). Выберите другую группу.`);
           return;
         }
-
         draft.group = groupStr;
-        
-        // Сохраняем в черновик и переходим к шагу 3
         goTo(3);
       });
     }
@@ -4368,61 +4446,54 @@ function buildTabSections(raw, tabConfig, topic) {
 
     // Старый онбординг полностью отключён — его заменила authModal.
   })();
-    // ============================================================
+
+  // ============================================================
   //  МОДАЛКА: ОБЯЗАТЕЛЬНАЯ ГРУППА
   // ============================================================
   (function initGroupRequiredModal() {
-    const modal = $('groupRequiredModal');
+    const modal      = $('groupRequiredModal');
     const lettersInp = $('reqGroupLetters');
-    const yearSel = $('reqGroupYear');
-    const numSel = $('reqGroupNum');
-    const saveBtn = $('reqGroupSave');
+    const yearInp    = $('reqGroupYear');
+    const numInp     = $('reqGroupNum');
+    const saveBtn    = $('reqGroupSave');
 
-    if (!modal || !lettersInp || !yearSel || !numSel || !saveBtn) return;
+    if (!modal || !lettersInp || !yearInp || !numInp || !saveBtn) return;
 
-    // Заполняем селекты
-    yearSel.innerHTML = '';
-    for (let i = 0; i <= GROUP_MAX_YEAR; i++) {
-      const v = String(i).padStart(2, '0');
-      const o = document.createElement('option');
-      o.value = v; o.textContent = v;
-      yearSel.appendChild(o);
-    }
-    numSel.innerHTML = '';
-    for (let i = 1; i <= GROUP_MAX_NUM; i++) {
-      const v = String(i).padStart(2, '0');
-      const o = document.createElement('option');
-      o.value = v; o.textContent = v;
-      numSel.appendChild(o);
-    }
+    let chain = null;
 
-    let checkValid = () => {
-      const letters = normalizeGroupLetters(lettersInp.value);
-      saveBtn.disabled = !letters;
-    };
-
-    lettersInp.addEventListener('input', () => {
-      const cleaned = normalizeGroupLetters(lettersInp.value);
-      if (lettersInp.value !== cleaned) lettersInp.value = cleaned;
-      checkValid();
+    // Инициализация цепочки
+    chain = setupGroupChain({
+      letters: lettersInp,
+      year:    yearInp,
+      num:     numInp,
+      onChange: (parts, complete) => {
+        saveBtn.disabled = !complete;
+      }
     });
-    
-    // Ставим дефолтные значения для года и номера
-    yearSel.value = GROUP_DEFAULT.year;
-    numSel.value = GROUP_DEFAULT.num;
-    checkValid();
+    saveBtn.disabled = !chain.isComplete();
+
+    // Предзаполнение, если у пользователя уже что-то было (частично)
+    const parts = parseGroup((user && user.group) || '');
+    if (parts.letters || parts.year || parts.num) {
+      chain.setParts({
+        letters: parts.letters || '',
+        year:    parts.year    || '',
+        num:     parts.num     || ''
+      });
+    }
 
     saveBtn.addEventListener('click', async () => {
-      const letters = normalizeGroupLetters(lettersInp.value);
-      if (!letters) return;
-
+      if (!chain.isComplete()) {
+        alert('Заполните все три поля: буквы, год, номер.');
+        return;
+      }
       saveBtn.disabled = true;
       saveBtn.textContent = 'Сохраняю…';
 
       if (!user) user = {};
-      user.group = formatGroup({ letters, year: yearSel.value, num: numSel.value });
+      user.group = formatGroup(chain.getParts());
       saveUser();
-      
+
       try {
         if (window.doroCloudReady) {
           const cloud = await window.doroCloudReady;
@@ -4438,98 +4509,105 @@ function buildTabSections(raw, tabConfig, topic) {
       if (typeof window.__refreshSchedule === 'function') window.__refreshSchedule();
     });
 
-    // Проверяем, нужно ли показать модалку
-    // Показываем, если есть имя, но нет группы, и онбординг уже пройден
+    // Показ модалки, если нужно
     const onboardDone = localStorage.getItem(ONBOARD_DONE_KEY) === '1';
     if (user && user.name && !user.group && onboardDone) {
       setTimeout(() => {
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('onboard-open');
-        // Фокусируемся на поле ввода
-        setTimeout(() => lettersInp.focus(), 400);
-      }, 1000); // Небольшая задержка, чтобы страница успела прогрузиться
+        setTimeout(() => chain.focusFirst(), 400);
+      }, 1000);
     }
   })();
+
   // ============================================================
-  //  ВХОД / РЕГИСТРАЦИЯ
+  //  ВХОД / РЕГИСТРАЦИЯ (упрощённое окно: 2 вкладки, 1 форма)
   // ============================================================
-  const AUTH_LOGIN_KEY = 'doro.lastLogin'; // помним логин для удобства
-  const authModal = $('authModal');
-  const authPanels = authModal ? authModal.querySelectorAll('[data-auth-step]') : [];
-  const authStep = $('authStep');
-  const authFormTitle = $('authFormTitle');
-  const authFormSub = $('authFormSub');
-  const authName = $('authName');
-  const authLetters = $('authGroupLetters');
-  const authYear = $('authGroupYear');
-  const authNum = $('authGroupNum');
+  const AUTH_LOGIN_KEY = 'doro.lastLogin';
+  const authModal    = $('authModal');
+  const authStep     = $('authStep');
+  const authTitle    = $('authTitle');
+  const authNote     = $('authNote');
+  const authNoteText = $('authNoteText');
+  const authName     = $('authName');
+  const authLetters  = $('authGroupLetters');
+  const authYear     = $('authGroupYear');
+  const authNum      = $('authGroupNum');
   const authPassword = $('authPassword');
-  const authSubmit = $('authSubmit');
-  const authError = $('authError');
-  const authBack = $('authBack');
-  const authAvatarLetter = $('authAvatarLetter');
-  const linkPassword = $('linkPassword');
-  const linkSubmit = $('linkSubmit');
-  const linkSkip = $('linkSkip');
-  const linkError = $('linkError');
+  const authSubmit   = $('authSubmit');
+  const authError    = $('authError');
+  const authTabs     = authModal ? authModal.querySelector('.auth-tabs') : null;
+  const authTabLogin    = $('authTabLogin');
+  const authTabRegister = $('authTabRegister');
 
-  let authMode = 'login'; // 'login' | 'register'
-  let currentAuthUser = null;
-
-  function showAuthStep(name) {
-    authPanels.forEach(p => p.classList.toggle('is-active', p.dataset.authStep === name));
-  }
-
-  function buildAuthLogin() {
-    if (!authName) return '';
-    const parts = parseGroup(localStorage.getItem(AUTH_LOGIN_KEY) || '');
-    const letters = normalizeGroupLetters(authLetters ? authLetters.value : '') || parts.letters || '';
-    const year = authYear ? authYear.value : (parts.year || GROUP_DEFAULT.year);
-    const num = authNum ? authNum.value : (parts.num || GROUP_DEFAULT.num);
-    const name = (authName.value || '').trim().split(/\s+/)[0] || '';
-    if (!name) return '';
-    // Логин = имя_группа (в нижнем регистре, без пробелов)
-    const group = formatGroup({ letters, year, num });
-    return (name.toLowerCase() + '_' + group.toLowerCase());
-  }
+  let authMode = 'register'; // 'login' | 'register'
+  let authChain = null;   // ← сюда
 
   function showAuthError(msg) {
-    if (authError) { authError.textContent = msg; authError.style.display = 'block'; }
+    if (authError) { authError.textContent = msg || ''; authError.style.display = msg ? 'block' : 'none'; }
   }
-  function clearAuthError() {
-    if (authError) { authError.textContent = ''; authError.style.display = 'none'; }
+  function clearAuthError() { showAuthError(''); }
+
+  const AUTH_TEXT = {
+    login: {
+      step: 'Вход в doro',
+      title: 'Войти в аккаунт',
+      submit: 'Войти',
+      note: '<strong>Уже заходили раньше?</strong> Введите то же имя и группу, что и тогда, и придумайте пароль — мы найдём ваш старый профиль и привяжем к нему этот пароль.',
+    },
+    register: {
+      step: 'Регистрация',
+      title: 'Создать аккаунт',
+      submit: 'Создать аккаунт',
+      note: '<strong>Пароль нужен для входа с любого устройства.</strong> Логин — это ваше имя и группа (например, «аня лд2511»). Придумайте пароль от 6 символов и запомните его.',
+    },
+  };
+
+  function paintAuthMode() {
+    if (authTabs) authTabs.dataset.active = authMode === 'register' ? 'register' : 'login';
+    if (authTabLogin)    { authTabLogin.classList.toggle('is-active', authMode === 'login'); authTabLogin.setAttribute('aria-selected', authMode === 'login'); }
+    if (authTabRegister) { authTabRegister.classList.toggle('is-active', authMode === 'register'); authTabRegister.setAttribute('aria-selected', authMode === 'register'); }
+
+    const t = AUTH_TEXT[authMode];
+    if (authStep)  authStep.textContent  = t.step;
+    if (authTitle) authTitle.textContent = t.title;
+    if (authSubmit) authSubmit.textContent = t.submit;
+    if (authNoteText) authNoteText.innerHTML = t.note;
+    if (authPassword) authPassword.setAttribute('autocomplete', authMode === 'register' ? 'new-password' : 'current-password');
   }
 
   function openAuth(mode) {
     if (!authModal) return;
-    authMode = mode || 'register';
+    authMode = (mode === 'login') ? 'login' : 'register';
     clearAuthError();
 
-    // Предзаполняем из старого профиля (если был) — человек не вводит заново
     const savedName  = (user && user.name)  ? user.name  : '';
     const savedGroup = (user && user.group) ? user.group : '';
 
     if (authName)     authName.value     = savedName;
     if (authPassword) authPassword.value = '';
 
-    if (savedGroup) {
-      const parts = parseGroup(savedGroup);
-      if (authLetters) authLetters.value = parts.letters || '';
-      if (authYear)    authYear.value    = parts.year    || GROUP_DEFAULT.year;
-      if (authNum)     authNum.value     = parts.num     || GROUP_DEFAULT.num;
+    const parts = parseGroup(savedGroup);
+    if (authChain) {
+      authChain.setParts({
+        letters: parts.letters || '',
+        year:    parts.year    || '',
+        num:     parts.num     || ''
+      });
     } else {
-      if (authLetters) authLetters.value = GROUP_DEFAULT.letters;
-      if (authYear)    authYear.value    = GROUP_DEFAULT.year;
-      if (authNum)     authNum.value     = GROUP_DEFAULT.num;
+      if (authLetters) authLetters.value = parts.letters || '';
+      if (authYear)    authYear.value    = parts.year    || '';
+      if (authNum)     authNum.value     = parts.num     || '';
     }
 
-    authStep.textContent = authMode === 'register' ? 'Регистрация' : 'Вход в doro';
-    syncAuthSubmitLabel();
+    const av = $('authAvatarLetter');
+    if (av) {
+      const n = (authName.value || '').trim();
+      av.textContent = n ? n[0].toUpperCase() : '?';
+    }
 
-    // 'register' → сразу форма. 'login' → экран выбора (Войти / Зарегистрироваться)
-    showAuthStep(authMode === 'register' ? 'form' : 'choice');
-
+    paintAuthMode();
     authModal.classList.add('is-open');
     authModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('onboard-open');
@@ -4542,93 +4620,70 @@ function buildTabSections(raw, tabConfig, topic) {
     document.body.classList.remove('onboard-open');
   }
 
-  function syncAuthSubmitLabel() {
-    if (!authSubmit) return;
-    authSubmit.textContent = authMode === 'register' ? 'Создать аккаунт' : 'Войти';
-    if (authFormTitle) authFormTitle.textContent = authMode === 'register' ? 'Регистрация' : 'Вход';
-    if (authFormSub) authFormSub.textContent = authMode === 'register'
-      ? 'Придумайте логин (имя + группа) и пароль.'
-      : 'Введите логин (имя + группа) и пароль.';
-    if (authPassword) authPassword.setAttribute('autocomplete', authMode === 'register' ? 'new-password' : 'current-password');
-  }
-
   if (authModal) {
-    // Заполняем селекты годов и номеров
-    if (authYear) {
-      authYear.innerHTML = '';
-      for (let i = 0; i <= GROUP_MAX_YEAR; i++) {
-        const v = String(i).padStart(2, '0');
-        const o = document.createElement('option'); o.value = v; o.textContent = v;
-        authYear.appendChild(o);
-      }
-    }
-    if (authNum) {
-      authNum.innerHTML = '';
-      for (let i = 1; i <= GROUP_MAX_NUM; i++) {
-        const v = String(i).padStart(2, '0');
-        const o = document.createElement('option'); o.value = v; o.textContent = v;
-        authNum.appendChild(o);
-      }
+    // Инициализируем цепочку auth-модалки
+    if (authLetters && authYear && authNum) {
+      authChain = setupGroupChain({
+        letters: authLetters,
+        year:    authYear,
+        num:     authNum,
+        onChange: () => { /* валидация идёт на клик */ }
+      });
     }
 
-    // Кнопки «Войти» / «Зарегистрироваться» на первом экране
-    const showLoginBtn = $('authShowLogin');
-    const showRegBtn = $('authShowRegister');
-    if (showLoginBtn) showLoginBtn.addEventListener('click', () => {
-      authMode = 'login'; syncAuthSubmitLabel(); showAuthStep('form');
+    if (authTabLogin) authTabLogin.addEventListener('click', () => {
+      if (authMode === 'login') return;
+      authMode = 'login'; clearAuthError(); paintAuthMode();
     });
-    if (showRegBtn) showRegBtn.addEventListener('click', () => {
-      authMode = 'register'; syncAuthSubmitLabel(); showAuthStep('form');
+    if (authTabRegister) authTabRegister.addEventListener('click', () => {
+      if (authMode === 'register') return;
+      authMode = 'register'; clearAuthError(); paintAuthMode();
     });
-    if (authBack) authBack.addEventListener('click', () => showAuthStep('choice'));
+
     if (authLetters) authLetters.addEventListener('input', () => {
       authLetters.value = normalizeGroupLetters(authLetters.value);
     });
 
-    // Ввод: обновить аватар и кнопку
-    function syncAuthPreview() {
-      const name = (authName.value || '').trim();
-      if (authAvatarLetter) authAvatarLetter.textContent = name ? name[0].toUpperCase() : '?';
-    }
-    if (authName) authName.addEventListener('input', syncAuthPreview);
-    // Кнопка «Показать/скрыть пароль»
+    if (authName) authName.addEventListener('input', () => {
+      const av = $('authAvatarLetter'); if (!av) return;
+      const n = (authName.value || '').trim();
+      av.textContent = n ? n[0].toUpperCase() : '?';
+    });
+
     authModal.querySelectorAll('.password-toggle').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const targetId = btn.dataset.target;
-        const input = document.getElementById(targetId);
+        e.preventDefault(); e.stopPropagation();
+        const input = document.getElementById(btn.dataset.target);
         if (!input) return;
-
-        const eyeOpen = btn.querySelector('.eye-open');
+        const eyeOpen   = btn.querySelector('.eye-open');
         const eyeClosed = btn.querySelector('.eye-closed');
-
         if (input.type === 'password') {
           input.type = 'text';
-          btn.title = 'Скрыть пароль';
-          btn.setAttribute('aria-label', 'Скрыть пароль');
+          btn.title = 'Скрыть пароль'; btn.setAttribute('aria-label', 'Скрыть пароль');
           if (eyeOpen) eyeOpen.style.display = 'none';
           if (eyeClosed) eyeClosed.style.display = 'block';
         } else {
           input.type = 'password';
-          btn.title = 'Показать пароль';
-          btn.setAttribute('aria-label', 'Показать пароль');
+          btn.title = 'Показать пароль'; btn.setAttribute('aria-label', 'Показать пароль');
           if (eyeOpen) eyeOpen.style.display = 'block';
           if (eyeClosed) eyeClosed.style.display = 'none';
         }
       });
     });
-    // Отправка формы
+
     if (authSubmit) authSubmit.addEventListener('click', async () => {
       clearAuthError();
+
       const nameRaw = (authName.value || '').trim();
       if (!nameRaw) { showAuthError('Введите имя'); return; }
       const name = nameRaw.split(/\s+/)[0];
-      const letters = normalizeGroupLetters(authLetters.value);
-      const year = authYear.value;
-      const num = authNum.value;
-      if (!letters) { showAuthError('Введите буквы группы (например, ЛД)'); return; }
-      const group = formatGroup({ letters, year, num });
+
+      if (!authChain || !authChain.isComplete()) {
+        showAuthError('Заполните все три поля группы: буквы, год, номер.');
+        return;
+      }
+      const group = formatGroup(authChain.getParts());
+
       const password = authPassword.value;
       if (!password || password.length < 6) { showAuthError('Пароль должен быть минимум 6 символов'); return; }
 
@@ -4640,36 +4695,28 @@ function buildTabSections(raw, tabConfig, topic) {
       try {
         const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
 
-        // OFFLINE-режим: просто сохраняем профиль локально и пропускаем
         if (!cloud) {
           if (!user) user = {};
-          user.name   = name;
-          user.group  = group;
+          user.name = name; user.group = group;
           user.status = user.status || USER_STATUSES[0];
           user.color  = user.color  || '#3b82f6';
           saveUser();
           localStorage.setItem(ONBOARD_DONE_KEY, '1');
           localStorage.setItem(AUTH_LOGIN_KEY, login);
           localStorage.setItem('doro.hasPasswordAccount', '1');
-          closeAuth();
-          renderProfile();
-          showView('profile');
+          closeAuth(); renderProfile(); showView('profile');
           return;
         }
 
         if (authMode === 'register') {
           await cloud.register(login, password);
-          currentAuthUser = { uid: cloud.uid, isAnonymous: false };
 
-          // Сохраняем профиль
           user = user || {};
-          user.name = name;
-          user.group = group;
+          user.name = name; user.group = group;
           user.status = user.status || USER_STATUSES[0];
-          user.color = user.color || '#3b82f6';
+          user.color  = user.color  || '#3b82f6';
           saveUser();
 
-          // Пытаемся вычистить дубликаты (если они были)
           try {
             const claim = await cloud.claimIdentity(user);
             if (claim && claim.removed > 0) {
@@ -4680,111 +4727,59 @@ function buildTabSections(raw, tabConfig, topic) {
 
           localStorage.setItem(ONBOARD_DONE_KEY, '1');
           localStorage.setItem(AUTH_LOGIN_KEY, login);
-          localStorage.setItem('doro.hasPasswordAccount', '1');   // ← ДОБАВЛЕНО
-          closeAuth();
-          renderProfile();
-          showView('profile');
+          localStorage.setItem('doro.hasPasswordAccount', '1');
+          closeAuth(); renderProfile(); showView('profile');
         } else {
-          // Вход: если email ещё не создан (старый анонимный профиль),
-          // loginOrMigrate создаст его и перенесёт данные.
           const result = await cloud.loginOrMigrate(
             { name, group, status: user?.status || USER_STATUSES[0], color: user?.color || '#3b82f6' },
             password
           );
-          currentAuthUser = { uid: result.uid, isAnonymous: false };
 
-          // Подтягиваем профиль из Firestore
           let profile = await cloud.getMyProfile();
-          
-          // Если по какой-то причине профиля в базе нет, создаем его прямо сейчас
           if (!profile) {
-            user = {
-              name: name,
-              group: group,
-              status: user?.status || USER_STATUSES[0],
-              color: user?.color || '#3b82f6'
-            };
+            user = { name, group, status: user?.status || USER_STATUSES[0], color: user?.color || '#3b82f6' };
             await cloud.saveProfile(user);
           } else {
             user = {
-              name: profile.name || name,
-              group: profile.group || group,
+              name:   profile.name   || name,
+              group:  profile.group  || group,
               status: profile.status || USER_STATUSES[0],
-              color: profile.color || '#3b82f6'
+              color:  profile.color  || '#3b82f6'
             };
           }
-          
           saveUser();
 
-          if (result.migrated) {
-            if (result.restored) {
-              alert('Нашли ваш старый профиль и перенесли его на это устройство. Теперь вы можете заходить с любого устройства по этим имени и паролю.');
-            } else {
-              alert('Пароль создан. Теперь вы можете заходить с любого устройства по этим имени и паролю.');
-            }
-            // Сбросить кэш пользователей, т.к. старый UID удалён
+          if (result && result.migrated) {
+            alert(result.restored
+              ? 'Нашли ваш старый профиль и привязали к нему пароль. Теперь можно входить с любого устройства.'
+              : 'Пароль создан. Теперь можно входить с любого устройства по этим имени и паролю.');
             try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
-            usersCache = null;
-            usersCacheTime = 0;
+            usersCache = null; usersCacheTime = 0;
           }
 
           localStorage.setItem(ONBOARD_DONE_KEY, '1');
           localStorage.setItem(AUTH_LOGIN_KEY, login);
-          localStorage.setItem('doro.hasPasswordAccount', '1');   // ← ДОБАВЛЕНО
-          closeAuth();
-          renderProfile();
-          showView('profile');
+          localStorage.setItem('doro.hasPasswordAccount', '1');
+          closeAuth(); renderProfile(); showView('profile');
         }
       } catch (err) {
         console.error('Auth error:', err);
         let msg = err.message || 'Ошибка';
-        if (msg.includes('email-already-in-use')) msg = 'Этот логин уже занят. Попробуйте войти.';
-        else if (msg.includes('user-not-found')) msg = 'Пользователь не найден. Зарегистрируйтесь.';
+        if (msg.includes('email-already-in-use')) msg = 'Этот логин уже занят. Попробуйте войти или возьмите другое имя/группу.';
+        else if (msg.includes('user-not-found'))  msg = 'Пользователь не найден. Зарегистрируйтесь.';
         else if (msg.includes('wrong-password') || msg.includes('invalid-credential')) msg = 'Неверный пароль.';
-        else if (msg.includes('invalid-email')) msg = 'Логин составлен неправильно.';
-        else if (msg.includes('weak-password')) msg = 'Слишком простой пароль.';
+        else if (msg.includes('invalid-email'))   msg = 'Логин составлен неправильно.';
+        else if (msg.includes('weak-password'))   msg = 'Слишком простой пароль.';
         showAuthError(msg);
       } finally {
         authSubmit.disabled = false;
-        syncAuthSubmitLabel();
+        paintAuthMode();
       }
     });
-
-    // Привязка пароля (для старых пользователей)
-    if (linkSubmit) linkSubmit.addEventListener('click', async () => {
-      if (linkError) { linkError.textContent = ''; linkError.style.display = 'none'; }
-      const password = linkPassword.value;
-      if (!password || password.length < 6) {
-        if (linkError) { linkError.textContent = 'Пароль минимум 6 символов'; linkError.style.display = 'block'; }
-        return;
-      }
-      linkSubmit.disabled = true;
-      linkSubmit.textContent = 'Сохраняю…';
-      try {
-        const cloud = await window.doroCloudReady;
-        if (!cloud) throw new Error('Firebase не подключён');
-        const name = (user && user.name) || 'user';
-        const group = (user && user.group) || '';
-        const login = (name.toLowerCase() + '_' + group.toLowerCase());
-        await cloud.linkAnonymous(login, password);
-        localStorage.setItem(AUTH_LOGIN_KEY, login);
-        closeAuth();
-      } catch (err) {
-        console.error('Link error:', err);
-        let msg = err.message || 'Ошибка';
-        if (msg.includes('email-already-in-use')) msg = 'Этот логин уже занят. Возможно, вы уже зарегистрированы.';
-        else if (msg.includes('provider-already-linked')) msg = 'Аккаунт уже привязан.';
-        if (linkError) { linkError.textContent = msg; linkError.style.display = 'block'; }
-      } finally {
-        linkSubmit.disabled = false;
-        linkSubmit.textContent = 'Сохранить пароль';
-      }
-    });
-    if (linkSkip) linkSkip.addEventListener('click', () => closeAuth());
   }
 
+  // ---------- Автозапуск ----------
   async function bootAuth() {
-    // Ждём Firebase (максимум 8 секунд)
     let waitTime = 0;
     while (!window.doroCloudReady && waitTime < 8000) {
       await new Promise(r => setTimeout(r, 100));
@@ -4792,31 +4787,17 @@ function buildTabSections(raw, tabConfig, topic) {
     }
 
     const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
-    const offline = !cloud;
-
-    if (offline) {
-      console.warn('[bootAuth] Firebase недоступен — окно покажем, регистрация локальная');
-      window.__doroOfflineAuth = true;
-    }
-
-    currentAuthUser = cloud
-      ? { uid: cloud.uid, isAnonymous: cloud.isAnonymous }
-      : { uid: null, isAnonymous: true };
-
-    // Признак «уже зарегистрирован по паролю» — флаг в localStorage.
-    // Ставится ТОЛЬКО после успешного register()/login().
     const hasPasswordAccount = localStorage.getItem('doro.hasPasswordAccount') === '1';
 
-    if (hasPasswordAccount && !offline && !cloud.isAnonymous) {
-      // Уже зарегистрирован и сессия жива — просто подтягиваем профиль
+    if (hasPasswordAccount && cloud && !cloud.isAnonymous) {
       try {
         const profile = await cloud.getMyProfile();
         if (profile) {
           user = {
-            name: profile.name || '',
-            group: profile.group || '',
+            name:   profile.name   || '',
+            group:  profile.group  || '',
             status: profile.status || USER_STATUSES[0],
-            color: profile.color || '#3b82f6'
+            color:  profile.color  || '#3b82f6'
           };
           saveUser();
         }
@@ -4825,261 +4806,9 @@ function buildTabSections(raw, tabConfig, topic) {
       return;
     }
 
-    // Всем остальным — ОБЯЗАТЕЛЬНАЯ регистрация.
-    // openAuth('register') сразу откроет форму (правка в openAuth ниже).
     setTimeout(() => openAuth('register'), 400);
   }
-  console.log('[debug] 1. Скрипт дошел до вызова bootAuth');
   bootAuth();
-
-  // ============================================================
-  //  ОДНОРАЗОВАЯ УБОРКА ПРИЗРАКОВ
-  // ============================================================
-  const GHOST_CLEANUP_KEY = 'doro.ghostCleanupDone.v1';
-
-  async function checkAndShowGhostCleanup() {
-    // Показываем только один раз в жизни браузера
-    if (localStorage.getItem(GHOST_CLEANUP_KEY) === '1') return;
-
-    // Нужен Firebase
-    if (!window.doroCloudReady) return;
-    const cloud = await window.doroCloudReady;
-    if (!cloud) return;
-
-    // Нужен зарегистрированный пользователь (не аноним)
-    if (cloud.isAnonymous) return;
-
-    // Только владельцу (тот, у кого есть имя и группа в localStorage)
-    if (!user || !user.name || !user.group) return;
-
-    // Тянем всех и ищем дубликаты
-    let all = [];
-    try { all = await cloud.listAllUsers(500); }
-    catch (e) { console.warn('ghost cleanup: listAllUsers failed', e); return; }
-
-    const norm = (s) => (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
-    const myUid = cloud.uid;
-    const myKey = norm(user.name) + '::' + (user.group || '').trim().toUpperCase();
-
-    // Ищем ТОЛЬКО свои дубликаты — те, у кого name::group совпадает с моим
-    const myCopies = all.filter(u => {
-      const nameKey = norm(u.name);
-      if (!nameKey) return false;
-      const key = nameKey + '::' + (u.group || '').trim().toUpperCase();
-      return key === myKey;
-    });
-
-    // Призраки = мои копии, кроме одного самого свежего (или меня самого)
-    const toDelete = [];
-    if (myCopies.length > 1) {
-      // Ищем ТОЛЬКО текущий uid, остальные — на удаление
-      const winner = myCopies.find(u => u.id === myUid);
-      // Если текущего uid почему-то нет в списке (баг кэша), берем самый свежий
-      const finalWinner = winner || myCopies.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
-      
-      myCopies.forEach(u => {
-        if (u.id !== finalWinner.id) toDelete.push(u.id);
-      });
-    }
-
-    // Сколько останется ВСЕГО профилей в базе после уборки
-    const keepCount = all.length - toDelete.length;
-
-    if (!toDelete.length) {
-      // Дубликатов нет — ставим флаг, чтобы больше не проверять
-      localStorage.setItem(GHOST_CLEANUP_KEY, '1');
-      return;
-    }
-
-    // --- Показываем модалку ---
-    const modal = $('ghostCleanup');
-    if (!modal) return;
-
-    const countEl = $('ghostCount');
-    const keepEl = $('ghostKeepCount');
-    if (countEl) countEl.textContent = String(toDelete.length);
-    if (keepEl) keepEl.textContent = String(keepCount);
-
-    const panels = modal.querySelectorAll('.ghost-cleanup__panel');
-    const showStep = (name) => panels.forEach(p => p.classList.toggle('is-active', p.dataset.ghostStep === name));
-
-    showStep('offer');
-    modal.classList.add('is-open');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-
-    const cleanBtn = $('ghostClean');
-    const doneBtn = $('ghostDone');
-    const progressBar = $('ghostProgressBar');
-    const progressText = $('ghostProgressText');
-    const ghostVisual = $('ghostVisual');
-    const ghostIcon = $('ghostIcon');
-    const ghostStep = $('ghostStep');
-
-    function closeModal() {
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = '';
-      localStorage.setItem(GHOST_CLEANUP_KEY, '1');
-      
-      // сбросить кэш списка пользователей
-      try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
-      usersCache = null;
-      usersCacheTime = 0;
-
-      // Если панель "Пользователи" открыта — принудительно обновляем её
-      if (typeof activePanel !== 'undefined' && activePanel === 'users') {
-        renderProfileUsers(true);
-      } else {
-        // Иначе просто обновим цифру в шапке (если элемент есть)
-        if (profileUsersCount) {
-          const cloud = window.doroCloudReady; // не ждём, просто проверяем
-          if (cloud) {
-            // Тихонько обновляем в фоне
-            cloud.then(c => c.listAllUsers(500)).then(all => {
-              if (profileUsersCount) profileUsersCount.textContent = String(all.length);
-            }).catch(() => {});
-          }
-        }
-      }
-    }
-
-    // Кнопка «Закрыть» работает всегда, с момента открытия модалки
-    if (doneBtn) doneBtn.onclick = () => closeModal();
-
-    // --- Звук «пуф» через WebAudio ---
-    let audioCtx = null;
-    function playPoofSound() {
-      try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        
-        // Короткий низкий «пуф»
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.15);
-        
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-        
-        osc.start(audioCtx.currentTime);
-        osc.stop(audioCtx.currentTime + 0.15);
-      } catch (e) { /* без звука */ }
-    }
-
-    // --- Частицы ---
-    function spawnParticles(element) {
-      const rect = element.getBoundingClientRect();
-      const parentRect = ghostVisual.getBoundingClientRect();
-      const x = rect.left - parentRect.left + rect.width / 2;
-      const y = rect.top - parentRect.top + rect.height / 2;
-      
-      const colors = ['#a78bfa', '#818cf8', '#c084fc', '#e879f9', '#f0abfc'];
-      for (let i = 0; i < 6; i++) {
-        const p = document.createElement('span');
-        p.className = 'ghost-particle';
-        p.style.left = x + 'px';
-        p.style.top = y + 'px';
-        p.style.background = colors[Math.floor(Math.random() * colors.length)];
-        
-        const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
-        const dist = 20 + Math.random() * 30;
-        p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
-        p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
-        
-        ghostVisual.appendChild(p);
-        setTimeout(() => p.remove(), 650);
-      }
-    }
-
-    if (cleanBtn) {
-      cleanBtn.onclick = async () => {
-        cleanBtn.disabled = true;
-        showStep('progress');
-        if (ghostStep) ghostStep.textContent = 'Уборка';
-
-        // Разбрасываем кружки-призраки для визуала
-        if (ghostVisual) {
-          ghostVisual.innerHTML = '';
-          const visible = Math.min(toDelete.length, 24);
-          for (let i = 0; i < visible; i++) {
-            const dot = document.createElement('span');
-            dot.className = 'ghost-dot';
-            ghostVisual.appendChild(dot);
-          }
-        }
-
-        const total = toDelete.length;
-        let done = 0;
-        if (progressText) progressText.textContent = `0 / ${total}`;
-
-        const box = modal.querySelector('.ghost-cleanup__box');
-
-        for (const id of toDelete) {
-          try {
-            if (cloud.deleteUserDoc) {
-              await cloud.deleteUserDoc(id);
-            } else {
-              await window.doroCloud.deleteUserDoc(id);
-            }
-            done++;
-          } catch (e) {
-            console.warn('ghost cleanup: не удалось удалить', id, e);
-          }
-
-          // Прогресс
-          if (progressBar) progressBar.style.width = Math.round((done / total) * 100) + '%';
-          if (progressText) progressText.textContent = `${done} / ${total}`;
-
-          // Каждая удалённая — «взрывается»
-          if (ghostVisual) {
-            const dots = ghostVisual.querySelectorAll('.ghost-dot:not(.is-poof)');
-            if (dots.length) {
-              const dot = dots[dots.length - 1];
-              spawnParticles(dot);
-              dot.classList.add('is-poof');
-              playPoofSound();
-              
-              // Тряска
-              if (box) {
-                box.classList.remove('is-shaking');
-                void box.offsetWidth;
-                box.classList.add('is-shaking');
-                setTimeout(() => box.classList.remove('is-shaking'), 200);
-              }
-            }
-          }
-          
-          // Небольшая пауза для анимации
-          await new Promise(r => setTimeout(r, Math.max(80, 800 / total)));
-        }
-
-        // Финальный «пуф» иконки
-        if (ghostIcon) ghostIcon.classList.add('is-poof');
-        await new Promise(r => setTimeout(r, 700));
-
-        showStep('done');
-        if (ghostStep) ghostStep.textContent = 'Готово';
-        
-        const doneText = $('ghostDoneText');
-        if (doneText) {
-          doneText.innerHTML = `Призраков развеялось: <b style="color:#16a34a;font-size:1.2em;">${done}</b>.<br>База стала чище и легче!`;
-        }
-
-      };
-    }
-    // Клик по фону НИЧЕГО не делает
-    const backdrop = modal.querySelector('.ghost-cleanup__backdrop');
-    if (backdrop) backdrop.onclick = (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-    };
-  }
-
-
   // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
   renderProfile();
   showView('home');
