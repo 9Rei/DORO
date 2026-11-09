@@ -4522,13 +4522,13 @@ function buildTabSections(raw, tabConfig, topic) {
   })();
 
   // ============================================================
-  //  ВХОД / РЕГИСТРАЦИЯ (упрощённое окно: 2 вкладки, 1 форма)
+  //  ВХОД / РЕГИСТРАЦИЯ (2 экрана: выбор → форма)
   // ============================================================
   const AUTH_LOGIN_KEY = 'doro.lastLogin';
   const authModal    = $('authModal');
   const authStep     = $('authStep');
   const authTitle    = $('authTitle');
-  const authNote     = $('authNote');
+  const authFormTitle = $('authFormTitle');
   const authNoteText = $('authNoteText');
   const authName     = $('authName');
   const authLetters  = $('authGroupLetters');
@@ -4537,17 +4537,23 @@ function buildTabSections(raw, tabConfig, topic) {
   const authPassword = $('authPassword');
   const authSubmit   = $('authSubmit');
   const authError    = $('authError');
-  const authTabs     = authModal ? authModal.querySelector('.auth-tabs') : null;
-  const authTabLogin    = $('authTabLogin');
-  const authTabRegister = $('authTabRegister');
+  const authBack     = $('authBack');
 
   let authMode = 'register'; // 'login' | 'register'
-  let authChain = null;   // ← сюда
+  let authChain = null;
 
   function showAuthError(msg) {
     if (authError) { authError.textContent = msg || ''; authError.style.display = msg ? 'block' : 'none'; }
   }
   function clearAuthError() { showAuthError(''); }
+
+  // Показ экрана «выбор» или «форма»
+  function showAuthScreen(name) {
+    authModal.querySelectorAll('.auth-screen').forEach(s => {
+      s.classList.toggle('is-active', s.dataset.authScreen === name);
+    });
+    clearAuthError();
+  }
 
   const AUTH_TEXT = {
     login: {
@@ -4564,50 +4570,58 @@ function buildTabSections(raw, tabConfig, topic) {
     },
   };
 
-  function paintAuthMode() {
-    if (authTabs) authTabs.dataset.active = authMode === 'register' ? 'register' : 'login';
-    if (authTabLogin)    { authTabLogin.classList.toggle('is-active', authMode === 'login'); authTabLogin.setAttribute('aria-selected', authMode === 'login'); }
-    if (authTabRegister) { authTabRegister.classList.toggle('is-active', authMode === 'register'); authTabRegister.setAttribute('aria-selected', authMode === 'register'); }
-
+  function paintAuthForm() {
     const t = AUTH_TEXT[authMode];
     if (authStep)  authStep.textContent  = t.step;
-    if (authTitle) authTitle.textContent = t.title;
+    if (authFormTitle) authFormTitle.textContent = t.title;
     if (authSubmit) authSubmit.textContent = t.submit;
     if (authNoteText) authNoteText.innerHTML = t.note;
     if (authPassword) authPassword.setAttribute('autocomplete', authMode === 'register' ? 'new-password' : 'current-password');
   }
 
-  function openAuth(mode) {
+  function openAuth(mode, screen) {
     if (!authModal) return;
     authMode = (mode === 'login') ? 'login' : 'register';
     clearAuthError();
 
-    const savedName  = (user && user.name)  ? user.name  : '';
-    const savedGroup = (user && user.group) ? user.group : '';
+    // Если экран не задан — открываем «выбор»
+    const startScreen = screen || 'choice';
 
-    if (authName)     authName.value     = savedName;
-    if (authPassword) authPassword.value = '';
+    if (startScreen === 'form') {
+      const savedName  = (user && user.name)  ? user.name  : '';
+      const savedGroup = (user && user.group) ? user.group : '';
 
-    const parts = parseGroup(savedGroup);
-    if (authChain) {
-      authChain.setParts({
-        letters: parts.letters || '',
-        year:    parts.year    || '',
-        num:     parts.num     || ''
-      });
+      if (authName)     authName.value     = savedName;
+      if (authPassword) authPassword.value = '';
+
+      const parts = parseGroup(savedGroup);
+      if (authChain) {
+        authChain.setParts({
+          letters: parts.letters || '',
+          year:    parts.year    || '',
+          num:     parts.num     || ''
+        });
+      } else {
+        if (authLetters) authLetters.value = parts.letters || '';
+        if (authYear)    authYear.value    = parts.year    || '';
+        if (authNum)     authNum.value     = parts.num     || '';
+      }
+
+      const av = $('authAvatarLetter');
+      if (av) {
+        const n = (authName.value || '').trim();
+        av.textContent = n ? n[0].toUpperCase() : '?';
+      }
+
+      paintAuthForm();
     } else {
-      if (authLetters) authLetters.value = parts.letters || '';
-      if (authYear)    authYear.value    = parts.year    || '';
-      if (authNum)     authNum.value     = parts.num     || '';
+      // Экран «выбор»
+      if (authStep) authStep.textContent = 'Вход в doro';
+      const av = $('authAvatarLetter');
+      if (av) av.textContent = '?';
     }
 
-    const av = $('authAvatarLetter');
-    if (av) {
-      const n = (authName.value || '').trim();
-      av.textContent = n ? n[0].toUpperCase() : '?';
-    }
-
-    paintAuthMode();
+    showAuthScreen(startScreen);
     authModal.classList.add('is-open');
     authModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('onboard-open');
@@ -4621,35 +4635,49 @@ function buildTabSections(raw, tabConfig, topic) {
   }
 
   if (authModal) {
-    // Инициализируем цепочку auth-модалки
+    // Цепочка группы в форме
     if (authLetters && authYear && authNum) {
       authChain = setupGroupChain({
         letters: authLetters,
         year:    authYear,
         num:     authNum,
-        onChange: () => { /* валидация идёт на клик */ }
+        onChange: () => {}
       });
     }
 
-    if (authTabLogin) authTabLogin.addEventListener('click', () => {
-      if (authMode === 'login') return;
-      authMode = 'login'; clearAuthError(); paintAuthMode();
-    });
-    if (authTabRegister) authTabRegister.addEventListener('click', () => {
-      if (authMode === 'register') return;
-      authMode = 'register'; clearAuthError(); paintAuthMode();
+    // ---- Экран выбора ----
+    const chooseNewBtn = $('authChooseNew');
+    const chooseOldBtn = $('authChooseOld');
+
+    if (chooseNewBtn) chooseNewBtn.addEventListener('click', () => {
+      authMode = 'register';
+      openAuth('register', 'form');
     });
 
+    if (chooseOldBtn) chooseOldBtn.addEventListener('click', () => {
+      authMode = 'login';
+      openAuth('login', 'form');
+    });
+
+    // ---- Кнопка «Назад» ----
+    if (authBack) authBack.addEventListener('click', () => {
+      showAuthScreen('choice');
+      if (authStep) authStep.textContent = 'Вход в doro';
+    });
+
+    // ---- Автокапитализация букв ----
     if (authLetters) authLetters.addEventListener('input', () => {
       authLetters.value = normalizeGroupLetters(authLetters.value);
     });
 
+    // ---- Превью аватара ----
     if (authName) authName.addEventListener('input', () => {
       const av = $('authAvatarLetter'); if (!av) return;
       const n = (authName.value || '').trim();
       av.textContent = n ? n[0].toUpperCase() : '?';
     });
 
+    // ---- Показать/скрыть пароль ----
     authModal.querySelectorAll('.password-toggle').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -4671,6 +4699,7 @@ function buildTabSections(raw, tabConfig, topic) {
       });
     });
 
+    // ---- Отправка формы ----
     if (authSubmit) authSubmit.addEventListener('click', async () => {
       clearAuthError();
 
@@ -4735,7 +4764,7 @@ function buildTabSections(raw, tabConfig, topic) {
             password
           );
 
-          let profile = await cloud.getMyProfile();
+          let profile = await cloud.getMyProfile({ name, group });
           if (!profile) {
             user = { name, group, status: user?.status || USER_STATUSES[0], color: user?.color || '#3b82f6' };
             await cloud.saveProfile(user);
@@ -4765,15 +4794,15 @@ function buildTabSections(raw, tabConfig, topic) {
       } catch (err) {
         console.error('Auth error:', err);
         let msg = err.message || 'Ошибка';
-        if (msg.includes('email-already-in-use')) msg = 'Этот логин уже занят. Попробуйте войти или возьмите другое имя/группу.';
-        else if (msg.includes('user-not-found'))  msg = 'Пользователь не найден. Зарегистрируйтесь.';
+        if (msg.includes('email-already-in-use')) msg = 'Этот логин уже занят. Нажмите «Назад» и выберите «Я уже был здесь».';
+        else if (msg.includes('user-not-found'))  msg = 'Пользователь не найден. Нажмите «Назад» и выберите «Я здесь впервые».';
         else if (msg.includes('wrong-password') || msg.includes('invalid-credential')) msg = 'Неверный пароль.';
         else if (msg.includes('invalid-email'))   msg = 'Логин составлен неправильно.';
         else if (msg.includes('weak-password'))   msg = 'Слишком простой пароль.';
         showAuthError(msg);
       } finally {
         authSubmit.disabled = false;
-        paintAuthMode();
+        paintAuthForm();
       }
     });
   }
@@ -4791,7 +4820,7 @@ function buildTabSections(raw, tabConfig, topic) {
 
     if (hasPasswordAccount && cloud && !cloud.isAnonymous) {
       try {
-        const profile = await cloud.getMyProfile();
+        const profile = await cloud.getMyProfile(user);
         if (profile) {
           user = {
             name:   profile.name   || '',
@@ -4806,7 +4835,8 @@ function buildTabSections(raw, tabConfig, topic) {
       return;
     }
 
-    setTimeout(() => openAuth('register'), 400);
+    // Открываем окно сразу на экране выбора
+    setTimeout(() => openAuth('register', 'choice'), 400);
   }
   bootAuth();
   // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------

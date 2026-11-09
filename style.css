@@ -8105,33 +8105,6 @@ html:not([data-theme="dark"]) .reader__panel[data-accent="histology"] .reader__c
   margin: 2px 0 0; text-align: left; line-height: 1.2;
 }
 
-.auth-tabs {
-  position: relative; display: grid; grid-template-columns: 1fr 1fr;
-  gap: 4px; padding: 4px; margin: 4px 0 2px;
-  background: color-mix(in srgb, var(--accent, #3b82f6) 6%, rgba(255, 255, 255, 0.7));
-  border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 18%, rgba(255, 255, 255, 0.9));
-  border-radius: 999px;
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-}
-.auth-tab {
-  position: relative; z-index: 1; padding: 9px 14px;
-  border: none; background: transparent; color: var(--text-soft, #5a6678);
-  font-family: inherit; font-size: 13.5px; font-weight: 700;
-  border-radius: 999px; cursor: pointer; transition: color 0.2s ease;
-}
-.auth-tab:hover { color: var(--text, #16202e); }
-.auth-tab.is-active { color: color-mix(in srgb, var(--accent, #3b82f6) 90%, #0b1220); }
-.auth-tabs__indicator {
-  position: absolute; top: 4px; left: 4px;
-  height: calc(100% - 8px); width: calc(50% - 4px);
-  background: #fff; border-radius: 999px;
-  box-shadow: 0 2px 10px rgba(20, 40, 80, 0.10);
-  transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1); z-index: 0;
-}
-.auth-tabs[data-active="register"] .auth-tabs__indicator {
-  transform: translateX(calc(100% + 4px));
-}
-
 #authModal .onboard__note {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 10px 12px; margin: 0; border-radius: 14px;
@@ -8188,18 +8161,6 @@ html:not([data-theme="dark"]) .reader__panel[data-accent="histology"] .reader__c
   .auth-hint { font-size: 10.5px; }
   #authModal .onboard__btn { padding: 12px 18px; font-size: 14px; }
   #authError { font-size: 11.5px; }
-}
-
-[data-theme="dark"] .auth-tabs {
-  background: rgba(163, 230, 53, 0.08);
-  border-color: rgba(163, 230, 53, 0.22);
-}
-[data-theme="dark"] .auth-tab { color: var(--text-soft); }
-[data-theme="dark"] .auth-tab:hover { color: var(--text); }
-[data-theme="dark"] .auth-tab.is-active { color: var(--accent); }
-[data-theme="dark"] .auth-tabs__indicator {
-  background: color-mix(in srgb, var(--accent) 22%, #1a1e14);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
 }
 [data-theme="dark"] #authModal .onboard__note {
   background: rgba(163, 230, 53, 0.08);
@@ -8306,4 +8267,174 @@ html:not([data-theme="dark"]) .reader__panel[data-accent="histology"] .reader__c
     border-radius: 14px;
   }
   .group-picker__field { font-size: 16px; }
+}
+/* ============================================================
+   AUTH: ЭКРАНЫ «ВПЕРВЫЕ / УЖЕ БЫЛ» + ФОРМА
+   ============================================================ */
+
+/* --- Экраны --- */
+.auth-screen { display: none; flex-direction: column; gap: 10px; }
+.auth-screen.is-active { display: flex; animation: authScreenIn 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes authScreenIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Кнопки выбора --- */
+.auth-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.auth-choice__btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 22%, rgba(255, 255, 255, 0.9));
+  background: color-mix(in srgb, var(--accent, #3b82f6) 5%, rgba(255, 255, 255, 0.7));
+  color: var(--text, #16202e);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.25s ease;
+}
+
+.auth-choice__btn:hover {
+  border-color: var(--accent, #3b82f6);
+  background: color-mix(in srgb, var(--accent, #3b82f6) 10%, rgba(255, 255, 255, 0.85));
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--accent, #3b82f6) 55%, transparent);
+}
+
+.auth-choice__btn:active { transform: translateY(0) scale(0.99); }
+
+.auth-choice__btn--primary {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent, #3b82f6) 88%, #fff),
+    color-mix(in srgb, var(--accent-2, #06b6d4) 88%, #fff));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--accent, #3b82f6) 60%, transparent);
+}
+
+.auth-choice__btn--primary:hover {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent, #3b82f6) 95%, #fff),
+    color-mix(in srgb, var(--accent-2, #06b6d4) 95%, #fff));
+  box-shadow: 0 14px 28px -12px color-mix(in srgb, var(--accent, #3b82f6) 75%, transparent);
+}
+
+.auth-choice__btn--primary .auth-choice__desc {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.auth-choice__icon {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent, #3b82f6) 14%, transparent);
+  color: var(--accent, #3b82f6);
+  border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 28%, transparent);
+}
+
+.auth-choice__btn--primary .auth-choice__icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.auth-choice__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.auth-choice__title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.auth-choice__desc {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-soft, #5a6678);
+}
+
+/* --- Кнопка «Назад» --- */
+.auth-back {
+  align-self: center;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-soft, #5a6678);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.auth-back:hover {
+  color: var(--accent, #3b82f6);
+  background: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent);
+}
+
+.auth-back:active { transform: scale(0.97); }
+
+/* --- Тёмная тема --- */
+[data-theme="dark"] .auth-choice__btn {
+  background: color-mix(in srgb, var(--accent) 8%, rgba(20, 23, 15, 0.7));
+  border-color: color-mix(in srgb, var(--accent) 25%, rgba(163, 230, 53, 0.1));
+  color: var(--text);
+}
+[data-theme="dark"] .auth-choice__btn:hover {
+  background: color-mix(in srgb, var(--accent) 14%, rgba(20, 23, 15, 0.9));
+  border-color: var(--accent);
+  box-shadow: 0 10px 24px -14px rgba(163, 230, 53, 0.5);
+}
+[data-theme="dark"] .auth-choice__btn--primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #0d0f0c;
+  border-color: transparent;
+}
+[data-theme="dark"] .auth-choice__btn--primary .auth-choice__desc {
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="dark"] .auth-choice__btn--primary .auth-choice__icon {
+  background: rgba(0, 0, 0, 0.15);
+  color: #0d0f0c;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .auth-choice__icon {
+  background: rgba(163, 230, 53, 0.12);
+  color: var(--accent);
+  border-color: rgba(163, 230, 53, 0.28);
+}
+[data-theme="dark"] .auth-choice__desc { color: var(--text-soft); }
+[data-theme="dark"] .auth-back { color: var(--text-soft); }
+[data-theme="dark"] .auth-back:hover { color: var(--accent); background: rgba(163, 230, 53, 0.1); }
+
+/* --- Мобилка --- */
+@media (max-width: 480px) {
+  .auth-choice__btn { padding: 14px 14px; border-radius: 16px; }
+  .auth-choice__icon { width: 38px; height: 38px; }
+  .auth-choice__title { font-size: 14px; }
+  .auth-choice__desc { font-size: 11.5px; }
 }
