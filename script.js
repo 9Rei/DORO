@@ -233,31 +233,54 @@ function getEffectiveGroup() {
 function currentSchedule() {
   return getScheduleForGroup(getEffectiveGroup());
 }
-function isFirstWeek(date) {
+// Чётность недели для КОНКРЕТНОЙ группы.
+// У каждой группы может быть свой якорь: schedule._weekAnchor (строка "YYYY-MM-DD").
+// Если своего якоря нет — берём глобальный из SCHEDULE_CONFIG.weekAnchor.
+// Возвращает true, если это «первая» (нечётная) неделя для этой группы.
+function isFirstWeek(date, schedule) {
   const cfg = window.SCHEDULE_CONFIG || {};
-  const anchorStr = cfg.weekAnchor || "2026-10-29";
+  const anchorStr = (schedule && schedule._weekAnchor) || cfg.weekAnchor || "2026-10-29";
   const [y, m, d] = anchorStr.split("-").map(Number);
   const anchor = new Date(y, m - 1, d);
-  anchor.setHours(0,0,0,0);
-  const target = new Date(date); target.setHours(0,0,0,0);
+  anchor.setHours(0, 0, 0, 0);
+  const target = new Date(date); target.setHours(0, 0, 0, 0);
   const diffDays = Math.floor((target - anchor) / 86400000);
   const weeks = Math.floor(diffDays / 7);
   return ((weeks % 2) + 2) % 2 === 0;
 }
+
+// Нормализует флаг недели у пары к 'odd' | 'even' | null.
+// Поддерживает: week: 'odd' | 'even' | 1 | 2 | '1' | '2'.
+function normalizeWeekFlag(v) {
+  if (v === 1 || v === '1' || v === 'odd' || v === 'first') return 'odd';
+  if (v === 2 || v === '2' || v === 'even' || v === 'second') return 'even';
+  return null;
+}
+
 function getDaySchedule(dayKey, date) {
   const sch = currentSchedule();
-  const base = (sch[dayKey] || []).slice();
-  const first = isFirstWeek(date);
+  const first = isFirstWeek(date, sch);
 
+  // 1. База: пары, у которых нет флага недели, либо флаг совпал с текущей неделей
+  let base = (sch[dayKey] || []).filter(l => {
+    const w = normalizeWeekFlag(l.week);
+    if (!w) return true;          // без флага — каждую неделю
+    return first ? w === 'odd' : w === 'even';
+  });
+
+  // 2. Старый механизм _firstWeekOnly / _secondWeekOnly (обратная совместимость)
   const firstWeekOnly = sch._firstWeekOnly || {};
   if (first && Array.isArray(firstWeekOnly[dayKey])) {
-    base.push(...firstWeekOnly[dayKey]);
+    base = base.concat(firstWeekOnly[dayKey]);
   }
-
   const secondWeekOnly = sch._secondWeekOnly || {};
   if (!first && Array.isArray(secondWeekOnly[dayKey])) {
-    base.push(...secondWeekOnly[dayKey]);
+    base = base.concat(secondWeekOnly[dayKey]);
   }
+
+  // 3. Опциональный фильтр по конкретным датам (dates: ["11.11", "25.11"])
+  const dateStr = String(date.getDate()).padStart(2, '0') + '.' + String(date.getMonth() + 1).padStart(2, '0');
+  base = base.filter(l => !l.dates || l.dates.includes(dateStr));
 
   return base;
 }
@@ -5056,14 +5079,6 @@ function buildTabSections(raw, tabConfig, topic) {
     };
   }
 
-  // Запускаем проверку через 3 секунды после старта,
-  // чтобы не мешать онбордингу/входу
-  setTimeout(() => {
-    // Только если пользователь уже зарегистрирован (есть пароль)
-    if (localStorage.getItem('doro.hasPasswordAccount') === '1') {
-      checkAndShowGhostCleanup();
-    }
-  }, 3000);
 
   // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
   renderProfile();
