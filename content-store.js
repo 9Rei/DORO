@@ -5,6 +5,34 @@
   'use strict';
 
   const topicsCache = new Map();
+  // Преобразует ДД.ММ.ГГГГ или ДД-ММ-ГГГГ в 2026-11-10 (для базы и календаря)
+  function formatDateForDb(dateStr) {
+    if (!dateStr) return '';
+    // Если дата уже в формате ГГГГ-ММ-ДД (с дефисами), просто возвращаем её
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+      return dateStr.trim();
+    }
+    // Иначе парсим как ДД.ММ.ГГГГ
+    const parts = dateStr.trim().split(/[\.\-\/]/);
+    if (parts.length === 3) {
+      const dd = parts[0].padStart(2, '0');
+      const mm = parts[1].padStart(2, '0');
+      let yyyy = parts[2];
+      if (yyyy.length === 2) yyyy = '20' + yyyy;
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    return dateStr;
+  }
+
+  // Преобразует 2026-11-10 в 10.11.2026 (для показа в форме)
+  function formatDateForInput(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.trim().split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+    return dateStr;
+  }
 
   window.doroContent = {
     // 1. Загрузка ВСЕХ тем из базы при старте сайта
@@ -28,7 +56,7 @@
             num: data.num,
             title: data.title,
             steps: data.steps || [],
-            date: data.date || '',
+            date: formatDateForDb(data.date), // Конвертируем дату из базы в ISO формат
             pdf: data.pdfFiles && data.pdfFiles[0] ? data.pdfFiles[0] : null,
             isFromDb: true 
           };
@@ -92,7 +120,7 @@
           subjectKey: subjectKey,
           num: topic.num,
           title: topic.title,
-          date: topic.date || '',
+          date: formatDateForDb(topic.date || ''),
           steps: topic.steps || [],
           pdfFiles: topic.pdf ? [topic.pdf] : [],
           content: text,
@@ -117,7 +145,7 @@
         subjectKey: subjectKey,
         num: data.num || '',
         title: data.title || 'Без названия',
-        date: data.date || '',
+        date: formatDateForDb(data.date || ''),
         steps: data.steps || [],
         pdfFiles: data.pdfFiles || [],
         content: data.content || '',
@@ -127,7 +155,48 @@
       });
       
       return topicId;
-    }
+    },
+
+    // 5. Удаление темы
+    async deleteTopic(subjectKey, num) {
+      if (!window.doroDb) return false;
+      const { deleteDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const topicId = `${subjectKey}_${num}`;
+      await deleteDoc(doc(window.doroDb, 'topics', topicId));
+      return true;
+    },
+
+    // 6. Обновление существующей темы
+    async updateTopic(subjectKey, oldNum, data) {
+      if (!window.doroDb) return false;
+      const { setDoc, doc, deleteDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      
+      const oldTopicId = `${subjectKey}_${oldNum}`;
+      const newTopicId = `${subjectKey}_${data.num || oldNum}`;
+      
+      // Если номер изменился, удаляем старый документ
+      if (oldTopicId !== newTopicId) {
+        await deleteDoc(doc(window.doroDb, 'topics', oldTopicId));
+      }
+
+      await setDoc(doc(window.doroDb, 'topics', newTopicId), {
+        subjectKey: subjectKey,
+        num: data.num || oldNum,
+        title: data.title,
+        date: formatDateForDb(data.date || ''),
+        steps: data.steps || [],
+        pdfFiles: data.pdfFiles || [],
+        content: data.content || '',
+        status: data.status || 'published',
+        author: data.author || 'Редактор',
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      return newTopicId;
+    },
+
+    // Экспортируем вспомогательные функции для editor-ui.js
+    formatDateForInput: formatDateForInput
   };
 
   console.log('[content-store] Готов к работе');

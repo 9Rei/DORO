@@ -96,7 +96,7 @@ function getGreeting(theme, name) {
 // ============================================================
 //  ДАННЫЕ
 // ============================================================
-const subjects = {
+window.subjects = {
   biochem: {
     num: "01", title: "Биохимия",
     author: "Кайгородов Антон",
@@ -1228,8 +1228,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const fontValue = $('fontValue');
   const views = { home: $('view-home'), files: $('view-files'), links: $('view-links'), tasks: $('view-tasks'), profile: $('view-profile') };
   const rendered = { home: false, files: false, links: false, tasks: false, profile: false };
-  let currentSubjectKey = null;
-  let currentTopicMeta = null;
+  window.currentSubjectKey = null;
+  window.currentTopicMeta = null;
   let user = JSON.parse(localStorage.getItem('doro.user') || 'null');
   if (user && typeof user === 'object') {
     user.color = user.color || '#3b82f6';
@@ -3098,8 +3098,8 @@ function displayUserName(name) {
       const f = valid.findIndex(t => t.num === topicNum);
       if (f !== -1) initialIndex = f;
     }
-    currentTopicMeta = valid[initialIndex];
-    currentSubjectKey = key;
+    window.currentTopicMeta = valid[initialIndex];
+    window.currentSubjectKey = key;
     if (subjectsCardsView) subjectsCardsView.style.display = 'none';
     if (readerScreen) readerScreen.style.display = 'flex';
     document.dispatchEvent(new CustomEvent('doro:topic-rendered'));

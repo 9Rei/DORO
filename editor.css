@@ -116,3 +116,72 @@
   border: 1px solid var(--island-border);
   color: var(--text);
 }
+/* Обертка для кнопок в шапке */
+.editor-actions-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto; /* прижимает к правому краю */
+  margin-right: 6px;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Стиль кнопок-иконок (копирует стиль reader-icon-btn) */
+.editor-action-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--subject-accent, var(--accent)) 10%, #fff);
+  color: var(--subject-accent, var(--accent));
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  transition: background .15s, box-shadow .15s, transform .15s;
+}
+
+.editor-action-btn:hover {
+  background: color-mix(in srgb, var(--subject-accent, var(--accent)) 18%, #fff);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--subject-accent, var(--accent)) 30%, transparent);
+}
+
+.editor-action-btn:active {
+  transform: scale(0.95);
+}
+
+.editor-action-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Тёмная тема */
+[data-theme="dark"] .editor-action-btn {
+  background: color-mix(in srgb, var(--subject-accent, var(--accent)) 14%, #1a1e14);
+  color: var(--subject-accent, var(--accent));
+}
+[data-theme="dark"] .editor-action-btn:hover {
+  background: color-mix(in srgb, var(--subject-accent, var(--accent)) 22%, #1a1e14);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* На мобилке немного уменьшаем */
+@media (max-width: 640px) {
+  .editor-actions-wrap {
+    gap: 4px;
+    margin-right: 2px;
+  }
+  .editor-action-btn {
+    width: 32px;
+    height: 32px;
+  }
+  .editor-action-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+}
