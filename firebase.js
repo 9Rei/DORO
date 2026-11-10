@@ -176,6 +176,28 @@ function initCloud(user) {
       return all;
     },
 
+    async listUsersSince(sinceTimestamp) {
+      const { where, query: q, collection: col, getDocs: gd } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+      );
+      const sinceDate = new Date(sinceTimestamp || 0);
+
+      const qq = q(
+        col(db, 'users'),
+        where('updatedAt', '>', sinceDate)
+      );
+
+      const snap = await gd(qq);
+      return snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          updatedAt: data.updatedAt?.toMillis?.() || 0
+        };
+      });
+    },
+
     async countUsers() {
       const snap = await getCountFromServer(collection(db, 'users'));
       return snap.data().count;
