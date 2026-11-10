@@ -1813,8 +1813,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------- СПИСОК ПОЛЬЗОВАТЕЛЕЙ В ПРОФИЛЕ ----------
-  const profileUsersBody = $('profileUsersBody');
-  const profileUsersCount = $('profileUsersCount');
+const profileUsersBody = $('profileUsersBody');
+const profileUsersCount = $('profileUsersCount');
+const profileUsersCountLabel = $('profileUsersCountLabel');
 
   function getSectionAuthors() {
     const set = new Set();
@@ -1975,7 +1976,6 @@ function displayUserName(name) {
 
     // Если есть свежий кэш — используем его и для числа, и для списка
     if (!force && usersCache && (now - usersCacheTime) < USERS_CACHE_TTL) {
-      if (profileUsersCount) profileUsersCount.textContent = String(usersCache.length);
       paintUsersList(usersCache);
       return;
     }
@@ -2002,9 +2002,7 @@ function displayUserName(name) {
       usersCacheTime = Date.now();
       saveUsersCacheToLS(allUsers);
 
-      // Число = ВСЕ реальные документы из базы (включая дубликаты)
-      if (profileUsersCount) profileUsersCount.textContent = String(allUsers.length);
-
+      // Считаем уникальных людей (склеиваем дубли по name+group)
       paintUsersList(allUsers);
     } catch (err) {
       console.error('renderProfileUsers error:', err);
@@ -2024,12 +2022,132 @@ function displayUserName(name) {
     return CLOSED_GROUPS.includes(group.trim().toUpperCase());
   }
 
+  // Слот-машина: каждый разряд — свой барабан, крутится и останавливается
+  let _slotToken = 0;
+  let _lastUsersTotal = -1;
+
+  function setUsersHeroCountAnimated(groupStats) {
+    const numEl = document.getElementById('profileUsersCount');
+    const labelEl = document.getElementById('profileUsersCountLabel');
+    if (!numEl) return;
+
+    // Включаем режим счётчика на плитке (иконка уезжает, цифра приходит)
+    const tile = document.getElementById('tileUsers');
+    if (tile) tile.classList.add('has-count');
+
+    const total = groupStats.reduce((s, [, c]) => s + c, 0);
+
+    // склонение
+    if (labelEl) {
+      const m10 = total % 10, m100 = total % 100;
+      let word = 'человек';
+      if (m10 === 1 && m100 !== 11) word = 'человек';
+      else if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) word = 'человека';
+      labelEl.textContent = word;
+    }
+
+    // без изменений — без анимации
+    if (total === _lastUsersTotal) {
+      numEl.classList.remove('is-slots');
+      numEl.textContent = String(total);
+      return;
+    }
+    _lastUsersTotal = total;
+
+    // reduce-motion
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      numEl.classList.remove('is-slots');
+      numEl.textContent = String(total);
+      return;
+    }
+
+    const myToken = ++_slotToken;
+
+    // Разбиваем итог на цифры
+    const digits = String(total).split('');
+
+    // Собираем слоты
+    numEl.innerHTML = '';
+    numEl.classList.add('is-slots');
+
+    const reels = digits.map((targetDigit, i) => {
+      // обёртка (окошко)
+      const reel = document.createElement('span');
+      reel.className = 'profile-users__reel';
+
+      // столбик: 0..9 + повтор 0..9 для длинного прокрута
+      const strip = document.createElement('span');
+      strip.className = 'profile-users__reel-strip';
+
+      // 2 полных круга по 10 цифр = 20 цифр
+      for (let r = 0; r < 2; r++) {
+        for (let d = 0; d <= 9; d++) {
+          const item = document.createElement('span');
+          item.className = 'profile-users__reel-item';
+          item.textContent = String(d);
+          strip.appendChild(item);
+        }
+      }
+      // финальная нужная цифра — в конец (21-я позиция)
+      const finalItem = document.createElement('span');
+      finalItem.className = 'profile-users__reel-item';
+      finalItem.textContent = targetDigit;
+      strip.appendChild(finalItem);
+
+      reel.appendChild(strip);
+      numEl.appendChild(reel);
+      return { reel, strip, index: i, target: Number(targetDigit) };
+    });
+
+    // Ставим прокрутку: каждая цифра начинается с 0 (сразу видно «0»)
+    // и должна доехать до индекса последнего элемента (20).
+    // Позиция элемента: -index * 1em (высота одного окошка = 1em).
+    const STEP_PX_PER_EM = 1; // em
+    const totalItems = 21;    // 20 из повторяющихся + 1 финальная
+
+    // Все барабаны крутятся, но останавливаются по очереди:
+    // задержка растёт с i: 0, 220ms, 440ms, ...
+    reels.forEach(({ strip, index }) => {
+      // финальное смещение — к последнему элементу
+      const finalOffsetEm = -(totalItems - 1);
+
+      // стартовая позиция — верх (0)
+      strip.style.transform = 'translateY(0)';
+
+      // задержка остановки: чем правей барабан — тем позже
+      const stopDelay = index * 220;
+
+      // длительность прокрутки (перед остановкой) — общая,
+      // но каждая «докручивается» в свой момент за счёт transition-delay
+      const spinDuration = 900 + index * 40; // ms
+
+      // Триггерим анимацию:
+      // 1) лёгкий старт (translateY 0)
+      // 2) через requestAnimationFrame — плавный уход к финалу
+      requestAnimationFrame(() => {
+        strip.style.transition = `transform ${spinDuration}ms cubic-bezier(0.12, 0.8, 0.2, 1) ${stopDelay}ms`;
+        strip.style.transform = `translateY(${finalOffsetEm}em)`;
+      });
+    });
+
+    // Финальный «щёлк» всего блока — после последней остановки
+    const lastDelay = (reels.length - 1) * 220;
+    const lastDuration = 900 + (reels.length - 1) * 40;
+    const finishTime = lastDelay + lastDuration;
+
+    setTimeout(() => {
+      if (myToken !== _slotToken) return;
+      numEl.classList.add('is-landed');
+      setTimeout(() => numEl.classList.remove('is-landed'), 500);
+    }, finishTime);
+  }
+
   // Отдельная функция отрисовки (без запроса)
   function paintUsersList(allUsers) {
     const merged = mergeUsers(allUsers);
 
     if (!merged.length) {
-      profileUsersBody.innerHTML = '<div class="profile-users__empty">Пока никого нет.</div>';
+      setUsersHeroCount(0);
       return;
     }
 
@@ -2040,22 +2158,43 @@ function displayUserName(name) {
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g).push(u);
     });
-    // Сортировка групп: сначала по количеству человек (по убыванию),
-    // при равенстве — по алфавиту. «Без группы» — всегда в конце.
+    // Своя группа — всегда первая. Дальше — по количеству человек
+    // (по убыванию), при равенстве — по алфавиту. «Без группы» — в конце.
+    const myGroupKey = (user && user.group) ? user.group.trim().toUpperCase() : '';
     const sortedGroups = [...groups.keys()].sort((a, b) => {
+      const aKey = (a || '').trim().toUpperCase();
+      const bKey = (b || '').trim().toUpperCase();
+
+      // 1. Своя группа — всегда сверху
+      const aMine = !!myGroupKey && aKey === myGroupKey;
+      const bMine = !!myGroupKey && bKey === myGroupKey;
+      if (aMine !== bMine) return aMine ? -1 : 1;
+
+      // 2. «Без группы» — в конце
       if (!a && b) return 1;
       if (a && !b) return -1;
+
+      // 3. По количеству человек — по убыванию
       const diff = groups.get(b).length - groups.get(a).length;
       if (diff !== 0) return diff;
+
+      // 4. По алфавиту
       return a.localeCompare(b, 'ru');
     });
+
+      setUsersHeroCountAnimated(
+        sortedGroups.map(g => [g, groups.get(g).length])
+      );
 
     const myGroup = (user && user.group) ? user.group.trim().toUpperCase() : '';
 
     profileUsersBody.innerHTML = '';
 
+    // надпись про сортировку — в начало тела панели, по центру
+    const oldNote = profileUsersBody.querySelector('.users-sort-note');
+    if (oldNote) oldNote.remove();
     const sortNote = document.createElement('div');
-    sortNote.className = 'users-sort-note';
+    sortNote.className = 'users-sort-note users-sort-note--hero';
     sortNote.innerHTML = `
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -2118,8 +2257,10 @@ function displayUserName(name) {
       }
       // 2. Количество человек — теперь в шапке рядом с названием (см. выше)
 
-      // 3. «Самая большая» — если группа первая в отсортированном списке
-      if (sortedGroups[0] === g && groups.get(g).length > 1) {
+      // 3. «Самая большая» — реально самая большая по количеству (не просто первая в списке)
+      const maxCount = Math.max(...[...groups.values()].map(arr => arr.length));
+      const isBiggest = groups.get(g).length === maxCount && groups.get(g).length > 1;
+      if (isBiggest) {
         const t = document.createElement('span');
         t.className = 'group-tag group-tag--top';
         t.innerHTML = `
