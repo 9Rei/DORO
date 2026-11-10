@@ -18,6 +18,7 @@ const app = initializeApp({
 });
 
 const db = getFirestore(app);
+window.doroDb = db; // Экспортируем db для других скриптов (например, roles.js)
 const auth = getAuth(app);
 
 let readyResolve;

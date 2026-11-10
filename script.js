@@ -3109,23 +3109,9 @@ function displayUserName(name) {
     closeReaderSettings();
     SearchCtl.close();
 
-    const topicCache = new Map();
+    // Теперь загрузка идет через content-store.js (сначала база, потом GitHub)
     async function loadTopicContent(topic) {
-      if (!topic.file) return '';
-      if (topicCache.has(topic.file)) return topicCache.get(topic.file);
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(topic.file, { cache: 'no-cache', signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const text = await res.text();
-        topicCache.set(topic.file, text);
-        return text;
-      } catch (e) {
-        console.error('Ошибка загрузки ' + topic.file, e);
-        return `Не удалось загрузить файл темы: ${topic.file}`;
-      }
+      return window.doroContent.loadTopicContent({ ...topic, subjectKey: key });
     }
 
     async function renderTopic(i) {
@@ -4979,7 +4965,17 @@ function buildTabSections(raw, tabConfig, topic) {
     // Открываем окно сразу на экране выбора
     setTimeout(() => openAuth('register', 'choice'), 400);
   }
-  bootAuth();
+  // Сначала загружаем новые темы из базы, потом запускаем сайт
+  // Принудительно сбрасываем старый кэш тем, чтобы подтянуть новые
+  if (window.doroContent && window.doroContent.loadAllTopics) {
+    window.doroContent.loadAllTopics().then(() => {
+      // После загрузки обновляем карточки разделов, если они уже отрисованы
+      if (typeof window.renderSections === 'function') window.renderSections();
+      bootAuth();
+    });
+  } else {
+    bootAuth();
+  }
   // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
   renderProfile();
   showView('home');
