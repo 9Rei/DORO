@@ -131,7 +131,7 @@ window.subjects = {
     author: "Мария Прокопьева",
     tabs: ["theory", "preparations"],
     topics: [
-      { num: "28", title: "Коллоквиум по разделу: Органы пищеварительной системы, органы дыхания, кожа и ее производные. Диагностика препаратов.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_28.md", pdf: "content/histology/28П.pdf" },
+      { num: "28", title: "Коллоквиум по разделу: Органы пищеварительной системы, органы дыхания, кожа и ее производные. Диагностика препаратов.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_28.md", pdf: "content/histology/28П.pdf", tasksPdf: "content/histology/ЗАДАЧИ_28.pdf" },
       { num: "27", title: "Морфологическая характеристика кожи и ее производных. Морфологическая характеристика органов дыхания", steps: ["Прочитать файлик","Тема разделена на 2 части", "В конце темы краткий вариант", "Решить тест"], date: "2026-11-02", file: "content/histology/ГИСТА_27.md", pdf: "content/histology/27П.pdf" },
       { num: "26", title: "Пищеварительная система. Морфологическая характеристика печени и поджелудочной железы", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-27", file: "content/histology/ГИСТА_26.md", pdf: "content/histology/26П.pdf" },
       { num: "25", title: "Пищеварительная система. Морфологическая характеристика кишечника", steps: ["Прочитать файлик (в нем препараты)", "Решить тест"], date: "2026-10-20", file: "content/histology/ГИСТА_25.md", pdf: "content/histology/25П.pdf" },
@@ -1858,33 +1858,48 @@ function displayUserName(name) {
   return n.charAt(0).toUpperCase() + n.slice(1);
 }
 
-  // Редактор — если:
-  // 1) полное имя совпадает с subjects.author («Мария Прокопьева»), или
-  // 2) имя+группа есть в SECTION_AUTHOR_GROUPS («Мария» + «ЛД2511»),
-  // 3) или имя совпадает с первым словом автора и группа совпадает.
+  // Глобальный кэш редакторов из базы
+  let _editorsList = null;
+
+  // Загружаем список редакторов из Firestore (коллекция roles)
+  async function loadEditorsFromDb() {
+    if (!window.doroDb) return [];
+    try {
+      const { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      
+      // Ищем всех, у кого role = 'editor' или 'admin'
+      const q = query(collection(window.doroDb, 'roles'), where('role', 'in', ['editor', 'admin']));
+      const snap = await getDocs(q);
+      
+      const editors = [];
+      snap.forEach(doc => {
+        editors.push(doc.data());
+      });
+      
+      _editorsList = editors;
+      return editors;
+    } catch (e) {
+      console.warn('Не удалось загрузить список редакторов:', e);
+      return [];
+    }
+  }
+
+  // Проверка: является ли человек настоящим редактором
   function isSectionAuthor(name, group) {
+    if (!_editorsList) return false; // Если не загрузили — никого не подсвечиваем
+    
     const n = normalizeUserName(name).toLowerCase();
     if (!n) return false;
 
-    // 1. Полное совпадение с автором раздела
-    if (SECTION_AUTHORS.some(a => a.toLowerCase() === n)) return true;
-
     const g = (group || '').trim().toUpperCase();
+    if (!g) return false;
 
-    // 2. Явный список «имя + группа»
-    if (g && SECTION_AUTHOR_GROUPS.some(a =>
-      a.name.toLowerCase() === n && a.group.toUpperCase() === g
-    )) return true;
-
-    // 3. Первое слово автора + группа
-    if (g && SECTION_AUTHOR_FIRSTNAMES.includes(n)) {
-      // Проверяем, что этот автор «привязан» к группе g через SECTION_AUTHOR_GROUPS
-      return SECTION_AUTHOR_GROUPS.some(a =>
-        a.group.toUpperCase() === g && a.name.toLowerCase() === n
-      );
-    }
-
-    return false;
+    // Ищем среди настоящих редакторов из базы
+    return _editorsList.some(editor => {
+      const editorName = normalizeUserName(editor.displayName).toLowerCase();
+      // Сравниваем имя и группу (если группа не указана в базе, просто имя)
+      return editorName === n;
+    });
   }
 
   function userKey(u) {
@@ -3972,7 +3987,10 @@ function buildTabSections(raw, tabConfig, topic) {
     if (tabConfig.includes('solve')) result.solve = testsPart;
     if (tabConfig.includes('read'))  result.read  = testsPart;
   }
-  if (tabConfig.includes('preparations')) result.preparations = topic.pdf ? (Array.isArray(topic.pdf) ? topic.pdf : [topic.pdf]) : [];
+if (tabConfig.includes('preparations')) {
+  result.preparations = topic.pdf ? (Array.isArray(topic.pdf) ? topic.pdf : [topic.pdf]) : [];
+  result.tasksPdf = topic.tasksPdf ? (Array.isArray(topic.tasksPdf) ? topic.tasksPdf : [topic.tasksPdf]) : [];
+}
   if (tabConfig.includes('questions') || tabConfig.includes('problems')) {
     const three = splitIntoThreeSections(raw);
     if (tabConfig.includes('questions')) result.questions = three.questions;
@@ -3989,8 +4007,9 @@ function buildTabSections(raw, tabConfig, topic) {
   moveTabIndicator();
   contentEl.classList.remove('is-loaded');
   contentEl.classList.toggle('reader-tab-tests', tab === 'tests');
-  if (tab === 'preparations') {
-    contentEl.innerHTML = renderPreparations(sections.preparations || []);
+if (tab === 'preparations') {
+  contentEl.innerHTML = renderPreparations(sections.preparations || [], sections.tasksPdf || []);
+}
   } else if (tab === 'questions') {
     const raw = sections.questions || '';
     if (raw.trim()) {
@@ -4094,18 +4113,42 @@ function buildTabSections(raw, tabConfig, topic) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function isReaderOpen() { const vf = $('view-files'); return vf ? vf.classList.contains('reader-open') : false; }
-  function renderPreparations(files) {
-    if (!files || !files.length) return '<p class="reader__empty">Препараты к этой теме не прикреплены.</p>';
-    const items = files.map((f) => {
-      const name = f.split('/').pop();
-      const isImage = /\.(png|jpe?g|webp|gif|svg)$/i.test(f);
-      const isPdf = /\.pdf$/i.test(f);
-      if (isImage) return `<figure class="reader__prep-figure"><img src="${escapeHtml(f)}" alt="${escapeHtml(name)}" loading="lazy"><figcaption>${escapeHtml(name)}</figcaption></figure>`;
-      if (isPdf) return `<button type="button" class="reader__prep-item" data-pdf="${escapeHtml(f)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg><span>${escapeHtml(name)}</span></button>`;
-      return `<a class="reader__prep-item" href="${escapeHtml(f)}" target="_blank" rel="noopener"><span>${escapeHtml(name)}</span></a>`;
-    }).join('');
-    return `<div class="reader__prep-list"><p class="reader__prep-hint">Нажмите на файл, чтобы открыть препараты к теме.</p>${items}</div>`;
+function renderPreparations(preparations, tasks) {
+  const prepList = Array.isArray(preparations) ? preparations : (preparations ? [preparations] : []);
+  const taskList = Array.isArray(tasks)        ? tasks        : (tasks        ? [tasks]        : []);
+
+  function renderOne(f) {
+    const name = f.split('/').pop();
+    const isImage = /\.(png|jpe?g|webp|gif|svg)$/i.test(f);
+    const isPdf   = /\.pdf$/i.test(f);
+    if (isImage) return `<figure class="reader__prep-figure"><img src="${escapeHtml(f)}" alt="${escapeHtml(name)}" loading="lazy"><figcaption>${escapeHtml(name)}</figcaption></figure>`;
+    if (isPdf)   return `<button type="button" class="reader__prep-item" data-pdf="${escapeHtml(f)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg><span>${escapeHtml(name)}</span></button>`;
+    return `<a class="reader__prep-item" href="${escapeHtml(f)}" target="_blank" rel="noopener"><span>${escapeHtml(name)}</span></a>`;
   }
+
+  let html = '<div class="reader__prep-list">';
+
+  if (taskList.length) {
+    html += `<div class="reader__prep-group">
+      <p class="reader__prep-hint">Задачи к теме</p>
+      ${taskList.map(renderOne).join('')}
+    </div>`;
+  }
+
+  if (prepList.length) {
+    html += `<div class="reader__prep-group">
+      <p class="reader__prep-hint">Препараты к теме</p>
+      ${prepList.map(renderOne).join('')}
+    </div>`;
+  }
+
+  if (!taskList.length && !prepList.length) {
+    html += '<p class="reader__empty">К этой теме ничего не прикреплено.</p>';
+  }
+
+  html += '</div>';
+  return html;
+}
   function setCollapsed(on) {
     if (document.body.classList.contains('island-collapsed') === on) return;
     document.body.classList.toggle('island-collapsed', on);
@@ -4965,11 +5008,12 @@ function buildTabSections(raw, tabConfig, topic) {
     // Открываем окно сразу на экране выбора
     setTimeout(() => openAuth('register', 'choice'), 400);
   }
-  // Сначала загружаем новые темы из базы, потом запускаем сайт
-  // Принудительно сбрасываем старый кэш тем, чтобы подтянуть новые
+
   if (window.doroContent && window.doroContent.loadAllTopics) {
-    window.doroContent.loadAllTopics().then(() => {
-      // После загрузки обновляем карточки разделов, если они уже отрисованы
+    window.doroContent.loadAllTopics().then(async () => {
+      // Загружаем список редакторов из базы
+      await loadEditorsFromDb();
+      
       if (typeof window.renderSections === 'function') window.renderSections();
       bootAuth();
     });
