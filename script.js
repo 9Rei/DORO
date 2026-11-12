@@ -4009,8 +4009,7 @@ if (tabConfig.includes('preparations')) {
   contentEl.classList.toggle('reader-tab-tests', tab === 'tests');
 if (tab === 'preparations') {
   contentEl.innerHTML = renderPreparations(sections.preparations || [], sections.tasksPdf || []);
-}
-  } else if (tab === 'questions') {
+} else if (tab === 'questions') {
     const raw = sections.questions || '';
     if (raw.trim()) {
       renderHtmlInChunks(contentEl, renderTopicContent(raw), {
