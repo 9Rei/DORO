@@ -6641,14 +6641,28 @@ function renderPreparations(preparations, tasks) {
 
           let profile = await cloud.getMyProfile({ name, group });
           if (!profile) {
-            user = { name, group, status: user?.status || USER_STATUSES[0], color: user?.color || '#3b82f6' };
+            user = { 
+              name, group, 
+              status: user?.status || USER_STATUSES[0], 
+              color: user?.color || '#3b82f6',
+              avatarEmoji: '',
+              avatarFrame: 'none',
+              profileBg: 'default',
+              profileBadge: 'none',
+              profileEffect: 'default'
+            };
             await cloud.saveProfile(user);
           } else {
             user = {
-              name:   profile.name   || name,
-              group:  profile.group  || group,
-              status: profile.status || USER_STATUSES[0],
-              color:  profile.color  || '#3b82f6'
+              name:          profile.name          || name,
+              group:         profile.group         || group,
+              status:        profile.status        || USER_STATUSES[0],
+              color:         profile.color         || '#3b82f6',
+              avatarEmoji:   profile.avatarEmoji   || '',
+              avatarFrame:   profile.avatarFrame   || 'none',
+              profileBg:     profile.profileBg     || 'default',
+              profileBadge:  profile.profileBadge  || 'none',
+              profileEffect: profile.profileEffect || 'default'
             };
           }
           saveUser();
@@ -6697,13 +6711,18 @@ function renderPreparations(preparations, tasks) {
       try {
         const profile = await cloud.getMyProfile(user);
         if (profile) {
-          user = {
-            name:   profile.name   || '',
-            group:  profile.group  || '',
-            status: profile.status || USER_STATUSES[0],
-            color:  profile.color  || '#3b82f6'
-          };
-          saveUser();
+  user = {
+    name:          profile.name          || '',
+    group:         profile.group         || '',
+    status:        profile.status        || USER_STATUSES[0],
+    color:         profile.color         || '#3b82f6',
+    avatarEmoji:   profile.avatarEmoji   || '',           // <-- добавить
+    avatarFrame:   profile.avatarFrame   || 'none',       // <-- добавить
+    profileBg:     profile.profileBg     || 'default',    // <-- добавить
+    profileBadge:  profile.profileBadge  || 'none',       // <-- добавить
+    profileEffect: profile.profileEffect || 'default'     // <-- добавить
+  };
+  saveUser();
 
           // Подтягиваем Golden из облака
           if (profile.premiumActive && (!profile.premiumExpiresAt || profile.premiumExpiresAt > Date.now())) {
