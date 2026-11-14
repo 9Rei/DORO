@@ -5,6 +5,14 @@
   'use strict';
 
   const topicsCache = new Map();
+  const TOPICS_CACHE_MAX = 10;
+  function cacheSet(key, value) {
+    topicsCache.set(key, value);
+    if (topicsCache.size > TOPICS_CACHE_MAX) {
+      const firstKey = topicsCache.keys().next().value;
+      topicsCache.delete(firstKey);
+    }
+  }
   // Преобразует ДД.ММ.ГГГГ или ДД-ММ-ГГГГ в 2026-11-10 (для базы и календаря)
   function formatDateForDb(dateStr) {
     if (!dateStr) return '';
@@ -50,7 +58,7 @@
           if (!window.subjects || !window.subjects[subjectKey]) return;
           
           // Ищем, есть ли уже такая тема в старом списке (по номеру)
-          const existingIndex = window.subjects[subjectKey].topics.findIndex(t => t.num === data.num);
+          const existingIndex = window.subjects[subjectKey].topics.findIndex(t => String(t.num) === String(data.num));
           
           const newTopic = {
             num: data.num,
@@ -63,7 +71,7 @@
 
           // Если у темы есть текст в базе — кладем его в кэш
           if (data.content) {
-            topicsCache.set(`${subjectKey}_${data.num}`, data.content);
+            cacheSet(`${subjectKey}_${data.num}`, data.content);
           }
 
           if (existingIndex !== -1) {
@@ -87,19 +95,36 @@
         return topicsCache.get(topicId);
       }
 
+      // Тема есть только в базе (loadAllTopics не успел / content не подтянулся)
+      if (topic.isFromDb && window.doroDb) {
+        try {
+          const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+          const snap = await getDoc(doc(window.doroDb, 'topics', topicId));
+          if (snap.exists() && snap.data().content) {
+            const text = snap.data().content;
+            cacheSet(topicId, text);
+            return text;
+          }
+        } catch (e) { console.warn('[content] getDoc fallback failed:', e); }
+      }
+
       // Если это старая тема с GitHub — грузим и сохраняем в базу
       if (topic.file) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
-          const res = await fetch(topic.file, { cache: 'no-cache', signal: controller.signal });
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const res = await fetch(topic.file, { signal: controller.signal });
           clearTimeout(timeoutId);
           
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const text = await res.text();
-          topicsCache.set(topicId, text);
+          cacheSet(topicId, text);
           
-          window.doroContent.syncToDb(topicId, subjectKey, topic, text);
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => window.doroContent.syncToDb(topicId, subjectKey, topic, text));
+          } else {
+            setTimeout(() => window.doroContent.syncToDb(topicId, subjectKey, topic, text), 2000);
+          }
           return text;
         } catch (e) {
           console.error('Ошибка загрузки ' + topic.file, e);

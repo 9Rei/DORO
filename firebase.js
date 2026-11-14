@@ -133,14 +133,28 @@ function initCloud(user) {
     async saveProfile(p) {
       const id = window.doroCloud._profileDocId(p);
       if (!id) { console.warn('saveProfile: нет имени или группы — пропускаю'); return; }
-      await setDoc(doc(db, 'users', id), {
-        uid: user.uid,                 // кто последний писал
+
+      const payload = {
+        uid: window.doroCloud.uid,
         name: p.name || '',
         status: p.status || '',
         group: (p.group || '').trim().toUpperCase(),
         color: p.color || '#3b82f6',
+        avatarEmoji: p.avatarEmoji || '',
+        avatarFrame: p.avatarFrame || 'none',
+        profileBg: p.profileBg || 'default',
+        profileBadge: p.profileBadge || 'none',
+        profileEffect: p.profileEffect || 'default',
         updatedAt: serverTimestamp()
-      }, { merge: true });
+      };
+
+      // Премиум пишем только когда он явно передан (чтобы обычное сохранение не сбрасывало)
+      if (p.premium && typeof p.premium === 'object') {
+        payload.premiumActive = !!p.premium.active;
+        payload.premiumExpiresAt = p.premium.expiresAt || 0;
+      }
+
+      await setDoc(doc(db, 'users', id), payload, { merge: true });
     },
 
     async getMyProfile(profile) {

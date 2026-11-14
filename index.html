@@ -35,11 +35,18 @@
         </button>
       </div>
 
+      <div class="island-topic-progress" id="islandTopicProgress" aria-hidden="true">
+        <span class="island-topic-progress__label">Загрузка</span>
+        <span class="island-topic-progress__bar"><span class="island-topic-progress__fill" id="islandTopicFill"></span></span>
+        <span class="island-topic-progress__value" id="islandTopicValue">0%</span>
+      </div>
+
       <nav class="nav" id="nav">
         <a href="#" class="active" data-view="home">Главная</a>
         <a href="#" data-view="files">Разделы</a>
         <a href="#" data-view="links">Ссылки</a>
-        <a href="#" data-view="tasks">Задания</a>
+        <a href="#" data-view="premium">Golden</a>
+        <a href="#" data-view="admin" class="nav-admin-link" style="display: none;">Админ</a>
       </nav>
       <div class="island-search" id="islandSearch" aria-hidden="true">
         <div class="island-search__inner">
@@ -130,8 +137,8 @@
         <div class="subjects-cards" id="subjects-cards"></div>
       </div>
 
-      <div class="reader-screen" id="reader-screen" style="display:none;">
-        <div class="reader" id="reader">
+<div class="reader-screen" id="reader-screen" style="display:none;">
+  <div class="reader" id="reader">
           <div class="reader__panel">
             <div class="reader__top">
               <button type="button" class="reader-back" id="readerBack" aria-label="Все разделы" title="Все разделы">
@@ -165,15 +172,9 @@
         </div>
       </div>
     </section>
-
-    <!-- VIEW: Задания -->
-    <section class="view" id="view-tasks">
-      <div class="quick-head">
-        <h2>Задания</h2>
-      </div>
-      <div class="tasks-panel">
-        <div class="tasks-list" id="tasksList"></div>
-      </div>
+        <!-- VIEW: Премиум -->
+    <section class="view" id="view-premium">
+      <!-- Наполняется через renderPremiumPage() -->
     </section>
 
     <!-- VIEW: Ссылки -->
@@ -201,6 +202,27 @@
       </div>
     </section>
 
+  <!-- VIEW: Админ-панель -->
+  <section class="view" id="view-admin">
+    <div class="quick-head">
+      <h2>Админ-панель</h2>
+    </div>
+
+    <div class="admin-tabs" id="adminTabs">
+      <button type="button" class="admin-tab is-active" data-admin-tab="requests">
+        Заявки на Golden
+        <span class="admin-tab__badge" id="adminRequestsBadge" hidden>0</span>
+      </button>
+      <button type="button" class="admin-tab" data-admin-tab="activated">
+        Активированные
+      </button>
+    </div>
+
+    <div class="admin-panel" id="adminPanel">
+      <div class="admin-empty">Загрузка…</div>
+    </div>
+  </section>
+
   <!-- VIEW: Профиль -->
   <section class="view" id="view-profile">
     <div class="profile-page">
@@ -212,13 +234,6 @@
       <!-- ОДНА КАРТОЧКА: фон + аватар + имя + статус + группа + статистика -->
       <div class="profile-card">
 
-        <button type="button" class="profile-card__edit" id="editProfileBtn" title="Редактировать" aria-label="Редактировать профиль">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 20h9"></path>
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-          </svg>
-        </button>
-
         <div class="profile-card__avatar" id="profileHeroAvatar">
           <span id="profileHeroLetter">?</span>
         </div>
@@ -228,32 +243,6 @@
         <span class="profile-card__group" id="profileGroupDisplay">Группа не выбрана</span>
 
         <!-- Круглые действия на карточке -->
-        <div class="profile-card__quick">
-          <button type="button" class="card-quick-btn" id="qrShowBtn" aria-label="Принять ДЗ" title="Принять ДЗ">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-          </button>
-          <button type="button" class="card-quick-btn" id="qrScanBtn" aria-label="Отдать ДЗ" title="Отдать ДЗ">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
-              <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
-              <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
-              <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
-              <line x1="7" y1="12" x2="17" y2="12"></line>
-            </svg>
-          </button>
-          <button type="button" class="card-quick-btn" id="archiveTile" aria-label="Архив" title="Архив">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="21 8 21 21 3 21 3 8"></polyline>
-              <rect x="1" y="3" width="22" height="5"></rect>
-              <line x1="10" y1="12" x2="14" y2="12"></line>
-            </svg>
-          </button>
-        </div>
       </div>
       <!-- ПЛИТКИ ПРОФИЛЯ -->
       <div class="profile-tiles">
@@ -286,17 +275,15 @@
           <span class="profile-tile__title">Лекции</span>
           <span class="profile-tile__sub">Ближайшие</span>
         </button>
-
-        <button type="button" class="profile-tile" id="tileNotify" aria-expanded="false">
+        <button type="button" class="profile-tile profile-tile--edit" id="tileEditProfile" aria-expanded="false">
           <span class="profile-tile__icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
             </svg>
           </span>
-          <span class="profile-tile__title">Уведомления</span>
-          <span class="profile-tile__badge" id="notifyBadge" style="display: none;"></span>
-          <span class="profile-tile__sub">Обновления</span>
+          <span class="profile-tile__title">Редактор</span>
+          <span class="profile-tile__sub">Оформление профиля</span>
         </button>
 
         <button type="button" class="profile-tile" id="tileTheme" aria-label="Переключить тему">
@@ -336,60 +323,143 @@
           <div class="pop-lecture__info" id="lectureInfo"></div>
         </section>
 
-        <section class="profile-panel" id="panelNotify" aria-hidden="true">
-          <div class="pop-notify__list" id="notifyList">
-            <div class="notify-dev-list" id="notifyDevList"></div>
-            <div class="notify-auto-list" id="notifyAutoList"></div>
-          </div>
-        </section>
       </div><!-- /.profile-panels -->
-
     </div><!-- /.profile-page -->
   </section><!-- /#view-profile -->
 
   </main>
+  <!-- === МОДАЛКА РЕДАКТОРА ПРОФИЛЯ === -->
+  <div class="pe-modal" id="peModal" aria-hidden="true">
+    <div class="pe-modal__backdrop" data-pe-close></div>
+    <div class="pe-modal__box" role="dialog" aria-modal="true" aria-labelledby="peModalTitle">
 
-  <!-- ================= МОДАЛКИ QR ================= -->
-  <div class="qr-modal" id="qrShowModal">
-    <div class="qr-modal__box">
-      <h3 class="qr-modal__title">QR с заданиями</h3>
-      <p class="qr-modal__sub">Наведите камеру телефона на этот QR, чтобы передать задания на этот компьютер.</p>
-      <div class="qr-modal__canvas" id="qrCanvas"></div>
-      <button type="button" class="qr-modal__close" id="qrShowClose">Закрыть</button>
+      <header class="pe-modal__head">
+        <h2 class="pe-modal__title" id="peModalTitle">Оформление профиля</h2>
+        <button type="button" class="pe-modal__close" data-pe-close aria-label="Закрыть">×</button>
+      </header>
+
+      <div class="pe-modal__preview" id="pePreviewWrap">
+        <div class="pe-preview" id="pePreviewCard" data-bg="default" data-effect="default">
+          <div class="pe-preview__avatar" id="pePreviewAvatar">
+            <span id="pePreviewAvatarText">?</span>
+          </div>
+          <div class="pe-preview__meta">
+            <div class="pe-preview__name-row">
+              <span class="pe-preview__name" id="pePreviewName">Твоё имя</span>
+            </div>
+            <div class="pe-preview__status" id="pePreviewStatus">Статус</div>
+            <div class="pe-preview__group" id="pePreviewGroup">Группа</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pe-modal__scroll">
+
+        <section class="pe-section">
+          <div class="pe-section__head">
+            <span class="pe-section__title">Основное</span>
+          </div>
+
+          <label class="pe-row" for="nameInput">
+            <span class="pe-row__label">Имя</span>
+            <input id="nameInput" class="pe-input" type="text" placeholder="Например, Аня" maxlength="30" autocomplete="off">
+          </label>
+
+          <div class="pe-row pe-row--stack">
+            <span class="pe-row__label">Статус</span>
+            <div class="status-picker" id="statusPicker">
+              <button type="button" class="status-picker__trigger" id="statusTrigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="status-picker__value" id="statusTriggerValue">—</span>
+                <svg class="status-picker__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+              <ul class="status-picker__menu" id="statusMenu" role="listbox" tabindex="-1"></ul>
+            </div>
+          </div>
+
+          <div class="pe-row pe-row--stack">
+            <span class="pe-row__label">Группа</span>
+            <div class="group-picker group-picker--chain" id="profileGroupPicker">
+              <div class="group-picker__cell group-picker__cell--letters">
+                <input id="groupLettersInput" class="group-picker__field" type="text" placeholder="ЛД" maxlength="4" autocomplete="off" autocapitalize="characters" inputmode="text">
+              </div>
+              <div class="group-picker__cell group-picker__cell--year">
+                <input id="groupYearSelect" class="group-picker__field" type="text" placeholder="25" maxlength="2" autocomplete="off" inputmode="numeric">
+              </div>
+              <div class="group-picker__cell group-picker__cell--num">
+                <input id="groupNumSelect" class="group-picker__field" type="text" placeholder="11" maxlength="2" autocomplete="off" inputmode="numeric">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="pe-section">
+          <div class="pe-section__head">
+            <span class="pe-section__title">Аватарка</span>
+          </div>
+
+          <div class="pe-row pe-row--stack">
+            <span class="pe-row__label">Вид</span>
+            <div class="pe-seg" id="peAvatarMode">
+              <button type="button" class="pe-seg__btn is-active" data-mode="letter">Буква</button>
+              <button type="button" class="pe-seg__btn" data-mode="emoji">Эмодзи</button>
+            </div>
+          </div>
+
+          <div class="pe-row pe-row--stack" id="peEmojiRow" hidden>
+            <span class="pe-row__label">Смайлик</span>
+            <div class="pe-emoji-grid" id="peEmojiGrid"></div>
+          </div>
+
+          <div class="pe-row pe-row--stack">
+            <span class="pe-row__label">Цвет</span>
+            <div class="pe-color__palette" id="avatarPalette"></div>
+          </div>
+        </section>
+
+        <section class="pe-section pe-section--golden" id="peGoldenSection">
+          <div class="pe-section__head">
+            <span class="pe-section__title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 2l2.9 6.9L22 9.3l-5.5 4.8L18.2 22 12 18.3 5.8 22l1.7-7.9L2 9.3l7.1-.4L12 2z"/>
+              </svg>
+              Golden
+            </span>
+            <span class="pe-section__lock" id="peGoldenLock" hidden>Доступно в Golden</span>
+          </div>
+
+          <div id="peGoldenBody">
+            <div class="pe-row pe-row--stack">
+              <span class="pe-row__label">Рамка аватарки</span>
+              <div class="pe-tiles" id="peFrameChips"></div>
+            </div>
+            <div class="pe-row pe-row--stack">
+              <span class="pe-row__label">Фон профиля</span>
+              <div class="pe-bg-grid" id="peBgGrid"></div>
+            </div>
+            <div class="pe-row pe-row--stack">
+              <span class="pe-row__label">Бейдж рядом с именем</span>
+              <div class="pe-badges" id="peBadgeChips"></div>
+            </div>
+            <div class="pe-row pe-row--stack">
+              <span class="pe-row__label">Эффект карточки</span>
+              <div class="pe-tiles" id="peFxChips"></div>
+            </div>
+          </div>
+
+          <div class="pe-golden-cta" id="peGoldenCta" hidden></div>
+        </section>
+
+      </div>
+
+      <footer class="pe-modal__foot">
+        <button type="button" class="pe-btn pe-btn--ghost" data-pe-close>Отмена</button>
+        <button type="button" class="pe-btn pe-btn--primary" id="saveNameBtn">Сохранить</button>
+      </footer>
+
     </div>
   </div>
-
-  <div class="qr-modal" id="syncInfoModal">
-    <div class="qr-modal__box">
-      <h3 class="qr-modal__title">Перенос заданий</h3>
-      <p class="qr-modal__sub">
-        Сейчас откроется QR-код. Отсканируйте его телефоном, чтобы передать задания с телефона на этот компьютер.
-      </p>
-      <ul class="sync-info-list">
-        <li>Убедитесь, что на телефоне открыт doro и есть задания.</li>
-        <li>Держите телефон рядом с экраном компьютера.</li>
-        <li>Перенос возможен один раз в день.</li>
-      </ul>
-      <div class="qr-modal__actions">
-        <button type="button" class="qr-modal__close" id="syncInfoCancel">Отмена</button>
-        <button type="button" class="qr-modal__close" id="syncInfoContinue">Продолжить</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="qr-modal" id="qrScanModal">
-    <div class="qr-modal__box">
-      <h3 class="qr-modal__title">Сканировать QR</h3>
-      <p class="qr-modal__sub">Наведите камеру на QR-код с компьютера, чтобы отправить туда задания.</p>
-      <div class="qr-modal__video">
-        <video id="qrVideo" playsinline></video>
-      </div>
-      <div class="qr-modal__actions">
-        <button type="button" class="qr-modal__close" id="qrScanClose">Отмена</button>
-      </div>
-    </div>
-  </div>
-
   <div class="reader-pop" id="readerPop">
     <aside class="reader-settings" id="readerSettings" aria-hidden="true">
       <div class="reader-settings__head">
@@ -448,54 +518,7 @@
       </div>
     </aside>
   </div>
-<!-- Шторка редактирования профиля -->
-<div class="profile-sheet" id="profileSheet" aria-hidden="true">
-  <div class="profile-sheet__backdrop" id="profileSheetBackdrop"></div>
-  <div class="profile-sheet__box" role="dialog" aria-modal="true" aria-labelledby="profileSheetTitle">
-    <div class="profile-sheet__head">
-      <span class="profile-sheet__title" id="profileSheetTitle">Редактировать профиль</span>
-      <button type="button" class="profile-sheet__close" id="profileSheetClose" aria-label="Закрыть">×</button>
-    </div>
-    <div class="profile-sheet__body">
-      <label class="profile-sheet__label" for="nameInput">Твоё имя</label>
-      <input id="nameInput" type="text" placeholder="Например, Аня" maxlength="30" autocomplete="off">
-
-      <span class="profile-sheet__label">Статус</span>
-      <div class="status-picker" id="statusPicker">
-        <button type="button" class="status-picker__trigger" id="statusTrigger" aria-haspopup="listbox" aria-expanded="false">
-          <span class="status-picker__value" id="statusTriggerValue">—</span>
-          <svg class="status-picker__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-        <ul class="status-picker__menu" id="statusMenu" role="listbox" tabindex="-1"></ul>
-      </div>
-
-      <span class="profile-sheet__label">Группа</span>
-      <div class="group-picker group-picker--chain" id="profileGroupPicker">
-        <div class="group-picker__cell group-picker__cell--letters">
-          <input id="groupLettersInput" class="group-picker__field" type="text" placeholder="ЛД" maxlength="4" autocomplete="off" autocapitalize="characters" inputmode="text">
-        </div>
-        <div class="group-picker__cell group-picker__cell--year">
-          <input id="groupYearSelect" class="group-picker__field" type="text" placeholder="25" maxlength="2" autocomplete="off" inputmode="numeric">
-        </div>
-        <div class="group-picker__cell group-picker__cell--num">
-          <input id="groupNumSelect" class="group-picker__field" type="text" placeholder="11" maxlength="2" autocomplete="off" inputmode="numeric">
-        </div>
-      </div>
-
-      <span class="profile-sheet__label">Цвет аватарки</span>
-      <div class="profile-color__palette" id="avatarPalette"></div>
-    </div>
-    <div class="profile-sheet__foot">
-      <button type="button" class="profile-btn profile-btn--primary" id="saveNameBtn">Сохранить</button>
-    </div>
-  </div>
-</div>
   <div class="reader-settings-backdrop" id="readerSettingsBackdrop"></div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
   <!-- ================= ОНБОРДИНГ ================= -->
 <div class="onboard" id="onboard" aria-hidden="true">
   <div class="onboard__backdrop" id="onboardBackdrop"></div>
@@ -732,12 +755,130 @@
     </div>
   </div>
 </div>
+<!-- ================= МОДАЛКА ОПЛАТЫ GOLDEN ================= -->
+<div class="onboard" id="payModal" aria-hidden="true">
+  <div class="onboard__backdrop"></div>
+  <div class="onboard__box" role="dialog" aria-modal="true" aria-labelledby="payTitle">
+
+    <div class="onboard__glow" aria-hidden="true"></div>
+
+    <div class="onboard__hero">
+      <div class="onboard__avatar" style="background: linear-gradient(135deg, #fbbf24, #d97706);">
+        <span style="font-size: 32px;">★</span>
+      </div>
+      <span class="onboard__step">Golden · 79 ₽ / 30 дней</span>
+    </div>
+
+    <h2 class="onboard__title" id="payTitle" style="font-size: 22px; margin-bottom: 6px;">Оплата Golden</h2>
+    <p class="onboard__sub" style="font-size: 13.5px; margin-bottom: 14px;">
+      Переведи 79 ₽ по номеру телефона. <b>Обязательно</b> укажи в комментарии своё имя и группу (как на сайте), чтобы админ знал, кому включить Golden.
+    </p>
+
+    <!-- Реквизиты -->
+    <div style="
+      display: flex; flex-direction: column; gap: 10px;
+      padding: 16px; border-radius: 16px;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid rgba(245,158,11,0.3);
+      font-size: 14px;
+      margin-bottom: 12px;
+    ">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+        <span style="color: var(--text-soft);">Номер телефона</span>
+        <b style="font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;">+7 962 798-70-15</b> <!-- ЗАМЕНИ НА СВОЙ -->
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+        <span style="color: var(--text-soft);">Банк</span>
+        <b>Сбербанк (или любой по СБП)</b>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+        <span style="color: var(--text-soft);">Сумма</span>
+        <b style="color: #b45309; font-size: 16px;">79 ₽</b>
+      </div>
+    </div>
+
+    <!-- Кнопка автоматического перевода -->
+      <a href="https://www.sberbank.com/sms/pbpn?requisiteNumber=79627987015&sum=7900" 
+       target="_blank" rel="noopener"
+       style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; margin-bottom: 14px; border-radius: 14px; background: #21A038; color: #fff; text-decoration: none; font-weight: 800; font-size: 15px; box-shadow: 0 6px 16px -6px rgba(33,160,56,0.5);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      Перевести в Сбере
+    </a>
+    <p style="font-size: 11px; color: var(--text-soft); text-align: center; margin: -6px 0 14px; line-height: 1.4;">
+      Откроется приложение Сбера (или другого банка) с готовым переводом.<br>Если у вас не Сбер — переведите на номер вручную.
+    </p>
+
+    <!-- Предупреждение: не забыть нажать «Я оплатил(а)» -->
+    <div style="
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 12px 14px; border-radius: 12px;
+      background: rgba(251,191,36,0.12);
+      border: 1px solid rgba(245,158,11,0.35);
+      font-size: 12.5px; line-height: 1.45;
+      color: color-mix(in srgb, var(--text) 80%, #b45309);
+      margin-bottom: 14px;
+    ">
+      <span style="font-size: 16px; line-height: 1;">⚠️</span>
+      <div>
+        <b>Важно!</b> После оплаты <b>обязательно вернись на сайт</b> и нажми кнопку
+        <b>«Я оплатил(а) · отправить заявку»</b> ниже.<br>
+        Без этого админ не увидит твой перевод и не активирует Golden.
+      </div>
+    </div>
+
+    <button type="button" class="onboard__btn" id="payPaidBtn" style="margin-top: 4px;">
+      Я оплатил(а) · отправить заявку
+    </button>
+
+    <button type="button" class="auth-back" data-pay-close style="align-self: center; margin-top: 4px;">
+      ← Закрыть
+    </button>
+
+    <p id="payError" style="color: #ef4444; font-size: 12.5px; text-align: center; margin: 0; display: none;"></p>
+
+    <div id="paySuccess" style="display: none; flex-direction: column; align-items: center; gap: 10px; padding: 16px 0 4px; text-align: center;">
+      <div style="font-size: 44px; line-height: 1;">⏳</div>
+      <b style="font-size: 15px; color: var(--text);">Заявка отправлена</b>
+      <p style="font-size: 13px; color: var(--text-soft); margin: 0; line-height: 1.5;">
+        Админ проверит перевод (в комментарии должны быть Имя и Группа) и активирует Golden.
+      </p>
+    </div>
+    </div><!-- /.onboard__box -->
+</div><!-- /#payModal -->
+<!-- ================= МОДАЛКА ПРЕЗЕНТАЦИИ GOLDEN ================= -->
+<div class="support-modal" id="supportModal" aria-hidden="true">
+  <div class="support-modal__backdrop" id="supportModalBackdrop"></div>
+  <div class="support-modal__box">
+    
+    <!-- Золотой блеск на фоне -->
+    <div class="support-modal__glow" aria-hidden="true"></div>
+    
+    <!-- Заголовок + Вордмарк -->
+    <h2 class="support-modal__title">Подписка</h2>
+    <div class="support-modal__wordmark golden-wordmark" aria-hidden="true">Golden</div>
+    
+    <p class="support-modal__text">
+      Весь функционал doro <b>остаётся бесплатным</b> и работает как раньше. Никаких скрытых ограничений.
+    </p>
+    <p class="support-modal__text">
+      Мы добавили необязательную подписку <b>Golden</b> — чтобы оплачивать серверы и быстрее выпускать обновления.
+    </p>
+    
+    <button type="button" class="support-modal__btn" id="supportModalGo">
+      Узнать подробнее
+    </button>
+  </div>
+</div>
   <script type="module" src="firebase.js"></script>
   <script src="schedules.js"></script> 
   <script src="roles.js"></script> 
   <script src="content-store.js"></script> <!-- Перенесли сюда -->
   <script src="editor-ui.js"></script>     <!-- Перенесли сюда -->
+  <script src="premium.js"></script>
   <script src="script.js"></script>
-  <script src="tour.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>

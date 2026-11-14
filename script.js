@@ -100,9 +100,9 @@ window.subjects = {
   biochem: {
     num: "01", title: "Биохимия",
     author: "Кайгородов Антон",
-    tabs: ["questions", "problems", "solve", "read"],
+  tabs: ["questions", "problems", "tests"],
     topics: [
-      {num: "3.2", title: "Коллоквиум по разделу: Биомембраны. Трансмембранная передача сигнала. Биоокисление", steps: ["Прочитать вопросы, задачи"], date: "2026-11-07", file: "content/biochem/БХ_3.3.md" },
+      { num: "4.1", title: "Строение, переваривание, всасывание углеводов. Метаболизм гликогена, гликолиз, глюконеогенез", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-11-14", file: "content/biochem/БХ_4.1.md" },
       { num: "3.2", title: "Энергетический обмен. ЦТК. Свободно-радикальное окисление", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-31", file: "content/biochem/БХ_3.2.md" },
       { num: "3.1", title: "Биологические мембраны. Трансмембранная передача сигнала", steps: ["Прочитать вопросы, задачи, тесты", "Решить тесты"], date: "2026-10-24", file: "content/biochem/БХ_3.1.md" },
       { num: "2.3", title: "Коллоквиум по разделу: Матричные биосинтезы", steps: ["Прочитать основной файл", "Прочитать файл с задачами"], date: "2026-10-17", file: "content/biochem/БХ_2.3.md" },
@@ -117,7 +117,7 @@ window.subjects = {
   physio: {
     num: "02", title: "Физиология",
     author: "Кайгородов Антон",
-    tabs: ["theory", "solve", "read"],
+  tabs: ["theory", "tests"],
     topics: [
       { num: "2.5", title: "Коллоквиум по разделу: Регуляция физиологических функций", steps: ["Прочитать файлик"], date: "2026-11-07", file: "content/physio/ФИЗА_2.5.md" },
       { num: "2.4", title: "Частная эндокринология. Клинико-физиологическая оценка гипо - и гиперфункции желёз", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-11-02", file: "content/physio/ФИЗА_2.4Т.md" },
@@ -856,8 +856,16 @@ function shuffleArray(arr) {
 
 const PHYSIO_QUIZ_LIMIT = 20;
 
-// Режим «Решать» — только решалка, без своего переключателя
 function renderPhysioSolveMode(raw, container) {
+  // Контекст темы — снимаем СРАЗУ при открытии тестов, чтобы не зависеть
+  // от того, куда пользователь переключится потом
+  const _meta = window.currentTopicMeta || {};
+  const subjectKey   = window.currentSubjectKey || 'unknown';
+  const topicNum     = _meta.num || '0';
+  const topicTitle   = _meta.title || '';
+  const subjectTitle = (window.subjects && window.subjects[subjectKey]?.title) || subjectKey;
+
+  const quizKey = `${subjectKey}_${topicNum}`;
   const allQuestions = parseTestsToQuestions(raw);
 
   if (!allQuestions.length) {
@@ -865,140 +873,351 @@ function renderPhysioSolveMode(raw, container) {
     return;
   }
 
-  const pool = shuffleArray(allQuestions.slice());
-  const picked = pool.slice(0, Math.min(PHYSIO_QUIZ_LIMIT, pool.length));
+  // ================= СТАРТОВЫЙ ЭКРАН =================
+  function renderStartScreen() {
+    const isPremium = window.doroPremium && window.doroPremium.isPremiumActive();
+    const attemptsLeft = window.doroPremium
+      ? window.doroPremium.quizAttemptsLeft(quizKey)
+      : Infinity;
+    const canStart = !window.doroPremium || window.doroPremium.canStartQuiz(quizKey);
+    const freeLimit = window.doroPremium ? window.doroPremium.QUIZ_LIMIT_FREE : 10;
 
-  let currentIdx = 0;
-  let score = 0;
-  let answered = false;
-  let selected = new Set();
-  const results = [];
-
-  function renderQuestion() {
-    if (currentIdx >= picked.length) { renderResult(); return; }
-    answered = false;
-    selected = new Set();
-    const q = picked[currentIdx];
-    const opts = shuffleArray(q.options);
-    const correctCount = opts.filter(o => o.correct).length;
-    const isMulti = correctCount > 1;
+    const limitLabel = isPremium
+      ? 'Golden: без ограничений'
+      : `Осталось попыток: ${attemptsLeft} из ${freeLimit}`;
 
     container.innerHTML = `
-      <div class="quiz">
-        <div class="quiz__head">
-          <span class="quiz__progress">Вопрос ${currentIdx + 1} из ${picked.length}</span>
-          <span class="quiz__score">Правильно: ${score}</span>
+      <div class="quiz-start">
+        <div class="quiz-start__icon" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"></path>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
         </div>
-        <div class="quiz__bar"><span style="width:${(currentIdx / picked.length) * 100}%"></span></div>
-        <p class="quiz__question">${escapeHtmlKeepSupSub(q.question)}</p>
-        <div class="quiz__options">
-          ${opts.map((o, i) => `
-            <button type="button" class="quiz__option" data-i="${i}" data-correct="${o.correct ? '1' : '0'}">
-              <span class="quiz__option-box" aria-hidden="true"></span>
-              <span class="quiz__option-text">${escapeHtmlKeepSupSub(o.text)}</span>
+        <h2 class="quiz-start__title">Тесты по теме</h2>
+        <p class="quiz-start__sub">
+          Всего вопросов: <b>${allQuestions.length}</b>.
+          ${isPremium
+            ? 'В Golden попытки не ограничены.'
+            : `Бесплатно можно пройти <b>${freeLimit} раз</b> по каждому предмету.`}
+        </p>
+        <div class="quiz-start__limit ${!isPremium && attemptsLeft <= 3 ? 'quiz-start__limit--warn' : ''}">
+          ${limitLabel}
+        </div>
+        ${
+          canStart
+            ? `<button type="button" class="quiz-start__btn" id="quizStartBtn">
+                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                 Решать тесты
+               </button>`
+            : `<button type="button" class="quiz-start__btn quiz-start__btn--locked" disabled>
+                 Попытки закончились
+               </button>
+               <button type="button" class="quiz-start__go-premium" id="quizGoPremiumBtn">
+                 Открыть Golden
+               </button>`
+        }
+        <button type="button" class="quiz-start__read-btn" id="quizReadBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          Просто посмотреть ответы
+        </button>
+      </div>
+    `;
+
+    const startBtn = container.querySelector('#quizStartBtn');
+    if (startBtn && canStart) {
+      startBtn.addEventListener('click', () => {
+        if (window.doroPremium) window.doroPremium.addQuizAttempt(quizKey);
+        openQuizOverlay();
+      });
+    }
+
+    const premiumBtn = container.querySelector('#quizGoPremiumBtn');
+    if (premiumBtn) {
+      premiumBtn.addEventListener('click', () => {
+        const backBtn = document.getElementById('readerBack');
+        if (backBtn) backBtn.click();
+        const navLink = document.querySelector('.nav a[data-view="premium"]');
+        if (navLink) navLink.click();
+      });
+    }
+
+    const readBtn = container.querySelector('#quizReadBtn');
+    if (readBtn) {
+      readBtn.addEventListener('click', () => {
+        container.innerHTML = '';
+        renderPhysioReadMode(raw, container, subjectKey);
+      });
+    }
+  }
+
+  // ================= ОВЕРЛЕЙ С РЕШАЛКОЙ (Множественный выбор) =================
+  function openQuizOverlay() {
+    const questions = shuffleArray(allQuestions).slice(0, 20).map(q => ({
+      question: q.question,
+      options: shuffleArray(q.options)
+    }));
+
+    let current = 0;
+    let correctCount = 0;
+    const answersLog = [];
+    let finished = false;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'qt-overlay';
+    overlay.innerHTML = `
+      <div class="qt-overlay__backdrop"></div>
+      <div class="qt-overlay__shell" role="dialog" aria-modal="true" aria-label="Тесты">
+        <div class="qt-overlay__card">
+          <header class="qt-head">
+            <div class="qt-head__left">
+              <span class="qt-head__label">Тесты</span>
+              <span class="qt-head__step"><b id="qtStep">1</b> / ${questions.length}</span>
+            </div>
+            <div class="qt-head__right">
+              <span class="qt-head__score" title="Верных ответов">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <b id="qtScoreValue">0</b>
+              </span>
+              <button type="button" class="qt-head__close" id="qtClose" aria-label="Закрыть">×</button>
+            </div>
+          </header>
+          <div class="qt-progress"><div class="qt-progress__bar" id="qtBar"></div></div>
+          <main class="qt-body" id="qtBody"></main>
+          <footer class="qt-foot">
+            <div class="qt-foot__hint" id="qtHint">Выбери один вариант ответа</div>
+            <button type="button" class="qt-btn" id="qtAnswer" disabled>Ответить</button>
+          </footer>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.body.classList.add('qt-overlay-open');
+
+    const stepEl   = overlay.querySelector('#qtStep');
+    const scoreEl  = overlay.querySelector('#qtScoreValue');
+    const barEl    = overlay.querySelector('#qtBar');
+    const bodyEl   = overlay.querySelector('#qtBody');
+    const hintEl   = overlay.querySelector('#qtHint');
+    const answerEl = overlay.querySelector('#qtAnswer');
+    const closeBtn = overlay.querySelector('#qtClose');
+
+    function closeWithConfirm() {
+      if (finished) { destroy(); return; }
+      const ok = confirm('Ваша попытка будет потрачена, а прогресс обнулится. Выйти?');
+      if (ok) destroy();
+    }
+    function destroy() {
+      document.body.classList.remove('qt-overlay-open');
+      overlay.remove();
+      renderStartScreen();
+    }
+
+    closeBtn.addEventListener('click', closeWithConfirm);
+    overlay.querySelector('.qt-overlay__backdrop').addEventListener('click', closeWithConfirm);
+    document.addEventListener('keydown', function escHandler(e) {
+      if (e.key === 'Escape') closeWithConfirm();
+      if (!document.body.contains(overlay)) document.removeEventListener('keydown', escHandler);
+    });
+
+    function renderQuestion() {
+      const q = questions[current];
+      
+      // Считаем, сколько в вопросе правильных ответов
+      const correctIndices = q.options
+        .map((o, i) => o.correct ? i : -1)
+        .filter(i => i >= 0);
+      const isMulti = correctIndices.length > 1; // Включаем режим нескольких ответов
+
+      stepEl.textContent = String(current + 1);
+      scoreEl.textContent = String(correctCount);
+      barEl.style.width = ((current / questions.length) * 100) + '%';
+
+      bodyEl.innerHTML = `
+        <h2 class="qt-q">${escapeHtmlKeepSupSub(q.question)}</h2>
+        <div class="qt-opts" id="qtOpts">
+          ${q.options.map((o, i) => `
+            <button type="button" class="qt-opt" data-i="${i}">
+              <span class="qt-opt__text">${escapeHtmlKeepSupSub(o.text)}</span>
+              <span class="qt-opt__state" aria-hidden="true">
+                <svg class="qt-opt__state-ok" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <svg class="qt-opt__state-bad" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>
+              </span>
             </button>
           `).join('')}
         </div>
-        <div class="quiz__actions">
-          <button type="button" class="quiz__answer" disabled>Ответить</button>
-          <button type="button" class="quiz__next" style="display:none;">Дальше</button>
-        </div>
-      </div>
-    `;
+      `;
 
-    const optBtns = Array.from(container.querySelectorAll('.quiz__option'));
-    const answerBtn = container.querySelector('.quiz__answer');
-    const nextBtn = container.querySelector('.quiz__next');
+      hintEl.textContent = isMulti ? 'Можно выбрать несколько' : 'Выбери один вариант';
+      answerEl.textContent = 'Ответить';
+      answerEl.disabled = true;
+      answerEl.onclick = null;
 
-    optBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (answered) return;
-        const i = Number(btn.dataset.i);
+      const optsWrap = bodyEl.querySelector('#qtOpts');
+      const selected = new Set();
+      let answered = false;
+
+      optsWrap.querySelectorAll('.qt-opt').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (answered) return;
+          const i = Number(btn.dataset.i);
+
+          if (isMulti) {
+            // Множественный выбор (галочка ставится/снимается)
+            if (selected.has(i)) { selected.delete(i); btn.classList.remove('is-selected'); }
+            else { selected.add(i); btn.classList.add('is-selected'); }
+          } else {
+            // Одиночный выбор
+            selected.clear();
+            selected.add(i);
+            optsWrap.querySelectorAll('.qt-opt').forEach(b =>
+              b.classList.toggle('is-selected', b === btn)
+            );
+          }
+          answerEl.disabled = selected.size === 0;
+        });
+      });
+
+      answerEl.onclick = () => {
+        if (selected.size === 0 || answered) return;
+        answered = true;
+
+        const correctSet = new Set(correctIndices);
+        let correct;
+
         if (isMulti) {
-          if (selected.has(i)) { selected.delete(i); btn.classList.remove('is-selected'); }
-          else { selected.add(i); btn.classList.add('is-selected'); }
+          // Верно, если отмечены ВСЕ правильные и НИ ОДНОГО лишнего
+          correct = selected.size === correctSet.size &&
+                    [...selected].every(i => correctSet.has(i));
         } else {
-          selected.clear();
-          optBtns.forEach(b => b.classList.remove('is-selected'));
-          selected.add(i);
-          btn.classList.add('is-selected');
+          // Верно, если выбран единственный правильный
+          const [pick] = [...selected];
+          correct = correctSet.has(pick);
         }
-        answerBtn.disabled = selected.size === 0;
-      });
-    });
 
-    answerBtn.addEventListener('click', () => {
-      if (answered) return;
-      answered = true;
-      answerBtn.style.display = 'none';
-      nextBtn.style.display = '';
-      nextBtn.focus();
+        optsWrap.querySelectorAll('.qt-opt').forEach((b, i) => {
+          b.disabled = true;
+          b.classList.remove('is-selected');
+          if (correctSet.has(i)) b.classList.add('is-correct');
+          else if (selected.has(i)) b.classList.add('is-wrong');
+        });
 
-      optBtns.forEach((b, i) => {
-        b.disabled = true;
-        const isCorrect = b.dataset.correct === '1';
-        if (isCorrect) b.classList.add('quiz__option--correct');
-        else if (selected.has(i)) b.classList.add('quiz__option--wrong');
-      });
+        if (correct) correctCount++;
+        answersLog.push({
+          question: q.question,
+          chosen: [...selected].map(i => q.options[i].text).join(' · '),
+          correct: correctIndices.map(i => q.options[i].text).join(' · '),
+          isCorrect: correct
+        });
 
-      const correctIdx = opts.map((o, i) => o.correct ? i : -1).filter(i => i >= 0);
-      const chosenArr = [...selected];
-      const allCorrectChosen = correctIdx.every(i => selected.has(i));
-      const noWrongChosen = chosenArr.every(i => opts[i].correct);
-      const isFullyCorrect = allCorrectChosen && noWrongChosen;
+        if (!correct) {
+          try {
+            const raw = JSON.parse(localStorage.getItem('doro.quizErrors') || '[]');
+            const arr = Array.isArray(raw) ? raw : [];
+            const _topicMeta = window.currentTopicMeta || {};
+            const _subjKey = window.currentSubjectKey || 'unknown';
+            const _subjTitle = (window.subjects && window.subjects[_subjKey]?.title) || _subjKey;
+            arr.unshift({
+              question: q.question,
+              correct: correctIndices.map(i => q.options[i].text).join(' · '),
+              chosen: [...selected].map(i => q.options[i].text).join(' · '),
+              subjectKey: _subjKey,
+              subjectTitle: _subjTitle,
+              topicNum: _topicMeta.num || '',
+              topicTitle: _topicMeta.title || '',
+              at: Date.now()
+            });
+            localStorage.setItem('doro.quizErrors', JSON.stringify(arr.slice(0, 200)));
+          } catch (e) {}
+        }
 
-      if (isFullyCorrect) score++;
-      container.querySelector('.quiz__score').textContent = `Правильно: ${score}`;
+        scoreEl.textContent = String(correctCount);
+        barEl.style.width = (((current + 1) / questions.length) * 100) + '%';
 
-      results.push({
-        question: q.question,
-        chosen: chosenArr.map(i => opts[i].text).join('; '),
-        correct: isFullyCorrect,
-        correctText: correctIdx.map(i => opts[i].text).join('; ')
-      });
-    });
+        hintEl.textContent = correct ? 'Верно' : 'Неверно';
+        hintEl.classList.add(correct ? 'is-ok' : 'is-bad');
 
-    nextBtn.addEventListener('click', () => { currentIdx++; renderQuestion(); });
-  }
+        const isLast = current + 1 >= questions.length;
+        answerEl.textContent = isLast ? 'Показать результат' : 'Дальше';
+        answerEl.disabled = false;
+        answerEl.onclick = () => {
+          hintEl.classList.remove('is-ok', 'is-bad');
+          current++;
+          if (current < questions.length) renderQuestion();
+          else renderResult();
+        };
+      };
+    }
 
-  function renderResult() {
-    const total = picked.length;
-    const pct = Math.round((score / total) * 100);
-    let mark, color;
-    if (pct >= 90) { mark = 'Отлично'; color = '#16a34a'; }
-    else if (pct >= 70) { mark = 'Хорошо'; color = '#0891b2'; }
-    else if (pct >= 50) { mark = 'Неплохо'; color = '#d97706'; }
-    else { mark = 'Стоит повторить'; color = '#dc2626'; }
+    // ---------- Результат ----------
+    function renderResult() {
+      finished = true;
+      const total = questions.length;
+      const percent = Math.round((correctCount / total) * 100);
+      const mark = correctCount === total ? '5' :
+                   correctCount >= total * 0.8 ? '4' :
+                   correctCount >= total * 0.6 ? '3' : '2';
+      const isGolden = window.doroPremium && window.doroPremium.isPremiumActive();
+      const tone = percent >= 80 ? 'good' : percent >= 60 ? 'mid' : 'bad';
 
-    container.innerHTML = `
-      <div class="quiz quiz--result">
-        <div class="quiz__result-mark" style="color:${color}">${mark}</div>
-        <div class="quiz__result-score">${score} / ${total} <span>(${pct}%)</span></div>
-        <ul class="quiz__review">
-          ${results.map((r, i) => `
-            <li class="quiz__review-item ${r.correct ? 'is-correct' : 'is-wrong'}">
-              <span class="quiz__review-num">${i + 1}</span>
-              <div>
-                <div class="quiz__review-q">${escapeHtmlKeepSupSub(r.question)}</div>
-                <div class="quiz__review-a">
-                  Ваш ответ: <b>${escapeHtmlKeepSupSub(r.chosen || '—')}</b><br>
-                  ${!r.correct ? `Верно: <b>${escapeHtmlKeepSupSub(r.correctText)}</b>` : ''}
+      stepEl.textContent = String(total);
+      barEl.style.width = '100%';
+      hintEl.textContent = 'Результат';
+      hintEl.classList.remove('is-ok', 'is-bad');
+      answerEl.style.display = 'none';
+
+      bodyEl.innerHTML = `
+        <div class="qt-result qt-result--${tone}">
+          <div class="qt-result__circle">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="qt-result__ring-bg" cx="60" cy="60" r="52"></circle>
+              <circle class="qt-result__ring-fg" cx="60" cy="60" r="52"
+                stroke-dasharray="${(percent / 100) * 2 * Math.PI * 52} 999"></circle>
+            </svg>
+            <div class="qt-result__center">
+              <span class="qt-result__percent">${percent}<small>%</small></span>
+              <span class="qt-result__score">${correctCount} из ${total}</span>
+            </div>
+          </div>
+          <div class="qt-result__meta">
+            <span class="qt-result__mark">Оценка <b>${mark}</b></span>
+            ${isGolden ? `<span class="qt-result__golden">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.9L22 9.3l-5.5 4.8L18.2 22 12 18.3 5.8 22l1.7-7.9L2 9.3l7.1-.4L12 2z"/></svg>
+              Golden
+            </span>` : ''}
+          </div>
+        </div>
+
+        <div class="qt-review">
+          <div class="qt-review__title">Разбор</div>
+          <ol class="qt-review__list">
+            ${answersLog.map((a, i) => `
+              <li class="qt-review__item ${a.isCorrect ? 'is-correct' : 'is-wrong'}">
+                <span class="qt-review__dot" aria-hidden="true"></span>
+                <div class="qt-review__body">
+                  <div class="qt-review__q">${escapeHtmlKeepSupSub(a.question)}</div>
+                  ${a.isCorrect
+                    ? `<div class="qt-review__a qt-review__a--ok">${escapeHtmlKeepSupSub(a.correct)}</div>`
+                    : `<div class="qt-review__a qt-review__a--bad">Ты: ${escapeHtmlKeepSupSub(a.chosen)}</div>
+                       <div class="qt-review__a qt-review__a--ok">Верно: ${escapeHtmlKeepSupSub(a.correct)}</div>`}
                 </div>
-              </div>
-            </li>
-          `).join('')}
-        </ul>
-        <button type="button" class="quiz__restart">Пройти заново (ещё 20 случайных)</button>
-      </div>
-    `;
+              </li>
+            `).join('')}
+          </ol>
+        </div>
+      `;
 
-    container.querySelector('.quiz__restart').addEventListener('click', () => {
-      container.innerHTML = '';
-      renderPhysioSolveMode(raw, container);
-    });
+      answerEl.style.display = '';
+      answerEl.textContent = 'Закрыть';
+      answerEl.disabled = false;
+      answerEl.onclick = destroy;
+      bodyEl.scrollTop = 0;
+    }
+
+    renderQuestion();
   }
 
-  renderQuestion();
+  renderStartScreen();
 }
 
 // Режим «Читать» — все тесты с подсветкой верных
@@ -1180,6 +1399,10 @@ const SearchCtl = (function () {
 
   return { bind, open, close, clear, highlight, next, prev };
 })();
+
+
+
+
 // ============================================================
 //  ИНИЦИАЛИЗАЦИЯ
 // ============================================================
@@ -1188,10 +1411,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const $ = (id) => document.getElementById(id);
 
   const avatar = $('avatar');
-  const profileSheet = $('profileSheet');
-  const profileSheetBackdrop = $('profileSheetBackdrop');
-  const profileSheetClose = $('profileSheetClose');
-  const editProfileBtn = $('editProfileBtn');
   const profileNameDisplay = $('profileNameDisplay');
   const nameInput = $('nameInput');
   const saveNameBtn = $('saveNameBtn');
@@ -1208,9 +1427,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchField = $('searchField');
   const searchInput = $('searchInput');
   const searchResults = $('searchResults');
-  const notifyList = $('notifyList');
-  const notifyBadge = $('notifyBadge');
-  const avatarBadge = $('avatarBadge');
   const lectureToggle = $('lectureToggle');
   const lectureInfo = $('lectureInfo');
   const subjectsCards = $('subjects-cards');
@@ -1226,8 +1442,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const readerSettingsClose = $('readerSettingsClose');
   const readerSettingsBackdrop = $('readerSettingsBackdrop');
   const fontValue = $('fontValue');
-  const views = { home: $('view-home'), files: $('view-files'), links: $('view-links'), tasks: $('view-tasks'), profile: $('view-profile') };
-  const rendered = { home: false, files: false, links: false, tasks: false, profile: false };
+  const views = { home: $('view-home'), files: $('view-files'), links: $('view-links'), premium: $('view-premium'), profile: $('view-profile'), admin: $('view-admin') };
+  const rendered = { home: false, files: false, links: false, premium: false, profile: false, admin: false };
   window.currentSubjectKey = null;
   window.currentTopicMeta = null;
   let user = JSON.parse(localStorage.getItem('doro.user') || 'null');
@@ -1243,6 +1459,43 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('doro.user', JSON.stringify(user));
   }
   const AVATAR_COLORS = ['#3b82f6','#16a34a','#ea580c','#9333ea','#0891b2','#e11d48','#ca8a04','#475569'];
+
+  // ---------- Golden: эмодзи, рамки, фоны, бейджи, эффекты ----------
+  const AVATAR_EMOJIS = ['🐱','🐶','🦊','🐻','🐼','🦉','🐸','🦄','🐨','🐯','🐰','🐹','🐧','🦁','🐮','🐷','👾','🤖','🦋','🌙'];
+  const GOLDEN_FRAMES = [
+    { id: 'none',   label: 'Без рамки' },
+    { id: 'gold',   label: 'Золотая' },
+    { id: 'neon',   label: 'Неон' },
+    { id: 'dashed', label: 'Пунктир' },
+    { id: 'glow',   label: 'Свечение' }
+  ];
+  const GOLDEN_BACKGROUNDS = [
+    { id: 'default', label: 'Стандарт' },
+    { id: 'sunset',  label: 'Закат' },
+    { id: 'ocean',   label: 'Океан' },
+    { id: 'forest',  label: 'Лес' },
+    { id: 'gold',    label: 'Золото' },
+    { id: 'space',   label: 'Космос' },
+    { id: 'minimal', label: 'Минимал' }
+  ];
+  const GOLDEN_BADGES = [
+    { id: 'none',   label: '—' },
+    { id: 'fire',   label: '🔥' },
+    { id: 'medal',  label: '🥇' },
+    { id: 'bolt',   label: '⚡' },
+    { id: 'diamond',label: '💎' },
+    { id: 'grad',   label: '🎓' },
+    { id: 'crown',  label: '👑' }
+  ];
+  const GOLDEN_EFFECTS = [
+    { id: 'default', label: 'Стекло' },
+    { id: 'glow',    label: 'Свечение' },
+    { id: 'animated',label: 'Градиент' }
+  ];
+
+  function isGolden() {
+    return !!(window.doroPremium && window.doroPremium.isPremiumActive());
+  }
 
   // ---------- ТЕМА ----------
   const THEME_KEY = 'doro.theme';
@@ -1448,11 +1701,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (parts.length === 1) return parts[0][0].toUpperCase();
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
-  function paintAvatar(color) {
+  function paintAvatar(color, useEmoji) {
     if (!avatar) return;
-    avatar.style.background = `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 60%, #ffffff))`;
-    avatar.style.color = '#fff';
-    avatar.style.borderColor = color;
+    avatar.style.setProperty('--ac', color);
+    if (useEmoji) {
+      avatar.style.background = `
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.85), transparent 55%),
+        linear-gradient(135deg,
+          color-mix(in srgb, ${color} 18%, #ffffff),
+          color-mix(in srgb, ${color} 28%, #ffffff)
+        )`;
+      avatar.style.color = '';
+      avatar.style.borderColor = color;
+      avatar.classList.add('avatar--emoji');
+    } else {
+      avatar.style.background = `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 60%, #ffffff))`;
+      avatar.style.color = '#fff';
+      avatar.style.borderColor = color;
+      avatar.classList.remove('avatar--emoji');
+    }
   }
   async function syncProfileToCloud() {
     try {
@@ -1478,9 +1745,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (user && user.name) {
       const initials = getInitials(user.name);
-      if (avatarLetter) avatarLetter.textContent = initials;
+      // В шапке тоже показываем смайлик, если он выбран и Golden активен
+      const useEmoji = isGolden() && user.avatarEmoji;
+      if (avatarLetter) {
+        avatarLetter.textContent = useEmoji ? user.avatarEmoji : initials;
+      }
       if (heroLetter) heroLetter.textContent = initials;
-      paintAvatar(user.color || '#3b82f6');
+      paintAvatar(user.color || '#3b82f6', useEmoji);
       if (greetTitle) greetTitle.textContent = getGreeting(isDark ? "dark" : "light", user.name);
       if (profileNameDisplay) profileNameDisplay.textContent = user.name;
     } else {
@@ -1490,37 +1761,80 @@ document.addEventListener('DOMContentLoaded', () => {
       if (greetTitle) greetTitle.textContent = getGreeting(isDark ? "dark" : "light", null);
       if (profileNameDisplay) profileNameDisplay.textContent = 'Профиль';
     }
+    // --- Аватар: буква или эмодзи + Golden-рамка под цвет пользователя ---
+    const accentColor = user?.color || '#3b82f6';
     if (heroAvatar) {
-      const c = user?.color || '#3b82f6';
-      heroAvatar.style.background = `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.4), transparent 55%), linear-gradient(135deg, ${c}, ${c})`;
-      heroAvatar.style.color = '#fff';
+      const c = accentColor;
+      const useEmoji = isGolden() && user?.avatarEmoji;
+      heroAvatar.style.setProperty('--ac', c);
+      heroAvatar.dataset.frame = (isGolden() && user?.avatarFrame) ? user.avatarFrame : 'none';
+      if (useEmoji) {
+        heroAvatar.style.background = `
+          radial-gradient(circle at 30% 25%, rgba(255,255,255,0.85), transparent 55%),
+          linear-gradient(135deg,
+            color-mix(in srgb, ${c} 18%, #ffffff),
+            color-mix(in srgb, ${c} 28%, #ffffff)
+          )`;
+        heroAvatar.style.color = '';
+        heroAvatar.classList.add('is-emoji');
+        heroAvatar.innerHTML = `<span aria-hidden="true">${user.avatarEmoji}</span>`;
+      } else {
+        heroAvatar.style.background = `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.4), transparent 55%), linear-gradient(135deg, ${c}, ${c})`;
+        heroAvatar.style.color = '#fff';
+        heroAvatar.classList.remove('is-emoji');
+        if (heroLetter) heroLetter.textContent = (user?.name ? getInitials(user.name) : '?');
+      }
+    }
+    // В шапке тоже применяем рамку
+    if (avatar && isGolden() && user?.avatarFrame && user.avatarFrame !== 'none') {
+      avatar.dataset.frame = user.avatarFrame;
+    } else if (avatar) {
+      delete avatar.dataset.frame;
+    }
+    // --- Golden: фон карточки, бейдж, эффект ---
+    const profileCard = document.querySelector('.profile-card');
+    if (profileCard) {
+      profileCard.style.setProperty('--ac', accentColor);
+      const bg = (isGolden() && user?.profileBg) ? user.profileBg : 'default';
+      const fx = (isGolden() && user?.profileEffect) ? user.profileEffect : 'default';
+      profileCard.dataset.bg = bg;
+      profileCard.dataset.effect = fx;
+
+          // Бейдж рядом с именем (nameStyle и decor больше не поддерживаем)
+      const badgeMap = { fire:'🔥', medal:'🥇', bolt:'⚡', diamond:'💎', grad:'🎓', crown:'👑' };
+      const bId = (isGolden() && user?.profileBadge) ? user.profileBadge : 'none';
+      const nameEl = document.getElementById('profileNameDisplay');
+      if (nameEl) {
+        const nameText = user && user.name ? user.name : 'Профиль';
+        if (bId && bId !== 'none' && badgeMap[bId]) {
+          nameEl.innerHTML = `${escapeHtml(nameText)}<span class="profile-card__badge" id="profileBadge" style="--ac:${accentColor}">${badgeMap[bId]}</span>`;
+        } else {
+          nameEl.textContent = nameText;
+        }
+      }
     }
     if (statusDisplay) statusDisplay.textContent = user?.status ? user.status : 'Статус не задан';
     if (groupDisplay) groupDisplay.textContent = user?.group ? 'Группа ' + user.group : 'Группа не выбрана';
 
-    const sheetOpen = profileSheet && profileSheet.classList.contains('is-open');
-    if (!sheetOpen) {
-      const groupSelect = $('groupSelect');
-      if (groupSelect) groupSelect.value = user?.group || '';
-      if (typeof window.__paintStatusPicker === 'function') window.__paintStatusPicker();
-      const palette = $('avatarPalette');
-      if (palette) {
-        const current = (user?.color || '#3b82f6').toLowerCase();
-        palette.querySelectorAll('.profile-color__swatch').forEach(btn => {
-          btn.setAttribute('aria-selected', btn.dataset.color.toLowerCase() === current ? 'true' : 'false');
-        });
-      }
+    const groupSelect = $('groupSelect');
+    if (groupSelect) groupSelect.value = user?.group || '';
+    if (typeof window.__paintStatusPicker === 'function') window.__paintStatusPicker();
+    const palette = $('avatarPalette');
+    if (palette) {
+      const current = (user?.color || '#3b82f6').toLowerCase();
+      palette.querySelectorAll('.profile-color__swatch').forEach(btn => {
+        btn.setAttribute('aria-selected', btn.dataset.color.toLowerCase() === current ? 'true' : 'false');
+      });
     }
     if (avatar) avatar.title = [user?.name, user?.status].filter(Boolean).join(' · ') || 'Профиль';
 
     const statTopicsEl = $('statTopics');
-    const statTasksEl = $('statTasks');
     const statReadEl = $('statRead');
     if (statTopicsEl) {
       const total = Object.values(subjects).reduce((sum, s) => sum + s.topics.filter(t => t.title !== 'Раздел в разработке').length, 0);
       statTopicsEl.textContent = String(total);
     }
-    if (statTasksEl) statTasksEl.textContent = String(homework.length);
+
     if (statReadEl) {
       const last = (function () { try { return JSON.parse(localStorage.getItem('doro.lastRead') || 'null'); } catch (e) { return null; } })();
       statReadEl.textContent = last && last.percent ? last.percent + '%' : '0%';
@@ -1529,28 +1843,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (avatar) avatar.addEventListener('click', (e) => { e.stopPropagation(); showView('profile'); });
   function openProfileSheet() {
-    if (!profileSheet) return;
-    profileSheet.style.removeProperty('display');
-    if (nameInput) nameInput.value = user?.name || '';
-    profileSheet.classList.add('is-open');
-    profileSheet.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('profile-sheet-open');
-    if (typeof window.__refreshGroupFields === 'function') window.__refreshGroupFields();
-    if (typeof window.__paintStatusPicker === 'function') window.__paintStatusPicker();
-    setTimeout(() => { if (nameInput) nameInput.focus(); }, 250);
+    openPeModal();
   }
   function closeProfileSheet() {
-    if (!profileSheet) return;
-    profileSheet.classList.remove('is-open');
-    profileSheet.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('profile-sheet-open');
+    closePeModal();
   }
-  if (editProfileBtn) editProfileBtn.addEventListener('click', openProfileSheet);
-  if (profileSheetClose) profileSheetClose.addEventListener('click', closeProfileSheet);
-  if (profileSheetBackdrop) profileSheetBackdrop.addEventListener('click', closeProfileSheet);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && profileSheet && profileSheet.classList.contains('is-open')) closeProfileSheet();
-  });
+
+  window.__openProfileSheet = openProfileSheet;
   if (saveNameBtn) {
     saveNameBtn.addEventListener('click', async () => {
       if (!nameInput) return;
@@ -1789,10 +2088,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!user) user = {};
         user.color = color;
         saveUser();
+        // перекрасить палитру
         palette.querySelectorAll('.profile-color__swatch').forEach(b => {
           b.setAttribute('aria-selected', b.dataset.color === color ? 'true' : 'false');
         });
+        // обновить профиль + превью
         renderProfile();
+        if (typeof window.__paintProfilePreview === 'function') window.__paintProfilePreview();
         syncProfileToCloud();
       });
       palette.appendChild(btn);
@@ -1802,16 +2104,262 @@ document.addEventListener('DOMContentLoaded', () => {
       b.setAttribute('aria-selected', b.dataset.color.toLowerCase() === current ? 'true' : 'false');
     });
   })();
+  // ============================================================
+  //  ВСТРОЕННЫЙ РЕДАКТОР ПРОФИЛЯ (pe = profile editor)
+  // ============================================================
+  (function initInlineProfileEditor() {
+    const prevCard   = $('pePreviewCard');
+    const prevAvatar = $('pePreviewAvatar');
+    const prevText   = $('pePreviewAvatarText');
+    const prevName   = $('pePreviewName');
+    const prevStatus = $('pePreviewStatus');
+    const prevGroup  = $('pePreviewGroup');
+    const modeWrap   = $('peAvatarMode');
+    const emojiRow   = $('peEmojiRow');
+    const emojiGrid  = $('peEmojiGrid');
+    const frameChips = $('peFrameChips');
+    const bgGrid     = $('peBgGrid');
+    const badgeChips = $('peBadgeChips');
+    const fxChips    = $('peFxChips');
+    const goldenLock = $('peGoldenLock');
+    const goldenBody = $('peGoldenBody');
+    const goldenCta  = $('peGoldenCta');
 
-  // ---------- ДОМАШНИЕ ЗАДАНИЯ ----------
-  const HW_KEY = 'doro.homework';
-  let homework = JSON.parse(localStorage.getItem(HW_KEY) || '[]');
-  function saveHomework() { localStorage.setItem(HW_KEY, JSON.stringify(homework)); }
-  function hwId() { return 'hw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
-  function getHomeworkFor(subjectKey, dayKey, slot) {
-    return homework.filter(h => h.subjectKey === subjectKey && h.dayKey === dayKey && h.slot === slot);
-  }
+    if (!prevCard) return;
 
+    const BADGE_EMOJI = { fire:'🔥', medal:'🥇', bolt:'⚡', diamond:'💎', grad:'🎓', crown:'👑' };
+    const FRAME_LABELS = { none:'Без рамки', gold:'Золото', neon:'Неон', dashed:'Пунктир', glow:'Свечение' };
+    const EFFECT_LABELS = { default:'Стекло', glow:'Свечение', animated:'Градиент' };
+
+    function golden() { return !!(window.doroPremium && window.doroPremium.isPremiumActive()); }
+
+    function paintEmojiGrid() {
+      if (!emojiGrid) return;
+      const cur = user?.avatarEmoji || '';
+      emojiGrid.innerHTML = AVATAR_EMOJIS.map(e => `
+        <button type="button" class="pe-emoji ${cur === e ? 'is-selected' : ''}" data-emoji="${e}" aria-label="${e}">${e}</button>
+      `).join('');
+    }
+
+    function paintFrameChips() {
+      if (!frameChips) return;
+      const cur = user?.avatarFrame || 'none';
+      frameChips.innerHTML = GOLDEN_FRAMES.map(f => `
+        <button type="button" class="pe-tile ${cur === f.id ? 'is-selected' : ''}" data-frame="${f.id}">
+          <span class="pe-tile__visual pe-tile__visual--frame-${f.id}"></span>
+          <span class="pe-tile__label">${FRAME_LABELS[f.id] || f.label}</span>
+        </button>
+      `).join('');
+    }
+
+    function paintBgGrid() {
+      if (!bgGrid) return;
+      const cur = user?.profileBg || 'default';
+      bgGrid.innerHTML = GOLDEN_BACKGROUNDS.map(b => `
+        <button type="button" class="pe-bg pe-bg--${b.id} ${cur === b.id ? 'is-selected' : ''}" data-bg="${b.id}" title="${b.label}">
+          <span class="pe-bg__label">${b.label}</span>
+        </button>
+      `).join('');
+    }
+
+    function paintBadgeChips() {
+      if (!badgeChips) return;
+      const cur = user?.profileBadge || 'none';
+      badgeChips.innerHTML = GOLDEN_BADGES.map(b => `
+        <button type="button" class="pe-badge ${cur === b.id ? 'is-selected' : ''}" data-badge="${b.id}" aria-label="${b.label}">
+          ${b.id === 'none' ? '<span class="pe-badge__none">нет</span>' : b.label}
+        </button>
+      `).join('');
+    }
+
+    function paintFxChips() {
+      if (!fxChips) return;
+      const cur = user?.profileEffect || 'default';
+      fxChips.innerHTML = GOLDEN_EFFECTS.map(f => `
+        <button type="button" class="pe-tile ${cur === f.id ? 'is-selected' : ''}" data-fx="${f.id}">
+          <span class="pe-tile__visual pe-tile__visual--fx-${f.id}"></span>
+          <span class="pe-tile__label">${EFFECT_LABELS[f.id] || f.label}</span>
+        </button>
+      `).join('');
+    }
+
+    function paintAvatarMode() {
+      if (!modeWrap) return;
+      const g = golden();
+      const hasEmoji = !!user?.avatarEmoji && g;
+      modeWrap.querySelectorAll('.pe-seg__btn').forEach(b => {
+        b.classList.toggle('is-active', (b.dataset.mode === 'emoji') === hasEmoji);
+        if (b.dataset.mode === 'emoji') {
+          b.classList.toggle('is-locked', !g);
+          b.title = g ? 'Выбрать смайлик' : 'Доступно в Golden';
+        }
+      });
+      if (emojiRow) emojiRow.hidden = !hasEmoji;
+    }
+
+    function paintPreview() {
+      if (!prevCard) return;
+      const name = (user?.name || '').trim() || 'Твоё имя';
+      const c = user?.color || '#3b82f6';
+      const emoji = user?.avatarEmoji || '';
+      const frame = user?.avatarFrame || 'none';
+      const bg = user?.profileBg || 'default';
+      const fx = user?.profileEffect || 'default';
+      const badge = user?.profileBadge || 'none';
+
+      prevCard.style.setProperty('--ac', c);
+      prevCard.dataset.bg = golden() ? bg : 'default';
+      prevCard.dataset.effect = golden() ? fx : 'default';
+
+      if (prevAvatar) {
+        prevAvatar.style.setProperty('--ac', c);
+        if (emoji) {
+          prevAvatar.style.background = `
+            radial-gradient(circle at 30% 25%, rgba(255,255,255,0.85), transparent 55%),
+            linear-gradient(135deg,
+              color-mix(in srgb, ${c} 18%, #ffffff),
+              color-mix(in srgb, ${c} 28%, #ffffff)
+            )`;
+        } else {
+          prevAvatar.style.background = `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.4), transparent 55%), linear-gradient(135deg, ${c}, ${c})`;
+        }
+        prevAvatar.dataset.frame = golden() ? frame : 'none';
+        prevAvatar.classList.toggle('is-emoji', !!emoji);
+      }
+      if (prevText) prevText.textContent = emoji ? emoji : (user?.name ? getInitials(user.name) : '?');
+
+      if (prevName) {
+        if (golden() && badge !== 'none' && BADGE_EMOJI[badge]) {
+          prevName.innerHTML = `${escapeHtml(name)}<span class="pe-preview__badge">${BADGE_EMOJI[badge]}</span>`;
+        } else {
+          prevName.textContent = name;
+        }
+      }
+      if (prevStatus) prevStatus.textContent = user?.status || 'Статус';
+      if (prevGroup) prevGroup.textContent = user?.group ? 'Группа ' + user.group : 'Группа';
+    }
+
+    function paintGoldenAccess() {
+      const ok = golden();
+      if (goldenLock) goldenLock.hidden = ok;
+      if (goldenBody) goldenBody.hidden = !ok;
+      if (!goldenCta) return;
+      if (ok) {
+        const days = window.doroPremium ? window.doroPremium.daysLeft() : 0;
+        const wordDays = (n => {
+          const m10 = n % 10, m100 = n % 100;
+          if (m10 === 1 && m100 !== 11) return 'день';
+          if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'дня';
+          return 'дней';
+        })(days);
+        goldenCta.hidden = false;
+        goldenCta.classList.add('is-active');
+        goldenCta.innerHTML = `
+          <div class="pe-golden-cta__status">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2l2.9 6.9L22 9.3l-5.5 4.8L18.2 22 12 18.3 5.8 22l1.7-7.9L2 9.3l7.1-.4L12 2z"/>
+            </svg>
+            <span>Golden активен · осталось <b>${days} ${wordDays}</b></span>
+          </div>
+        `;
+      } else {
+        goldenCta.hidden = false;
+        goldenCta.classList.remove('is-active');
+        goldenCta.innerHTML = `
+          <p class="pe-golden-cta__text">Открой оформление профиля и ещё кучу всего с Golden.</p>
+          <button type="button" class="pe-golden-cta__btn" id="peGoldenGo">Открыть Golden</button>
+        `;
+        const go = goldenCta.querySelector('#peGoldenGo');
+        if (go) go.addEventListener('click', () => {
+          if (typeof setActivePanel === 'function') setActivePanel(null);
+          const navLink = document.querySelector('.nav a[data-view="premium"]');
+          if (navLink) navLink.click();
+        });
+      }
+    }
+
+    function paintAll() {
+      paintPreview();
+      paintAvatarMode();
+      paintEmojiGrid();
+      paintFrameChips();
+      paintBgGrid();
+      paintBadgeChips();
+      paintFxChips();
+      paintGoldenAccess();
+    }
+
+    window.__paintProfilePreview = paintPreview;
+    window.__paintGoldenProfile = paintAll;
+
+    window.__peOpen = function () {
+      if (nameInput) nameInput.value = user?.name || '';
+      paintAll();
+      if (typeof window.__refreshGroupFields === 'function') window.__refreshGroupFields();
+      if (typeof window.__paintStatusPicker === 'function') window.__paintStatusPicker();
+    };
+
+    // Реакции
+    if (modeWrap) modeWrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('.pe-seg__btn'); if (!btn) return;
+      if (btn.dataset.mode === 'emoji' && !golden()) {
+        const gs = document.getElementById('peGoldenSection');
+        if (gs) {
+          gs.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          gs.classList.add('is-nudged');
+          setTimeout(() => gs.classList.remove('is-nudged'), 900);
+        }
+        return;
+      }
+      if (!user) user = {};
+      if (btn.dataset.mode === 'emoji') {
+        if (!user.avatarEmoji) user.avatarEmoji = AVATAR_EMOJIS[0];
+      } else {
+        user.avatarEmoji = '';
+      }
+      saveUser(); paintAll(); renderProfile(); syncProfileToCloud();
+    });
+
+    if (emojiGrid) emojiGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.pe-emoji'); if (!btn) return;
+      if (!user) user = {};
+      user.avatarEmoji = btn.dataset.emoji;
+      saveUser(); paintAll(); renderProfile(); syncProfileToCloud();
+    });
+
+    if (frameChips) frameChips.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-frame]'); if (!btn) return;
+      if (!user) user = {};
+      user.avatarFrame = btn.dataset.frame;
+      saveUser(); paintAll(); renderProfile(); syncProfileToCloud();
+    });
+
+    if (bgGrid) bgGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-bg]'); if (!btn) return;
+      if (!user) user = {};
+      user.profileBg = btn.dataset.bg;
+      saveUser(); paintAll(); renderProfile(); syncProfileToCloud();
+    });
+
+    if (badgeChips) badgeChips.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-badge]'); if (!btn) return;
+      if (!user) user = {};
+      user.profileBadge = btn.dataset.badge;
+      saveUser(); paintAll(); renderProfile(); syncProfileToCloud();
+    });
+
+    if (fxChips) fxChips.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-fx]'); if (!btn) return;
+      if (!user) user = {};
+      user.profileEffect = btn.dataset.fx;
+      saveUser(); paintAll(); renderProfile(); syncProfileToCloud();
+    });
+
+
+
+    document.addEventListener('doro:premium-changed', paintAll);
+    paintAll();
+  })();
   // ---------- СПИСОК ПОЛЬЗОВАТЕЛЕЙ В ПРОФИЛЕ ----------
 const profileUsersBody = $('profileUsersBody');
 const profileUsersCount = $('profileUsersCount');
@@ -1827,17 +2375,6 @@ const profileUsersCountLabel = $('profileUsersCountLabel');
   const SECTION_AUTHORS = getSectionAuthors();
   const SECTION_AUTHOR_FIRSTNAMES = SECTION_AUTHORS
     .map(a => a.split(/\s+/)[0].toLowerCase());
-
-  // Явный список редакторов: «имя, как в Firebase» + «группа»
-  // Сюда добавляй тех, кто реально редактирует раздел.
-  const SECTION_AUTHOR_GROUPS = [
-    { name: 'Мария',    group: 'ЛД2511' }, // Мария Прокопьева — гистология
-    { name: 'Антон',    group: 'ЛД2511' }, // Кайгородов Антон — биохимия/физиология
-    { name: 'Сюзи',     group: 'ЛД2511' }, // Сюзи Петросян — микробиология
-    { name: 'Кайгородов', group: 'ЛД2511' },
-    { name: 'Прокопьева', group: 'ЛД2511' },
-    { name: 'Петросян',   group: 'ЛД2511' },
-  ];
 
 // Только для ключа слияния — не трогает отображение
 function normalizeUserName(name) {
@@ -1858,48 +2395,58 @@ function displayUserName(name) {
   return n.charAt(0).toUpperCase() + n.slice(1);
 }
 
-  // Глобальный кэш редакторов из базы
-  let _editorsList = null;
+  // Кэш редакторов: только по uid
+  let EDITOR_UIDS = new Map();
 
-  // Загружаем список редакторов из Firestore (коллекция roles)
-  async function loadEditorsFromDb() {
-    if (!window.doroDb) return [];
+  async function loadEditorNames() {
     try {
-      const { getDocs, collection, query, where } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      // Ждём, пока Firebase реально подключится (до 5 секунд)
+      let waitTime = 0;
+      while (!window.doroDb && waitTime < 5000) {
+        await new Promise(r => setTimeout(r, 100));
+        waitTime += 100;
+      }
       
-      // Ищем всех, у кого role = 'editor' или 'admin'
-      const q = query(collection(window.doroDb, 'roles'), where('role', 'in', ['editor', 'admin']));
-      const snap = await getDocs(q);
+      if (!window.doroDb) {
+        console.warn('[editors] Firebase не готов, роли не загружены');
+        return;
+      }
+
+      const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const snap = await getDocs(collection(window.doroDb, 'roles'));
       
-      const editors = [];
-      snap.forEach(doc => {
-        editors.push(doc.data());
+      EDITOR_UIDS.clear();
+      
+      snap.forEach(d => {
+        const data = d.data();
+        if (data.role === 'editor' || data.role === 'admin') {
+          EDITOR_UIDS.set(d.id, data.role);
+        }
       });
       
-      _editorsList = editors;
-      return editors;
-    } catch (e) {
-      console.warn('Не удалось загрузить список редакторов:', e);
-      return [];
+      console.log('[editors] Роли успешно загружены. Найдено:', EDITOR_UIDS.size);
+      
+      // Если открыта вкладка пользователей — перерисовываем, чтобы бейджи появились
+      const isUsersPanelOpen = document.getElementById('panelUsers')?.classList.contains('is-open');
+      if (isUsersPanelOpen && typeof renderProfileUsers === 'function') {
+        renderProfileUsers(true); 
+      }
+      
+    } catch (e) { 
+      console.warn('[editors] Ошибка загрузки ролей:', e); 
     }
   }
 
-  // Проверка: является ли человек настоящим редактором
-  function isSectionAuthor(name, group) {
-    if (!_editorsList) return false; // Если не загрузили — никого не подсвечиваем
-    
-    const n = normalizeUserName(name).toLowerCase();
-    if (!n) return false;
+  // Возвращает 'admin', 'editor' или null — только по uid
+  function getAuthorRole(u) {
+    if (!u || !u.uid) return null;
+    return EDITOR_UIDS.get(u.uid) || null;
+  }
 
-    const g = (group || '').trim().toUpperCase();
-    if (!g) return false;
-
-    // Ищем среди настоящих редакторов из базы
-    return _editorsList.some(editor => {
-      const editorName = normalizeUserName(editor.displayName).toLowerCase();
-      // Сравниваем имя и группу (если группа не указана в базе, просто имя)
-      return editorName === n;
-    });
+  // Редактор — только если совпал uid
+  function isSectionAuthor(u) {
+    if (!u || !u.uid) return false;
+    return EDITOR_UIDS.has(u.uid);
   }
 
   function userKey(u) {
@@ -1918,17 +2465,39 @@ function displayUserName(name) {
           group: (u.group || '').trim(),
           status: u.status || '',
           color: u.color || '#3b82f6',
+          avatarEmoji: u.avatarEmoji || '',
+          avatarFrame: u.avatarFrame || 'none',
+          profileBg: u.profileBg || 'default',
+          profileEffect: u.profileEffect || 'default',
+          profileBadge: u.profileBadge || 'none',
+          premiumActive: !!u.premiumActive,
+          premiumExpiresAt: u.premiumExpiresAt || 0,
+          uid: u.uid || null,
+          id: u.id || null,
           uids: [u.id],
           updatedAt: u.updatedAt || 0
         });
       } else {
         const cur = map.get(key);
         cur.uids.push(u.id);
+        if (u.uid && !cur.uid) cur.uid = u.uid;
+        if (u.id && !cur.id) cur.id = u.id;
         if (u.status && (u.updatedAt || 0) >= cur.updatedAt) {
           cur.status = u.status;
           cur.updatedAt = u.updatedAt || 0;
         }
-        if ((u.updatedAt || 0) >= cur.updatedAt) cur.color = u.color || cur.color;
+        if ((u.updatedAt || 0) >= cur.updatedAt) {
+          cur.color = u.color || cur.color;
+          cur.avatarEmoji   = u.avatarEmoji   || cur.avatarEmoji;
+          cur.avatarFrame   = u.avatarFrame   || cur.avatarFrame;
+          cur.profileBg     = u.profileBg     || cur.profileBg;
+          cur.profileEffect = u.profileEffect || cur.profileEffect;
+          cur.profileBadge  = u.profileBadge  || cur.profileBadge;
+          if (u.premiumActive && (u.updatedAt || 0) >= cur.updatedAt) {
+            cur.premiumActive = true;
+            cur.premiumExpiresAt = u.premiumExpiresAt || 0;
+          }
+        }
       }
     });
     return [...map.values()];
@@ -1941,7 +2510,7 @@ function displayUserName(name) {
     const isMe = !!(user && user.name
       && user.name.toLowerCase() === u.name.toLowerCase()
       && ((user.group || '').toLowerCase() === (u.group || '').toLowerCase()));
-    const isAuthor = honorAuthor && isSectionAuthor(u.name, u.group);
+    const isAuthor = honorAuthor && isSectionAuthor(u);
 
     const row = document.createElement('div');
     row.className = 'user-chip'
@@ -1953,8 +2522,18 @@ function displayUserName(name) {
     if (isAuthor) badges.push('<span class="user-chip__badge user-chip__badge--author">редактор</span>');
     if (isMe) badges.push('<span class="user-chip__badge user-chip__badge--me">вы</span>');
 
+    const emoji = u.avatarEmoji || '';
+    const avatarBg = emoji
+      ? `linear-gradient(135deg,
+           color-mix(in srgb, ${color} 18%, #ffffff),
+           color-mix(in srgb, ${color} 28%, #ffffff)
+         )`
+      : `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 55%, #fff))`;
+    const avatarContent = emoji || initial;
+    const avatarClass = 'user-chip__avatar' + (emoji ? ' is-emoji' : '');
+
     row.innerHTML = `
-      <span class="user-chip__avatar" style="background:linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 55%, #fff))">${initial}</span>
+      <span class="${avatarClass}" style="background:${avatarBg}">${avatarContent}</span>
       <span class="user-chip__name">${escapeHtml(displayUserName(u.name))}</span>
       ${badges.join('')}
     `;
@@ -2235,6 +2814,20 @@ function displayUserName(name) {
         + (groupFull ? ' users-group-card--full' : '')
         + (isMyGroup ? ' users-group-card--mine' : '');
 
+      // клик по карточке группы — открыть расписание (если есть)
+      if (hasSchedule) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', (e) => {
+          // если клик пришёлся по кнопке/ссылке внутри — не перехватываем
+          if (e.target.closest('button, a')) return;
+          setViewAsGroup(g);
+          setActivePanel(null);
+          showView('home');
+          updateViewAsBanner();
+          window.__refreshSchedule();
+        });
+      }
+
       // Шапка карточки — название группы
       const header = document.createElement('div');
       header.className = 'users-group-card__head';
@@ -2322,7 +2915,7 @@ function displayUserName(name) {
       }
 
       // 6. «Редактор» — если в группе есть автор раздела (со значком)
-      const hasAuthor = list.some(u => isSectionAuthor(u.name, u.group));
+      const hasAuthor = list.some(u => isSectionAuthor(u));
       if (hasAuthor) {
         const t = document.createElement('span');
         t.className = 'group-tag group-tag--author';
@@ -2346,8 +2939,8 @@ function displayUserName(name) {
 
       list
         .sort((a, b) => {
-          const aAuth = isSectionAuthor(a.name, a.group) ? 0 : 1;
-          const bAuth = isSectionAuthor(b.name, b.group) ? 0 : 1;
+          const aAuth = isSectionAuthor(a) ? 0 : 1;
+          const bAuth = isSectionAuthor(b) ? 0 : 1;
           if (aAuth !== bAuth) return aAuth - bAuth;
           return a.name.localeCompare(b.name, 'ru');
         })
@@ -2355,9 +2948,21 @@ function displayUserName(name) {
           const isMe = !!(user && user.name
             && user.name.toLowerCase() === u.name.toLowerCase()
             && ((user.group || '').toLowerCase() === (u.group || '').toLowerCase()));
-          const isAuthor = isSectionAuthor(u.name, u.group);
+          const authorRole = getAuthorRole(u); // 'admin' | 'editor' | null
+          const isAuthor = !!authorRole;
           const initial = u.name ? u.name[0].toUpperCase() : '?';
           const color = u.color || '#3b82f6';
+          const emoji = u.avatarEmoji || '';
+
+          // Фон аватарки: яркий для буквы, пастельный для эмодзи
+          const avatarBg = emoji
+            ? `linear-gradient(135deg,
+                 color-mix(in srgb, ${color} 18%, #ffffff),
+                 color-mix(in srgb, ${color} 28%, #ffffff)
+               )`
+            : `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 55%, #fff))`;
+          const avatarContent = emoji || initial;
+          const avatarClass = 'users-group-card__avatar' + (emoji ? ' is-emoji' : '');
 
           const tag = document.createElement('span');
           tag.className = 'users-group-card__tag'
@@ -2365,13 +2970,35 @@ function displayUserName(name) {
             + (isAuthor ? ' users-group-card__tag--author' : '');
           tag.title = [u.name, u.status || ''].filter(Boolean).join(' · ');
 
+          // данные для ховер-попапа
+          tag.dataset.previewUser = JSON.stringify({
+            name: u.name,
+            group: u.group || '',
+            status: u.status || '',
+            color: u.color || '#3b82f6',
+            avatarEmoji: u.avatarEmoji || '',
+            avatarFrame: u.avatarFrame || 'none',
+            profileBg: u.profileBg || 'default',
+            profileEffect: u.profileEffect || 'default',
+            profileBadge: u.profileBadge || 'none'
+          });
+
+          // ★ Премиум-статус из базы (устаревание проверяем тут же)
+          const premActive = !!u.premiumActive
+            && (!u.premiumExpiresAt || u.premiumExpiresAt > Date.now());
+
           const badges = [];
-          if (isAuthor) badges.push('<span class="users-group-card__badge users-group-card__badge--author">ред.</span>');
+          if (authorRole === 'admin') badges.push('<span class="users-group-card__badge users-group-card__badge--admin">админ</span>');
+          else if (authorRole === 'editor') badges.push('<span class="users-group-card__badge users-group-card__badge--author">ред.</span>');
           if (isMe) badges.push('<span class="users-group-card__badge users-group-card__badge--me">вы</span>');
 
+          const goldenStar = premActive
+            ? `<span class="users-group-card__star" title="Golden" aria-label="Golden">★</span>`
+            : '';
+
           tag.innerHTML = `
-            <span class="users-group-card__avatar" style="background:linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 55%, #fff))">${initial}</span>
-            <span class="users-group-card__tag-name">${escapeHtml(displayUserName(u.name))}</span>
+            <span class="${avatarClass}" style="background:${avatarBg}">${avatarContent}</span>
+            <span class="users-group-card__tag-name">${escapeHtml(displayUserName(u.name))}${goldenStar}</span>
             ${badges.join('')}
           `;
           tagsWrap.appendChild(tag);
@@ -2460,25 +3087,62 @@ function displayUserName(name) {
       if (grid && grid.children.length) layoutUsersMasonry(grid);
     }, 150);
   });
-
   // ---------- Управление плитками и панелями ----------
-  const tileUsers = $('tileUsers');
-  const tileLectures = $('tileLectures');
-  const tileNotify = $('tileNotify');
-  const panelUsers = $('panelUsers');
+  const tileUsers     = $('tileUsers');
+  const tileLectures  = $('tileLectures');
+  const tileEditProfile = $('tileEditProfile');
+  const panelUsers    = $('panelUsers');
   const panelLectures = $('panelLectures');
-  const panelNotify = $('panelNotify');
   let activePanel = null;
 
+  // === МОДАЛКА РЕДАКТОРА ПРОФИЛЯ ===
+  const peModal = $('peModal');
+
+  function openPeModal() {
+    if (!peModal) return;
+    peModal.classList.add('is-open');
+    peModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('pe-modal-open');
+    if (tileEditProfile) {
+      tileEditProfile.classList.add('is-active');
+      tileEditProfile.setAttribute('aria-expanded', 'true');
+    }
+    if (nameInput) nameInput.value = user?.name || '';
+    if (typeof window.__refreshGroupFields === 'function') window.__refreshGroupFields();
+    if (typeof window.__paintStatusPicker === 'function') window.__paintStatusPicker();
+    if (typeof window.__peOpen === 'function') window.__peOpen();
+  }
+
+  function closePeModal() {
+    if (!peModal) return;
+    peModal.classList.remove('is-open');
+    peModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('pe-modal-open');
+    if (tileEditProfile) {
+      tileEditProfile.classList.remove('is-active');
+      tileEditProfile.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  if (peModal) {
+    peModal.querySelectorAll('[data-pe-close]').forEach(el => {
+      el.addEventListener('click', closePeModal);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && peModal.classList.contains('is-open')) closePeModal();
+    });
+  }
+
+  // Переключатель для старых панелей (users / lectures)
   function setActivePanel(which) {
     activePanel = which;
 
-    [panelUsers, panelLectures, panelNotify].forEach(p => {
+    [panelUsers, panelLectures].forEach(p => {
       if (!p) return;
       p.classList.remove('is-open');
       p.setAttribute('aria-hidden', 'true');
     });
-    [tileUsers, tileLectures, tileNotify].forEach(t => {
+    [tileUsers, tileLectures].forEach(t => {
       if (!t) return;
       t.classList.remove('is-active');
       t.setAttribute('aria-expanded', 'false');
@@ -2487,17 +3151,14 @@ function displayUserName(name) {
     if (!which) return;
 
     const panel = which === 'users' ? panelUsers
-                : which === 'lectures' ? panelLectures
-                : which === 'notify' ? panelNotify : null;
-    const tile = which === 'users' ? tileUsers
-               : which === 'lectures' ? tileLectures
-               : which === 'notify' ? tileNotify : null;
+                : which === 'lectures' ? panelLectures : null;
+    const tile  = which === 'users' ? tileUsers
+                : which === 'lectures' ? tileLectures : null;
     if (panel) { panel.classList.add('is-open'); panel.setAttribute('aria-hidden', 'false'); }
-    if (tile) { tile.classList.add('is-active'); tile.setAttribute('aria-expanded', 'true'); }
+    if (tile)  { tile.classList.add('is-active'); tile.setAttribute('aria-expanded', 'true'); }
 
     if (which === 'users') renderProfileUsers();
     if (which === 'lectures') renderLectureInfo();
-    if (which === 'notify') renderNotifyList();
   }
   const NEW_USERS_KEY = 'doro.newUsersV1'; // поменяй на V2, чтобы снова «подсветить» плитку
   function paintUsersNew() {
@@ -2537,32 +3198,16 @@ function displayUserName(name) {
       setActivePanel(activePanel === 'lectures' ? null : 'lectures');
     });
   }
-  function markAllNotificationsRead() {
-    // Помечаем все крупные обновления прочитанными
-    const devSet = getSeenDev();
-    DEV_NOTIFICATIONS.forEach(n => devSet.add(n.id));
-    saveSeenDev(devSet);
 
-    // Помечаем все ближайшие темы прочитанными
-    const topicSet = getSeenTopics();
-    getUpcomingTopics().forEach(t => topicSet.add(topicId(t)));
-    saveSeenTopics(topicSet);
-
-    // Обновляем бейджи
-    updateNotifyBadge();
-  }
-
-  if (tileNotify) {
-    tileNotify.addEventListener('click', () => {
-      const willOpen = activePanel !== 'notify';
-      setActivePanel(willOpen ? 'notify' : null);
-      if (willOpen) {
-        // Помечаем всё прочитанным сразу при открытии панели
-        markAllNotificationsRead();
-        renderNotifyList();
-      }
+  // Обработчик плитки «Редактор» — открывает модалку
+  if (tileEditProfile) {
+    tileEditProfile.addEventListener('click', () => {
+      if (peModal && peModal.classList.contains('is-open')) closePeModal();
+      else openPeModal();
     });
   }
+
+  // Escape закрывает открытые панели (users / lectures)
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && activePanel) setActivePanel(null);
   });
@@ -2605,116 +3250,6 @@ function displayUserName(name) {
     });
   }
 
-  // ---------- УВЕДОМЛЕНИЯ ----------
-  const DEV_NOTIFICATIONS = [{ id: 'n-2026-10-31-1', text: ' Патч 1.09. Тур по сайту, исправленная темная тема и многое другое!' }];
-  const NOTIFY_SEEN_KEY = 'doro.seenTopics';
-  const NOTIFY_SEEN_DEV_KEY = 'doro.seenDevNotifications';
-
-  function getSeenTopics() { try { return new Set(JSON.parse(localStorage.getItem(NOTIFY_SEEN_KEY) || '[]')); } catch (e) { return new Set(); } }
-  function saveSeenTopics(set) { localStorage.setItem(NOTIFY_SEEN_KEY, JSON.stringify([...set])); }
-  function getSeenDev() { try { return new Set(JSON.parse(localStorage.getItem(NOTIFY_SEEN_DEV_KEY) || '[]')); } catch (e) { return new Set(); } }
-  function saveSeenDev(set) { localStorage.setItem(NOTIFY_SEEN_DEV_KEY, JSON.stringify([...set])); }
-
-  function getUpcomingTopics() {
-    return collectAllTopics()
-      .filter(t => new Date(t.date).getTime() >= new Date().setHours(0, 0, 0, 0))
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .slice(0, 8);
-  }
-  function topicId(t) { return `${t.key}:${t.num || t.title}`; }
-
-  function updateNotifyBadge() {
-    if (!notifyBadge) return;
-    const seenTopics = getSeenTopics();
-    const seenDev = getSeenDev();
-    const upcoming = getUpcomingTopics();
-    const unseenAuto = upcoming.filter(t => !seenTopics.has(topicId(t))).length;
-    const unseenDev = DEV_NOTIFICATIONS.filter(n => !seenDev.has(n.id)).length;
-    const total = unseenAuto + unseenDev;
-    notifyBadge.style.display = total > 0 ? 'block' : 'none';
-    if (avatarBadge) avatarBadge.style.display = total > 0 ? 'block' : 'none';
-  }
-
-  function renderDevNotifications() {
-    const listEl = $('notifyDevList');
-    if (!listEl) return;
-    const seen = getSeenDev();
-    const items = DEV_NOTIFICATIONS.slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-    listEl.innerHTML = '';
-    if (!items.length) return;
-
-    const section = document.createElement('div');
-    section.className = 'notify-section notify-section--major';
-    const title = document.createElement('div');
-    title.className = 'notify-section__title';
-    title.innerHTML = '<span class="notify-section__dot"></span>Крупные обновления';
-    section.appendChild(title);
-
-    items.forEach(n => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'notify-item notify-item--dev' + (seen.has(n.id) ? ' notify-item--seen' : '');
-      const dateStr = n.date ? new Date(n.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
-      btn.innerHTML = `
-        <span class="notify-item__dot"></span>
-        <span class="notify-item__body">
-          <span class="notify-item__title">${escapeHtml(n.text)}</span>
-          <span class="notify-item__meta">${dateStr ? 'обновление · ' + dateStr : 'обновление'}</span>
-        </span>
-      `;
-      btn.addEventListener('click', () => {
-        // Уже помечено прочитанным при открытии панели
-        renderDevNotifications();
-      });
-      section.appendChild(btn);
-    });
-    listEl.appendChild(section);
-  }
-
-  function renderAutoNotifications() {
-    const autoEl = $('notifyAutoList');
-    if (!autoEl) return;
-    const seen = getSeenTopics();
-    const upcoming = getUpcomingTopics();
-    autoEl.innerHTML = '';
-    if (!upcoming.length) {
-      if (DEV_NOTIFICATIONS.length === 0) autoEl.innerHTML = '<div class="notify-item--empty">Пока нет ближайших тем</div>';
-      return;
-    }
-
-    const section = document.createElement('div');
-    section.className = 'notify-section notify-section--topics';
-    const title = document.createElement('div');
-    title.className = 'notify-section__title';
-    title.innerHTML = '<span class="notify-section__dot"></span>Новые темы';
-    section.appendChild(title);
-
-    upcoming.forEach(t => {
-      const id = topicId(t);
-      const dateStr = new Date(t.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'notify-item' + (seen.has(id) ? ' notify-item--seen' : '');
-      btn.innerHTML = `
-        <span class="notify-item__dot"></span>
-        <span class="notify-item__body">
-          <span class="notify-item__title">${t.title}</span>
-          <span class="notify-item__meta">${subjects[t.key].title} · ${dateStr}</span>
-        </span>
-      `;
-      btn.addEventListener('click', () => {
-        // Уже помечено прочитанным при открытии панели
-        showView('files');
-        setTimeout(() => openTopic(t.key, t.num), 50);
-      });
-      section.appendChild(btn);
-    });
-    autoEl.appendChild(section);
-  }
-
-  function renderNotifyList() { renderDevNotifications(); renderAutoNotifications(); }
-  updateNotifyBadge();
-
   // ---------- ДАТА ----------
   if (greetDate) {
     const now = new Date();
@@ -2744,8 +3279,14 @@ function displayUserName(name) {
         tDate.setHours(0, 0, 0, 0);
         const next = findNextLessonDate(l.subjectKey, tDate);
         if (next && next.getTime() === lDate.getTime()) {
-          hasTopics = true;
-          if (/коллоквиум/i.test(t.title)) hasColloq = true;
+          // ★ Коллоквиум считаем по фактической теме (с учётом _topicOffset).
+          // Если тема «сдвинулась за край» (null) — значит у группы в этот день
+          // по этому предмету ничего нет: не считаем ни hasTopics, ни hasColloq.
+          const actual = applyTopicOffset(l.subjectKey, t);
+          if (actual) {
+            hasTopics = true;
+            if (/коллоквиум/i.test(actual.title)) hasColloq = true;
+          }
         }
       }
     }
@@ -2755,7 +3296,7 @@ function displayUserName(name) {
   window.__refreshSchedule = function () {
     renderCalendar();
     if (rendered.home) updateTodayView();
-    if (rendered.tasks) renderTasks();
+    if (rendered.premium) renderPremiumPage();
     if (activePanel === 'lectures') renderLectureInfo();
   };
 
@@ -2806,15 +3347,12 @@ function displayUserName(name) {
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
       const isToday = isSameMonth && today.getDate() === d;
       const isSelected = selectedDay === d && selectedMonth === month && selectedYear === year;
-      const dateKey = toDateKey(date);
-      const hasHw = homework.some(h => h.date === dateKey && !h.done);
       const dayInfo = getDayTopicsInfo(date);
       const hasTopics = dayInfo.hasTopics;
-      const cls = ['cal-day', isWeekend ? 'weekend' : '', isToday ? 'today' : '', isSelected ? 'selected' : '', hasHw && !isWeekend ? 'has-hw' : '', hasTopics && !isWeekend ? 'has-topics' : '', hasTopics && dayInfo.hasColloq && !isWeekend ? 'has-colloquium' : ''].filter(Boolean).join(' ');
+      const cls = ['cal-day', isWeekend ? 'weekend' : '', isToday ? 'today' : '', isSelected ? 'selected' : '', hasTopics && !isWeekend ? 'has-topics' : '', hasTopics && dayInfo.hasColloq && !isWeekend ? 'has-colloquium' : ''].filter(Boolean).join(' ');
       const disabled = isWeekend ? 'disabled' : '';
       const dataAttr = isWeekend ? '' : `data-day="${d}"`;
-      const dot = hasHw && !isWeekend ? '<span class="cal-hw-dot"></span>' : '';
-      html += `<button type="button" class="${cls}" ${dataAttr} ${disabled}>${d}${dot}</button>`;
+      html += `<button type="button" class="${cls}" ${dataAttr} ${disabled}>${d}</button>`;
     }
     const total = startOffset + daysInMonth;
     let rest = total % 7;
@@ -2830,52 +3368,6 @@ function displayUserName(name) {
       selectedDay = Number(b.dataset.day); selectedMonth = month; selectedYear = year;
       renderCalendar(); updateTodayView();
     }));
-  }
-
-  // ---------- ПАРЫ И ДЗ ----------
-  function updateLessonBadge(lessonEl, subjectKey, dayKey, slot) {
-    const btn = lessonEl.querySelector('.lesson-hw-btn');
-    if (!btn) return;
-    const undone = getHomeworkFor(subjectKey, dayKey, slot).filter(h => !h.done).length;
-    btn.classList.toggle('has-undone', undone > 0);
-    let badge = btn.querySelector('.lesson-hw-badge');
-    if (undone > 0) {
-      if (!badge) { badge = document.createElement('span'); badge.className = 'lesson-hw-badge'; btn.appendChild(badge); }
-      badge.textContent = undone;
-    } else if (badge) badge.remove();
-  }
-
-  function bindLessonHw(lessonEl, subjectKey, dayKey, lessonDate, slot, lessonTitle) {
-    const btn = lessonEl.querySelector('.lesson-hw-btn');
-    const area = lessonEl.querySelector('.lesson-hw-area');
-    if (!btn || !area) return;
-    btn.addEventListener('click', () => {
-      if (!area.hidden) { area.hidden = true; area.innerHTML = ''; return; }
-      area.hidden = false;
-      area.innerHTML = `
-        <form class="hw-form">
-          <input type="text" class="hw-input" placeholder="Что нужно сделать?" maxlength="200" autocomplete="off">
-          <button type="submit" class="hw-save" title="Сохранить">Сохранить</button>
-        </form>
-      `;
-      const form = area.querySelector('.hw-form');
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const inp = form.querySelector('.hw-input');
-        const text = inp.value.trim();
-        if (!text) return;
-        homework.push({
-          id: hwId(), subjectKey, dayKey, slot, lessonTitle,
-          date: lessonDate ? toDateKey(lessonDate) : toDateKey(new Date()),
-          text, done: false, createdAt: Date.now()
-        });
-        saveHomework();
-        updateLessonBadge(lessonEl, subjectKey, dayKey, slot);
-        renderCalendar();
-        if (rendered.tasks) renderTasks();
-        area.hidden = true; area.innerHTML = '';
-      });
-    });
   }
 
   function updateTodayView() {
@@ -2946,15 +3438,7 @@ function displayUserName(name) {
       if (l.room) details += l.room + ' · ';
       if (l.teacher) details += l.teacher;
       if (l.subgroups) details = 'Разделение на подгруппы';
-      const subjectKeyForHw = l.subjectKey || `slot_${dayKey}_${slot}`;
-      const undone = getHomeworkFor(subjectKeyForHw, dayKey, slot).filter(h => !h.done).length;
-      const badge = `<button type="button" class="lesson-hw-btn ${undone ? 'has-undone' : ''}" title="Задания по паре" data-slot="${slot}">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 11l3 3 8-8"></path>
-          <path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11"></path>
-        </svg>
-        ${undone ? `<span class="lesson-hw-badge">${undone}</span>` : ''}
-      </button>`;
+
       div.innerHTML = `
         <div class="lesson-head">
           <time>${l.time}</time>
@@ -2962,12 +3446,9 @@ function displayUserName(name) {
             <div class="lesson-title">${l.title}</div>
             <div class="lesson-details">${details}</div>
           </div>
-          ${badge}
         </div>
-        <div class="lesson-hw-area" hidden></div>
       `;
       lessonsEl.appendChild(div);
-      bindLessonHw(div, subjectKeyForHw, dayKey, targetDate, slot, l.title);
       if (subjects[l.subjectKey]) {
         subjects[l.subjectKey].topics.forEach(t => {
           if (t.title === 'Раздел в разработке') return;
@@ -2976,7 +3457,16 @@ function displayUserName(name) {
           tDate.setHours(0, 0, 0, 0);
           const lDate = new Date(targetDate); lDate.setHours(0, 0, 0, 0);
           const next = findNextLessonDate(l.subjectKey, tDate);
-          if (next && next.getTime() === lDate.getTime()) allTopics.push({ ...t, key: l.subjectKey });
+          if (next && next.getTime() === lDate.getTime()) {
+            // ★ Для групп с _topicOffset (например, ЛД2525 по микробиологии)
+            // показываем следующую тему, а не ту, что по дате.
+            // Если следующей темы нет (null) — у группы эта тема уже пройдена,
+            // в этот день по этому предмету ничего не показываем.
+            const actual = applyTopicOffset(l.subjectKey, t);
+            if (actual && !allTopics.some(x => x.key === l.subjectKey && String(x.num) === String(actual.num))) {
+              allTopics.push({ ...actual, key: l.subjectKey });
+            }
+          }
         });
       }
     });
@@ -3060,6 +3550,19 @@ function displayUserName(name) {
       card.style.setProperty('--card-accent', accent);
       const lastLine = lastTopic ? `${lastTopic.num ? 'Тема ' + lastTopic.num + ' · ' : ''}${lastTopic.title}` : 'Материалы появятся позже';
       const countText = validTopics.length ? `${validTopics.length} ${pluralTopics(validTopics.length)}` : 'Скоро';
+
+      // Плашки под количеством тем
+      const tabs = Array.isArray(s.tabs) ? s.tabs : [];
+      const hasTests = tabs.includes('solve') || tabs.includes('read') || tabs.includes('tests');
+      const hasPreps = tabs.includes('preparations');
+
+      const testsBadge = hasTests
+        ? `<span class="subject-card-big__tests" title="По этому предмету есть тесты">Тесты</span>`
+        : '';
+      const prepsBadge = hasPreps
+        ? `<span class="subject-card-big__preps" title="К темам прикреплены препараты">Препараты</span>`
+        : '';
+
       card.innerHTML = `
         <span class="subject-card-big__letter">${s.title[0]}</span>
         <span class="subject-card-big__body">
@@ -3068,13 +3571,15 @@ function displayUserName(name) {
         </span>
         <span class="subject-card-big__meta">
           <span class="subject-card-big__count">${countText}</span>
+          ${testsBadge}
+          ${prepsBadge}
         </span>
       `;
       card.addEventListener('click', () => openLatestTopic(key));
       subjectsCards.appendChild(card);
     });
   }
-  function getCurrentTopic(valid) {
+  function getCurrentTopic(valid, subjectKey) {
     if (!valid.length) return null;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     let best = null, bestDiff = Infinity;
@@ -3084,7 +3589,47 @@ function displayUserName(name) {
       const diff = Math.abs(d.getTime() - today.getTime());
       if (diff < bestDiff) { bestDiff = diff; best = t; }
     }
-    return best || valid[valid.length - 1];
+    let picked = best || valid[valid.length - 1];
+
+    // ★ Исключение только для групп, где в SCHEDULES задан _topicOffset.
+    // Сейчас это ЛД2525: по microbio они на 1 тему впереди.
+    const sch = currentSchedule();
+    const offsetMap = sch && sch._topicOffset;
+    if (offsetMap && subjectKey && offsetMap[subjectKey]) {
+      const idx = valid.findIndex(t => t.num === picked.num);
+      if (idx >= 0) {
+        // сдвиг «вперёд» = к более новым темам, а valid отсортирован по убыванию номера/даты,
+        // поэтому «впереди» = меньший индекс.
+        const shifted = Math.max(0, idx - offsetMap[subjectKey]);
+        picked = valid[shifted];
+      }
+    }
+    return picked;
+  }
+    // ★ Универсальный сдвиг темы для группы (используется на Главной и в календаре).
+  // subjectKey — ключ предмета ('microbio' и т.п.), topic — объект темы { num, title, ... }.
+  // Если у текущей группы в SCHEDULES есть _topicOffset[subjectKey], возвращает тему
+  // со сдвигом «вперёд» (к более новым). Иначе — ту же тему.
+  function applyTopicOffset(subjectKey, topic) {
+    if (!topic || !subjectKey) return topic;
+    const sch = currentSchedule();
+    const offsetMap = sch && sch._topicOffset;
+    const off = offsetMap && offsetMap[subjectKey];
+    if (!off) return topic;
+
+    const subject = window.subjects && window.subjects[subjectKey];
+    if (!subject) return topic;
+
+    const valid = sortTopics(subject.topics.filter(t => t.title !== 'Раздел в разработке'));
+    const idx = valid.findIndex(t => String(t.num) === String(topic.num));
+    if (idx < 0) return topic;
+
+    // valid отсортирован по убыванию номера/даты → «впереди» = меньший индекс.
+    // Если следующей темы нет (упёрлись в начало списка) — значит для этой
+    // группы тема «уже пройдена» → возвращаем null, чтобы её не показывать.
+    const shifted = idx - off;
+    if (shifted < 0) return null;
+    return valid[shifted] || null;
   }
   function openLatestTopic(key) {
     const subject = subjects[key];
@@ -3097,7 +3642,7 @@ function displayUserName(name) {
       if (readerArticle) readerArticle.innerHTML = '<p class="reader__empty">Материалы появятся позже</p>';
       return;
     }
-    const current = getCurrentTopic(valid);
+    const current = getCurrentTopic(valid, key);
     openTopic(key, current.num);
   }
 
@@ -3124,6 +3669,10 @@ function displayUserName(name) {
     closeReaderSettings();
     SearchCtl.close();
 
+    // Всегда запускаем прогресс в шапке
+    TopicLoader.start();
+
+
     // Теперь загрузка идет через content-store.js (сначала база, потом GitHub)
     async function loadTopicContent(topic) {
       return window.doroContent.loadTopicContent({ ...topic, subjectKey: key });
@@ -3133,6 +3682,7 @@ function displayUserName(name) {
       const t = valid[i];
       if (!readerArticle) return;
       currentTopicMeta = t;
+      TopicLoader.set(25);
       const authorInline = subject.author
         ? `<span class="reader__author-inline"><span class="reader__author-by">made by</span><span class="reader__author-name">${escapeHtml(subject.author)}</span></span>`
         : '';
@@ -3146,8 +3696,27 @@ function displayUserName(name) {
       `;
       readerTabs = $('readerTabs');
 
+      // Кнопка «Скачать PDF» — только для Golden
+      if (window.doroPremium && window.doroPremium.isPremiumActive()) {
+        const dlBtn = document.createElement('button');
+        dlBtn.type = 'button';
+        dlBtn.className = 'reader-pdf-btn';
+        dlBtn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <path d="M12 18v-6"></path>
+            <polyline points="9 15 12 18 15 15"></polyline>
+          </svg>
+          <span>Скачать PDF</span>
+        `;
+        dlBtn.addEventListener('click', () => downloadTopicAsPdf());
+        readerArticle.querySelector('.reader__num').appendChild(dlBtn);
+      }
+
       // --- Сложность темы ---
-        const raw = await loadTopicContent(t);
+      const raw = await loadTopicContent(t);
+      TopicLoader.set(70);
 
         // --- Сложность темы (считаем только теорию, без блока «Тесты») ---
         const prepSlot = $('readerPrepSlot');
@@ -3189,25 +3758,25 @@ function displayUserName(name) {
     // Если в заголовке темы есть слово «Коллоквиум» — принудительно убираем вкладки тестов
     const isColloquium = /коллоквиум/i.test(t.title);
 
-    // Для «Решать» / «Читать» — показываем только если в файле реально есть тесты И это не коллоквиум
-    if (tabConfigForRender.includes('solve') || tabConfigForRender.includes('read')) {
+    // Вкладка «Тесты» показывается только если в файле реально есть тесты и это не коллоквиум
+    if (tabConfigForRender.includes('tests')) {
       const hasTests = parseTestsToQuestions(raw).length > 0;
       if (!hasTests || isColloquium) {
-        tabConfigForRender = tabConfigForRender.filter(tab => tab !== 'solve' && tab !== 'read');
+        tabConfigForRender = tabConfigForRender.filter(tab => tab !== 'tests');
       }
     }
 
-    // Также убираем вкладку «Тесты», если это коллоквиум и она там есть
-    if (isColloquium && tabConfigForRender.includes('tests')) {
-      tabConfigForRender = tabConfigForRender.filter(tab => tab !== 'tests');
+    // Обратная совместимость: если в старом конфиге ещё остались 'solve'/'read' —
+    // превращаем их в одну вкладку 'tests'
+    if (tabConfigForRender.includes('solve') || tabConfigForRender.includes('read')) {
+      tabConfigForRender = tabConfigForRender.filter(tab => tab !== 'solve' && tab !== 'read');
+      if (!tabConfigForRender.includes('tests')) tabConfigForRender.push('tests');
     }
 
       if (readerTabs && tabConfigForRender.length >= 1) {
         const TAB_LABELS = {
           theory: 'Теория',
           tests: 'Тесты',
-          solve: 'Решать',
-          read: 'Читать',
           preparations: 'Препараты',
           questions: 'Вопросы',
           problems: 'Задачи'
@@ -3238,14 +3807,7 @@ function displayUserName(name) {
       const contentEl = readerArticle.querySelector('.reader__content');
       if (contentEl) {
         contentEl.classList.remove('is-loaded');
-        contentEl.innerHTML = `<div class="reader__skeleton" aria-hidden="true">
-          <div class="reader__skeleton-line reader__skeleton-line--sub"></div>
-          <div class="reader__skeleton-line reader__skeleton-line--w90"></div>
-          <div class="reader__skeleton-line reader__skeleton-line--w80"></div>
-          <div class="reader__skeleton-line reader__skeleton-line--w70"></div>
-          <div class="reader__skeleton-line reader__skeleton-line--w60"></div>
-          <div class="reader__skeleton-line reader__skeleton-line--w40"></div>
-        </div>`;
+        contentEl.innerHTML = ''; // без скелетона — плавное появление самого контента
       }
 
       if (tabConfigForRender.length >= 1) {
@@ -3280,14 +3842,35 @@ function displayUserName(name) {
       document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
       tocBuiltForArticle = null;
       if (readerSettings && readerSettings.classList.contains('open')) buildToc();
+      TopicLoader.set(100);
     }
-    await renderTopic(initialIndex);
-    saveLastRead(key, valid[initialIndex].num);
+
+      const MIN_DELAY = 900;
+      const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      try {
+        const loadAndRender = renderTopic(initialIndex);
+        await Promise.all([loadAndRender, delay(MIN_DELAY)]);
+      } catch (e) {
+        console.warn('[topic] render failed:', e);
+        if (readerArticle) {
+          const contentEl = readerArticle.querySelector('.reader__content');
+          if (contentEl) {
+            contentEl.innerHTML = '<p class="reader__empty">Не удалось загрузить тему. Попробуйте ещё раз.</p>';
+            contentEl.classList.add('is-loaded');
+          }
+        }
+      } finally {
+        // finish() вызывается ВСЕГДА, даже если renderTopic упал
+        await TopicLoader.finish();
+        saveLastRead(key, valid[initialIndex].num);
+      }
   }
 
   if (readerBack) {
     readerBack.addEventListener('click', () => {
-    SearchCtl.close();
+      SearchCtl.close();
+      if (typeof TopicLoader !== 'undefined') TopicLoader.reset();
       if (readerScreen) readerScreen.style.display = 'none';
       setCollapsed(false);
       if (subjectsCardsView) subjectsCardsView.style.display = 'block';
@@ -3299,93 +3882,1390 @@ function displayUserName(name) {
     });
   }
 
-  // ---------- ЗАДАНИЯ ----------
-  function renderTasks() {
-    const listEl = $('tasksList');
-    if (!listEl) return;
-    if (!homework.length) { listEl.innerHTML = '<div class="tasks-empty">Пока ни одного задания. Добавьте значком у пары на главной.</div>'; return; }
-    const groups = new Map();
-    homework.forEach(h => {
-      if (!h.date) return;
-      if (!groups.has(h.date)) groups.set(h.date, { date: new Date(h.date + 'T00:00:00'), items: [] });
-      groups.get(h.date).items.push(h);
+  // ============================================================
+  //  СКАЧИВАНИЕ ТЕМЫ В PDF (только Golden)
+  // ============================================================
+  function downloadTopicAsPdf() {
+    if (!window.doroPremium || !window.doroPremium.isPremiumActive()) return;
+    if (!window.currentTopicMeta || !window.currentSubjectKey) return;
+
+    const subject = window.subjects[window.currentSubjectKey];
+    if (!subject) return;
+
+    const t = window.currentTopicMeta;
+    const contentEl = document.querySelector('#reader-article .reader__content');
+    if (!contentEl) return;
+
+    // Клонируем контент и чистим лишнее
+    const clone = contentEl.cloneNode(true);
+    clone.querySelectorAll('mark.reader-search__hit').forEach(m => {
+      const parent = m.parentNode;
+      while (m.firstChild) parent.insertBefore(m.firstChild, m);
+      parent.removeChild(m);
     });
-    if (!groups.size) { listEl.innerHTML = '<div class="tasks-empty">Пока ни одного задания. Добавьте значком у пары на главной.</div>'; return; }
-    const sortedDates = [...groups.keys()].sort((a, b) => a.localeCompare(b));
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const total = homework.length;
-    const done = homework.filter(h => h.done).length;
-    listEl.innerHTML = '';
-    const summary = document.createElement('div');
-    summary.className = 'tasks-summary';
-    summary.innerHTML = `
-      <div class="tasks-summary__item"><span class="tasks-summary__num">${total - done}</span><span class="tasks-summary__label">не выполнено</span></div>
-      <div class="tasks-summary__item"><span class="tasks-summary__num">${done}</span><span class="tasks-summary__label">выполнено</span></div>
-      <div class="tasks-summary__item"><span class="tasks-summary__num">${total}</span><span class="tasks-summary__label">всего</span></div>
-    `;
-    listEl.appendChild(summary);
-    sortedDates.forEach(dateKey => {
-      const g = groups.get(dateKey);
-      g.items.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-      const isToday = g.date.getTime() === today.getTime();
-      const isTomorrow = g.date.getTime() === today.getTime() + 86400000;
-      const isPast = g.date.getTime() < today.getTime();
-      const dowShort = ['вс','пн','вт','ср','чт','пт','сб'][g.date.getDay()];
-      const dayNum = g.date.getDate();
-      const monthShort = g.date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '');
-      const undoneCount = g.items.filter(h => !h.done).length;
-      const block = document.createElement('div');
-      block.className = 'tasks-day' + (isToday ? ' tasks-day--today' : '') + (isPast ? ' tasks-day--past' : '');
-      block.innerHTML = `
-        <div class="tasks-day__date">
-          <span class="tasks-day__dow">${dowShort}</span>
-          <span class="tasks-day__num">${dayNum}</span>
-          <span class="tasks-day__month">${monthShort}</span>
-        </div>
-        <div class="tasks-day__body">
-          <div class="tasks-day__top">
-            <span class="tasks-day__label">${isToday ? 'сегодня' : (isTomorrow ? 'завтра' : (isPast ? 'прошедшее' : 'задачи'))}</span>
-            <span class="tasks-day__count">${undoneCount}/${g.items.length}</span>
-          </div>
-          <ul class="hw-list"></ul>
-        </div>
-      `;
-      const ul = block.querySelector('.hw-list');
-      g.items.forEach(h => {
-        const subjTitle = h.lessonTitle ? h.lessonTitle : (subjects[h.subjectKey] ? subjects[h.subjectKey].title : 'Без предмета');
-        const li = document.createElement('li');
-        li.className = 'hw-item' + (h.done ? ' hw-item--done' : '');
-        li.dataset.id = h.id;
-        li.innerHTML = `
-          <label class="hw-check">
-            <input type="checkbox" class="hw-toggle" ${h.done ? 'checked' : ''}>
-            <span class="hw-text">
-              <span class="hw-text__main">${escapeHtml(h.text)}</span>
-              <span class="hw-text__sub">${subjTitle}</span>
-            </span>
-          </label>
-          <button type="button" class="hw-remove" title="Удалить">×</button>
-        `;
-        li.querySelector('.hw-toggle').addEventListener('change', (e) => {
-          const item = homework.find(x => x.id === h.id); if (!item) return;
-          item.done = e.target.checked;
-          saveHomework();
-          li.classList.toggle('hw-item--done', item.done);
-          renderCalendar(); renderTasks();
-          if (rendered.home) updateTodayView();
-        });
-        li.querySelector('.hw-remove').addEventListener('click', () => {
-          homework = homework.filter(x => x.id !== h.id);
-          saveHomework(); renderTasks(); renderCalendar();
-          if (rendered.home) updateTodayView();
-        });
-        ul.appendChild(li);
-      });
-      listEl.appendChild(block);
-    });
+    clone.querySelectorAll('.reader__extra-files, .reader__pdf-attachments').forEach(el => el.remove());
+
+    const author = subject.author || '';
+    const num = t.num || '';
+    const title = t.title || '';
+    const dateStr = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Полный HTML-документ для печати
+    const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(title)} — ${escapeHtml(subject.title)}</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  html, body { background: #fff; }
+  body {
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: #16202e;
+    margin: 0;
+    padding: 0;
+    font-size: 13.5px;
+    line-height: 1.65;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
-  // ---------- VIEWS ----------
+  /* Шапка */
+  .pdf-head {
+    border-bottom: 2px solid #b45309;
+    padding-bottom: 14px;
+    margin-bottom: 22px;
+  }
+  .pdf-num {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #b45309;
+    margin-bottom: 6px;
+  }
+  .pdf-num .pdf-author {
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0.6;
+    margin-left: 10px;
+    font-weight: 500;
+  }
+  .pdf-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1.28;
+    color: #16202e;
+    margin: 0;
+  }
+  .pdf-meta {
+    font-size: 11px;
+    color: #7a8699;
+    margin-top: 8px;
+  }
+
+  /* Контент — те же правила, что в читалке */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 800;
+    line-height: 1.32;
+    margin: 22px 0 10px;
+    color: #16202e;
+    page-break-after: avoid;
+    break-after: avoid-page;
+  }
+  h1 { font-size: 20px; }
+  h2 { font-size: 17px; }
+  h3 { font-size: 15px; }
+  h4 { font-size: 13.5px; }
+  p { margin: 0 0 10px; }
+  ul, ol { padding-left: 22px; margin: 0 0 12px; }
+  li { margin-bottom: 4px; }
+  li::marker { color: #b45309; font-weight: 700; }
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+  code {
+    background: #f4f6fa;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: "SFMono-Regular", Consolas, monospace;
+  }
+  pre {
+    background: #f4f6fa;
+    padding: 12px 14px;
+    border-radius: 8px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  blockquote {
+    border-left: 3px solid #b45309;
+    background: #fffaf0;
+    padding: 8px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 0 0 12px;
+    color: #5a6678;
+    font-style: italic;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0 0 14px;
+    font-size: 12px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #e2e6ee;
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: #fffaf0;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #b45309;
+  }
+  tr, td, th { page-break-inside: avoid; break-inside: avoid; }
+  hr {
+    border: none;
+    border-top: 1px dashed #e2e6ee;
+    margin: 16px 0;
+  }
+  img { max-width: 100%; height: auto; page-break-inside: avoid; }
+  sub, sup { font-size: 0.72em; line-height: 0; position: relative; }
+  sup { top: -0.45em; }
+  sub { top: 0.25em; }
+
+  .reader__empty { color: #7a8699; font-style: italic; }
+  .reader__gap { height: 12px; }
+  .reader__checklist-item { list-style: none; margin-left: -18px; }
+  .reader__footnotes { font-size: 11px; color: #7a8699; margin-top: 24px; }
+
+  /* Подвал */
+  .pdf-foot {
+    margin-top: 30px;
+    padding-top: 12px;
+    border-top: 1px solid #e2e6ee;
+    font-size: 10.5px;
+    color: #a3adbd;
+    text-align: center;
+  }
+
+  /* Заголовки не висят в конце страницы */
+  h1 + p, h2 + p, h3 + p { page-break-before: avoid; break-before: avoid-page; }
+</style>
+</head>
+<body>
+  <div class="pdf-head">
+    <div class="pdf-num">
+      ${num ? 'Тема ' + escapeHtml(num) : ''}
+      ${author ? `<span class="pdf-author">made by ${escapeHtml(author)}</span>` : ''}
+    </div>
+    <h1 class="pdf-title">${escapeHtml(title)}</h1>
+    <div class="pdf-meta">${escapeHtml(subject.title)} · ${dateStr} · doro Golden</div>
+  </div>
+  <div class="pdf-body">${clone.innerHTML}</div>
+  <div class="pdf-foot">doro · Golden · ${escapeHtml(subject.title)}</div>
+</body>
+</html>`;
+
+    // Скрытый iframe — так браузер не блокирует print и не уводит со страницы
+    const oldFrame = document.getElementById('doro-pdf-frame');
+    if (oldFrame) oldFrame.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'doro-pdf-frame';
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    // Ждём загрузку шрифтов/картинок, потом печатаем
+    const doPrint = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {
+        console.warn('print failed:', e);
+        // fallback: открываем в новой вкладке
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const w = window.open(url, '_blank', 'noopener');
+        if (!w) {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${subject.title} — ${title}.html`.replace(/[\\/:*?"<>|]/g, '_');
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 6000);
+      }
+    };
+
+    // Печатаем после того, как страница реально отрисовалась
+    if (doc.readyState === 'complete') {
+      setTimeout(doPrint, 350);
+    } else {
+      iframe.addEventListener('load', () => setTimeout(doPrint, 350), { once: true });
+    }
+
+    // Чистим iframe через 2 минуты (после того как пользователь сохранил)
+    setTimeout(() => {
+      const f = document.getElementById('doro-pdf-frame');
+      if (f) f.remove();
+    }, 120000);
+  }
+// Приветствия для активного Golden
+function getGoldenGreeting(name) {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const list = isDark
+    ? [
+        `${escapeHtml(name)}, ты в потоке.`,
+        `О, ${escapeHtml(name)}. Золотой час.`,
+        `${escapeHtml(name)}, держим темп.`,
+        `С возвращением, ${escapeHtml(name)}.`,
+        `${escapeHtml(name)}, Golden на связи.`
+      ]
+    : [
+        `Привет, ${escapeHtml(name)}.`,
+        `Рады видеть, ${escapeHtml(name)}.`,
+        `${escapeHtml(name)}, всё на месте.`,
+        `С возвращением, ${escapeHtml(name)}.`,
+        `${escapeHtml(name)}, Golden с тобой.`
+      ];
+  // кэш на сессию — чтобы не мигало при перерисовке
+  if (!window.__goldenGreetCache) window.__goldenGreetCache = {};
+  const key = isDark ? 'dark' : 'light';
+  if (!window.__goldenGreetCache[key]) {
+    window.__goldenGreetCache[key] = list[Math.floor(Math.random() * list.length)];
+  }
+  return window.__goldenGreetCache[key];
+}
+
+function getGoldenSubtitle(name, days) {
+  if (days <= 3) return 'Совсем немного осталось — продли, чтобы не потерять доступ.';
+  if (days <= 7) return 'Неделя — ещё норм. Но лучше продлить заранее.';
+  if (days <= 14) return 'Половина пути. Всё под контролем.';
+  return 'Всё под контролем. Продолжаем в том же духе.';
+}
+  function renderPremiumPage() {
+    const view = document.getElementById('view-premium');
+    if (!view || !window.doroPremium) return;
+
+    const active = window.doroPremium.isPremiumActive();
+    const days = window.doroPremium.daysLeft();
+    const price = window.doroPremium.PRICE_RUB;
+    const name = (user && user.name) || 'друг';
+
+    if (active) {
+      // ---------- АКТИВНЫЙ GOLDEN ----------
+      view.innerHTML = `
+        <div class="golden-page golden-page--active">
+          <div class="golden-active-hero">
+            <div class="golden-active-hero__top">
+              <span class="golden-wordmark golden-wordmark--sm" aria-hidden="true">Golden</span>
+              <span class="golden-active-hero__badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 2l2.9 6.9L22 9.3l-5.5 4.8L18.2 22 12 18.3 5.8 22l1.7-7.9L2 9.3l7.1-.4L12 2z"/>
+                </svg>
+                активен
+              </span>
+            </div>
+
+            <h1 class="golden-active-hero__title">
+              ${getGoldenGreeting(name)}
+            </h1>
+            <p class="golden-active-hero__sub">
+              ${getGoldenSubtitle(name, days)}
+            </p>
+
+            <div class="golden-active-days">
+              <span class="golden-active-days__label">Осталось</span>
+              <div class="golden-active-days__num-block">
+                <span class="golden-active-days__num" id="goldenDaysNum">${days}</span>
+                <span class="golden-active-days__word" id="goldenDaysWord">${pluralDays(days, 'день', 'дня', 'дней')}</span>
+              </div>
+              <div class="golden-active-days__bar">
+                <span class="golden-active-days__fill" style="width:${Math.max(0, Math.min(100, Math.round((days / 30) * 100)))}%"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="golden-active-body">
+            <div class="golden-tabs" role="tablist">
+              <button type="button" class="golden-tabs__btn is-active" data-golden-tab="quizzes" role="tab" aria-selected="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <span>Ошибки</span>
+              </button>
+              <button type="button" class="golden-tabs__btn" data-golden-tab="cards" role="tab" aria-selected="false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="16" height="12" rx="2"></rect><path d="M22 8v8"></path><line x1="6" y1="12" x2="14" y2="12"></line></svg>
+                <span>Карточки</span>
+              </button>
+            </div>
+
+            <div class="golden-panel" id="premiumPanel"></div>
+
+            <div class="golden-perks">
+              <div class="golden-perks__head">
+                <span class="golden-perks__title">Что у тебя есть</span>
+                <span class="golden-perks__hint">нажми, чтобы перейти</span>
+              </div>
+
+              <div class="golden-perks__grid">
+                <button type="button" class="golden-perk" data-perk-go="quizzes">
+                  <span class="golden-perk__icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  </span>
+                  <span class="golden-perk__body">
+                    <b>Ошибки в тестах</b>
+                    <span>Всё, где споткнулся — в одном месте</span>
+                  </span>
+                  <span class="golden-perk__arrow" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </span>
+                </button>
+
+                <button type="button" class="golden-perk" data-perk-go="cards">
+                  <span class="golden-perk__icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="16" height="12" rx="2"></rect><path d="M22 8v8"></path><line x1="6" y1="12" x2="14" y2="12"></line></svg>
+                  </span>
+                  <span class="golden-perk__body">
+                    <b>Карточки к коллоквиуму</b>
+                    <span>Вопрос → ответ, листаешь в маршрутке</span>
+                  </span>
+                  <span class="golden-perk__arrow" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </span>
+                </button>
+
+                <button type="button" class="golden-perk" data-perk-go="pdf">
+                  <span class="golden-perk__icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6"></path><polyline points="9 15 12 18 15 15"></polyline></svg>
+                  </span>
+                  <span class="golden-perk__body">
+                    <b>Скачать тему в PDF</b>
+                    <span>Кнопка в шапке любой темы</span>
+                  </span>
+                  <span class="golden-perk__arrow" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </span>
+                </button>
+
+                <button type="button" class="golden-perk" data-perk-go="profile">
+                  <span class="golden-perk__icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"></path><path d="M16.5 8.5l1.5-1.5"></path></svg>
+                  </span>
+                  <span class="golden-perk__body">
+                    <b>Оформление профиля</b>
+                    <span>Смайлик, рамки, фоны, бейдж</span>
+                  </span>
+                  <span class="golden-perk__arrow" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </span>
+                </button>
+
+                <button type="button" class="golden-perk" data-perk-go="tests">
+                  <span class="golden-perk__icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                  </span>
+                  <span class="golden-perk__body">
+                    <b>Тесты без лимита</b>
+                    <span>Сколько нужно — столько и решай</span>
+                  </span>
+                  <span class="golden-perk__arrow" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <button type="button" class="golden-manage" id="premiumManageBtn">Управление подпиской</button>
+          </div>
+        </div>
+      `;
+
+      const tabs = view.querySelectorAll('[data-golden-tab]');
+      function activateTab(tab) {
+        tabs.forEach(b => {
+          const on = b.dataset.goldenTab === tab;
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        renderGoldenTabContent(tab);
+      }
+      tabs.forEach(b => b.addEventListener('click', () => activateTab(b.dataset.goldenTab)));
+
+      view.querySelectorAll('[data-perk-go]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const go = btn.dataset.perkGo;
+          if (go === 'quizzes' || go === 'cards') {
+            activateTab(go);
+            const panel = view.querySelector('#premiumPanel');
+            if (panel) {
+              panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              panel.classList.add('is-pulsed');
+              setTimeout(() => panel.classList.remove('is-pulsed'), 800);
+            }
+            return;
+          }
+          if (go === 'profile') {
+            const tile = document.getElementById('tileEditProfile');
+            if (tile) tile.click();
+            else if (typeof window.__openProfileSheet === 'function') window.__openProfileSheet();
+            return;
+          }
+          if (go === 'pdf' || go === 'tests') {
+            const navLink = document.querySelector('.nav a[data-view="files"]');
+            if (navLink) navLink.click();
+            return;
+          }
+        });
+      });
+
+      const manage = view.querySelector('#premiumManageBtn');
+      if (manage) manage.addEventListener('click', () => {
+        const ok = confirm('Отключить Golden? Все функции станут недоступны.');
+        if (ok) { window.doroPremium.deactivatePremium(); renderPremiumPage(); }
+      });
+
+      // Первый таб — Ошибки
+      renderGoldenTabContent('quizzes');
+      return;
+    }
+
+    // ---------- ВИТРИНА ДЛЯ БЕСПЛАТНЫХ ----------
+    view.innerHTML = `
+      <div class="golden-page golden-page--showcase">
+        <div class="golden-hero">
+          <span class="golden-wordmark golden-wordmark--big" aria-hidden="true">Golden</span>
+          <h1 class="golden-title">Учись как в последний раз.<br>Отдыхай как в первый.</h1>
+          <p class="golden-sub">doro держит ритм, пока ты держишь голову. Всё, что нужно для пар — в одном месте, без суеты и лишних вкладок.</p>
+          <button type="button" class="golden-price" id="goldenPriceBtn" aria-label="Перейти к оформлению Golden">
+            <span class="golden-price__num">${price}</span>
+            <span class="golden-price__cur">₽ / месяц</span>
+            <span class="golden-price__tag">дешевле кофе</span>
+          </button>
+        </div>
+
+        <!-- ГЛАВНОЕ: PDF + ОФЛАЙН -->
+        <div class="golden-main-benefit">
+          <div class="golden-main-benefit__badge">Главное</div>
+          <div class="golden-main-benefit__icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <path d="M12 18v-6"></path>
+              <polyline points="9 15 12 18 15 15"></polyline>
+            </svg>
+          </div>
+          <div class="golden-main-benefit__body">
+            <h3 class="golden-main-benefit__title">Скачай тему — и читай без интернета</h3>
+            <p class="golden-main-benefit__text">
+              Одна кнопка — и тема превращается в аккуратный PDF. В метро,
+              в поезде, в очереди — читаешь с телефона, ничего не грузится.
+            </p>
+            <div class="golden-main-benefit__points">
+              <span class="golden-main-benefit__point">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Тема целиком — с таблицами и подсветкой
+              </span>
+              <span class="golden-main-benefit__point">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Файл остаётся навсегда
+              </span>
+              <span class="golden-main-benefit__point">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Отправь другу в мессенджер
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Остальные функции -->
+        <ul class="golden-other-benefits">
+          <li class="golden-other-benefit">
+            <span class="golden-other-benefit__icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="8" r="4"></circle>
+                <path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"></path>
+                <path d="M16.5 8.5l1.5-1.5"></path>
+              </svg>
+            </span>
+            <span class="golden-other-benefit__body">
+              <b>Сделай профиль своим</b>
+              <span>Смайлик-аватарка, рамки, фоны, бейдж рядом с именем — и тебя запоминают.</span>
+            </span>
+          </li>
+          <li class="golden-other-benefit">
+            <span class="golden-other-benefit__icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                <line x1="12" y1="2" x2="12" y2="12"></line>
+              </svg>
+            </span>
+            <span class="golden-other-benefit__body">
+              <b>Тесты без лимита</b>
+              <span>На бесплатном — ${window.doroPremium.QUIZ_LIMIT_FREE} попыток. С Golden — сколько нужно.</span>
+            </span>
+          </li>
+          <li class="golden-other-benefit">
+            <span class="golden-other-benefit__icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+            </span>
+            <span class="golden-other-benefit__body">
+              <b>Список ошибок</b>
+              <span>Всё, где споткнулся — в одном месте, перед коллоквиумом.</span>
+            </span>
+          </li>
+          <li class="golden-other-benefit">
+            <span class="golden-other-benefit__icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="6" width="16" height="12" rx="2"></rect>
+                <path d="M22 8v8"></path>
+                <line x1="6" y1="12" x2="14" y2="12"></line>
+              </svg>
+            </span>
+            <span class="golden-other-benefit__body">
+              <b>Карточки к коллоквиуму</b>
+              <span>Вопрос → ответ. Листаешь в маршрутке — к паре помнишь.</span>
+            </span>
+          </li>
+        </ul>
+
+        <button type="button" class="golden-activate" id="premiumActivateBtn">
+          Забрать Golden · ${price} ₽/мес
+        </button>
+        <p class="golden-fine">Отмена в один клик. Без автосписаний без предупреждения.</p>
+      </div>
+    `;
+
+    const activateBtn = view.querySelector('#premiumActivateBtn');
+    if (activateBtn) {
+      activateBtn.id = 'premiumActivateBtn';
+      activateBtn.addEventListener('click', () => {
+        if (typeof window.__openPayModal === 'function') {
+          window.__openPayModal();
+        } else {
+          alert('Окно оплаты не загрузилось. Обнови страницу.');
+        }
+      });
+    }
+
+    // Клик по цене → плавный скролл к кнопке + подсветка
+    const priceBtn = view.querySelector('#goldenPriceBtn');
+    if (priceBtn) {
+      priceBtn.addEventListener('click', () => {
+        if (typeof window.__openPayModal === 'function') {
+          window.__openPayModal();
+        }
+      });
+    }
+  }
+function pluralTopicsCount(n) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return 'тема';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'темы';
+  return 'тем';
+}
+
+function pluralErrors(n) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return 'ошибка';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'ошибки';
+  return 'ошибок';
+}
+
+function readQuizErrors() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('doro.quizErrors') || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch (e) { return []; }
+}
+function saveQuizErrors(arr) {
+  localStorage.setItem('doro.quizErrors', JSON.stringify(arr.slice(0, 200)));
+}
+
+// ============================================================
+//  GOLDEN: История ошибок — современный дашборд
+// ============================================================
+let _goldenErrorsExpanded = false;
+let _goldenErrorsFilter = { subject: 'all', sort: 'count' };
+
+function goldenErrorsTab() {
+  const panel = document.getElementById('premiumPanel');
+  if (!panel) return;
+
+  const errors = readQuizErrors();
+  console.log('[goldenErrors] записей:', errors.length);
+
+  // ---------- пусто ----------
+  if (!errors.length) {
+    panel.innerHTML = `
+      <div class="gerr-empty">
+        <div class="gerr-empty__icon" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"></path>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+        </div>
+        <h2 class="gerr-empty__title">Пока чисто</h2>
+        <p class="gerr-empty__text">
+          Здесь появятся вопросы, в которых ты ошибался в тестах.
+          Реши пару тестов — и увидишь, что стоит повторить.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  // ---------- группируем по теме ----------
+  const groups = new Map();
+  errors.forEach((e, idx) => {
+    const key = (e.subjectKey || 'unknown') + '::' + (e.topicNum || e.topicTitle || 'unknown');
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        subjectKey: e.subjectKey || 'unknown',
+        subjectTitle: e.subjectTitle || e.subjectKey || 'Раздел',
+        topicNum: e.topicNum || '',
+        topicTitle: e.topicTitle || e.topicNum || 'Тема',
+        items: [],
+        lastAt: e.at || 0
+      });
+    }
+    const g = groups.get(key);
+    g.items.push({ ...e, _idx: idx });
+    if ((e.at || 0) > g.lastAt) g.lastAt = e.at || 0;
+  });
+
+  let topics = [...groups.values()];
+
+  if (_goldenErrorsFilter.subject !== 'all') {
+    topics = topics.filter(t => t.subjectKey === _goldenErrorsFilter.subject);
+  }
+  if (_goldenErrorsFilter.sort === 'count') {
+    topics.sort((a, b) => b.items.length - a.items.length);
+  } else {
+    topics.sort((a, b) => b.lastAt - a.lastAt);
+  }
+
+  // ---------- сводка ----------
+  const totalErrors = errors.length;
+  const totalTopics = groups.size;
+
+  const bySubject = new Map();
+  groups.forEach(g => {
+    if (!bySubject.has(g.subjectKey)) {
+      bySubject.set(g.subjectKey, { title: g.subjectTitle, count: 0 });
+    }
+    bySubject.get(g.subjectKey).count += g.items.length;
+  });
+  const subjectSummary = [...bySubject.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 4);
+
+  const subjectList = [...bySubject.entries()].map(([k, v]) => [k, v.title]);
+
+  const renderTopicCard = (t) => {
+    const count = t.items.length;
+    const firstQ = t.items[0]?.question || '';
+    const newestAt = t.lastAt
+      ? new Date(t.lastAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+      : '';
+    return `
+      <button type="button" class="gerr-card" data-topic-key="${escapeHtml(t.key)}">
+        <div class="gerr-card__top">
+          <span class="gerr-card__subject">${escapeHtml(t.subjectTitle)}</span>
+          <span class="gerr-card__count">${count}</span>
+        </div>
+        <div class="gerr-card__title">
+          ${t.topicNum ? `<span class="gerr-card__num">Тема ${escapeHtml(t.topicNum)}</span>` : ''}
+          <span class="gerr-card__name">${escapeHtml(t.topicTitle)}</span>
+        </div>
+        ${firstQ ? `<div class="gerr-card__preview">${escapeHtmlKeepSupSub(firstQ)}</div>` : ''}
+        <div class="gerr-card__foot">
+          <span class="gerr-card__plural">${pluralErrors(count)}</span>
+          ${newestAt ? `<span class="gerr-card__date">${newestAt}</span>` : ''}
+          <span class="gerr-card__arrow" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </span>
+        </div>
+      </button>
+    `;
+  };
+
+  panel.innerHTML = `
+    <div class="gerr-head">
+      <div class="gerr-head__num-block">
+        <span class="gerr-head__num">${totalErrors}</span>
+        <span class="gerr-head__label">
+          ${pluralErrors(totalErrors)} · ${totalTopics} ${pluralTopicsCount(totalTopics)}
+        </span>
+      </div>
+      <div class="gerr-head__subjects">
+        ${subjectSummary.map(([k, s]) => `
+          <button type="button" class="gerr-head__subj" data-filter-subject="${escapeHtml(k)}" title="${escapeHtml(s.title)}">
+            <b>${s.count}</b>
+            <span>${escapeHtml(s.title)}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="gerr-controls">
+      <div class="gerr-filters">
+        <button type="button" class="gerr-chip ${_goldenErrorsFilter.subject === 'all' ? 'is-active' : ''}" data-filter-subject="all">Все</button>
+        ${subjectList.map(([k, title]) => `
+          <button type="button" class="gerr-chip ${_goldenErrorsFilter.subject === k ? 'is-active' : ''}" data-filter-subject="${escapeHtml(k)}">${escapeHtml(title)}</button>
+        `).join('')}
+      </div>
+      <div class="gerr-sort">
+        <button type="button" class="gerr-sort__btn ${_goldenErrorsFilter.sort === 'count' ? 'is-active' : ''}" data-sort="count" title="По количеству">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+        </button>
+        <button type="button" class="gerr-sort__btn ${_goldenErrorsFilter.sort === 'recent' ? 'is-active' : ''}" data-sort="recent" title="По дате">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="gerr-grid">
+      ${topics.length
+        ? topics.map(renderTopicCard).join('')
+        : `<div class="gerr-grid__empty">В этом разделе пока нет ошибок.</div>`}
+    </div>
+
+    <div class="gerr-actions">
+      <button type="button" class="golden-btn golden-btn--ghost" id="goldenErrorsClearAll">Очистить историю</button>
+    </div>
+
+    </div><!-- /.gerr-grid -->
+  `;
+
+  // Удаляем старую модалку от прошлого рендера
+  document.querySelectorAll('body > .gerr-modal').forEach(m => m.remove());
+
+  // Создаём модалку прямо в body (вне .view и .golden-panel — нет transform-предков)
+  const modalEl = document.createElement('div');
+  modalEl.className = 'gerr-modal';
+  modalEl.id = 'gerrModal';
+  modalEl.setAttribute('aria-hidden', 'true');
+  modalEl.innerHTML = `
+    <div class="gerr-modal__backdrop" data-close-modal></div>
+    <div class="gerr-modal__box" role="dialog" aria-modal="true">
+      <div class="gerr-modal__head">
+        <div class="gerr-modal__head-text">
+          <span class="gerr-modal__subject" id="gerrModalSubject"></span>
+          <h3 class="gerr-modal__title" id="gerrModalTitle"></h3>
+        </div>
+        <button type="button" class="gerr-modal__close" data-close-modal aria-label="Закрыть">×</button>
+      </div>
+      <div class="gerr-modal__body" id="gerrModalBody"></div>
+      <div class="gerr-modal__foot">
+        <button type="button" class="gerr-modal__open-topic" id="gerrModalOpenTopic">Перейти в тему →</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modalEl);
+
+  // ---------- фильтры/сортировка ----------
+  panel.querySelectorAll('[data-filter-subject]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _goldenErrorsFilter.subject = btn.dataset.filterSubject || 'all';
+      goldenErrorsTab();
+    });
+  });
+  panel.querySelectorAll('[data-sort]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _goldenErrorsFilter.sort = btn.dataset.sort || 'count';
+      goldenErrorsTab();
+    });
+  });
+
+  // ---------- открытие модалки темы ----------
+  const modal = modalEl;
+  const modalBody = modalEl.querySelector('#gerrModalBody');
+  const modalSubject = modalEl.querySelector('#gerrModalSubject');
+  const modalTitle = modalEl.querySelector('#gerrModalTitle');
+  const modalOpenTopic = modalEl.querySelector('#gerrModalOpenTopic');
+
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('gerr-modal-open');
+  }
+  function openModalFor(topicKey) {
+    const t = groups.get(topicKey);
+    if (!t) return;
+
+    modalSubject.textContent = t.subjectTitle;
+    modalTitle.innerHTML = (t.topicNum ? `Тема ${escapeHtml(t.topicNum)} · ` : '') + escapeHtml(t.topicTitle);
+
+    modalBody.innerHTML = t.items.map(it => `
+      <div class="gerr-item">
+        <div class="gerr-item__q">${escapeHtmlKeepSupSub(it.question || '')}</div>
+        <div class="gerr-item__a gerr-item__a--ok">
+          <span class="gerr-item__a-label">Верно</span>
+          <span class="gerr-item__a-text">${escapeHtmlKeepSupSub(it.correct || '')}</span>
+        </div>
+        ${it.chosen ? `
+          <div class="gerr-item__a gerr-item__a--bad">
+            <span class="gerr-item__a-label">Ты</span>
+            <span class="gerr-item__a-text">${escapeHtmlKeepSupSub(it.chosen)}</span>
+          </div>` : ''}
+        <button type="button" class="gerr-item__remove" data-remove-idx="${it._idx}">Выучил(а)</button>
+      </div>
+    `).join('');
+
+    modalOpenTopic.onclick = () => {
+      closeModal();
+      _openTopicFromGolden(t.subjectKey, t.topicNum, t.topicTitle);
+    };
+
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('gerr-modal-open');
+  }
+
+  modal.querySelectorAll('[data-close-modal]').forEach(el => {
+    el.addEventListener('click', closeModal);
+  });
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+    if (!document.body.contains(modal)) document.removeEventListener('keydown', esc);
+  });
+
+  panel.querySelectorAll('.gerr-card').forEach(card => {
+    card.addEventListener('click', () => openModalFor(card.dataset.topicKey));
+  });
+
+  // ---------- «Выучил(а)» ----------
+  modalBody.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-remove-idx]');
+    if (!btn) return;
+    const idx = Number(btn.dataset.removeIdx);
+    const all = readQuizErrors();
+    all.splice(idx, 1);
+    saveQuizErrors(all);
+    goldenErrorsTab();
+  });
+
+  // ---------- очистить ----------
+  const clearBtn = panel.querySelector('#goldenErrorsClearAll');
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    if (!confirm('Очистить всю историю ошибок? Это необратимо.')) return;
+    saveQuizErrors([]);
+    goldenErrorsTab();
+  });
+}
+
+function _openTopicFromGolden(subjectKey, topicNum, topicTitle) {
+  if (!subjectKey || !window.subjects?.[subjectKey]) return;
+
+  let num = topicNum;
+  if (!num && topicTitle) {
+    const t = (window.subjects[subjectKey].topics || []).find(
+      x => (x.title || '').trim() === (topicTitle || '').trim()
+    );
+    if (t) num = t.num;
+  }
+
+  const navLink = document.querySelector('.nav a[data-view="files"]');
+  if (navLink) navLink.click();
+  setTimeout(() => openTopic(subjectKey, num || null), 60);
+}
+// ============================================================
+//  GOLDEN: Карточки для коллоквиума (листалка)
+// ============================================================
+const GOLDEN_CARDS_KEY = 'doro.goldenCards.v2';
+let _goldenCardsFilter = 'all';
+
+const GOLDEN_CARD_SETS = [
+  {
+    id: 'microbio_11',
+    title: 'Микробиология — тема 11',
+    subtitle: 'Иммунобиологические препараты',
+    subjectKey: 'microbio',
+    topicNum: '11',
+    topicTitle: 'Иммунобиологические препараты',
+    cards: [
+      {
+        q: 'Что такое иммунобиологические препараты (ИБП)?',
+        plan: [
+          'Определение',
+          'Что входит в состав',
+          'Вспомогательные вещества',
+          'Раздел иммунологии, который их изучает'
+        ],
+        answer: [
+          'ИБП — препараты, действующие на иммунную систему, через иммунную систему или механизм действия которых основан на иммунологических принципах.',
+          'Действующее начало: антигены, антитела, микробные клетки и их дериваты, иммуноцитокины, иммунокомпетентные клетки.',
+          'В составе также стабилизаторы, адъюванты, консерванты.',
+          'Раздел иммунологии, который их изучает — иммунобиотехнология.'
+        ]
+      },
+      {
+        q: 'Какие 5 групп ИБП выделяют по классификации А.А. Воробьёва?',
+        plan: [
+          '1-я группа — из микробов и их продуктов',
+          '2-я группа — на основе антител',
+          '3-я группа — иммуномодуляторы',
+          '4-я группа — адаптогены',
+          '5-я группа — диагностические препараты'
+        ],
+        answer: [
+          'ИБП из живых/убитых микробов или их продуктов: вакцины, анатоксины, бактериофаги, пробиотики.',
+          'На основе специфических антител: иммуноглобулины, иммунные сыворотки, иммунотоксины, абзимы.',
+          'Иммуномодуляторы: экзогенные (адъюванты, гормоны) и эндогенные (интерлейкины, интерфероны, пептиды тимуса).',
+          'Адаптогены: растительные (женьшень, элеутерококк), животные, БАДы.',
+          'Диагностические препараты и системы.'
+        ]
+      },
+      {
+        q: 'Что такое диагностические сыворотки и какие они бывают?',
+        plan: [
+          'Определение',
+          'Назначение',
+          'Разновидности',
+          'Как получают (в т.ч. монорецепторные)'
+        ],
+        answer: [
+          'Диагностические сыворотки — иммунные сыворотки со специфическими антителами.',
+          'Назначение: идентификация микроорганизмов, их антигенов и продуктов метаболизма, а также определение антител в крови больного.',
+          'Виды: агглютинирующие (РА), преципитирующие (РП), флюоресцирующие (РИФ), гемолитические (РСК), монорецепторные, комплексные (поливалентные).',
+          'Получают гипериммунизацией животных; монорецепторные — адсорбцией по методу Кастелляни.'
+        ]
+      },
+      {
+        q: 'Что такое диагностикумы и аллергены?',
+        plan: [
+          'Диагностикумы — определение',
+          'Виды диагностикумов',
+          'Аллергены — определение',
+          'Примеры аллергенов',
+          'Применение'
+        ],
+        answer: [
+          'Диагностикумы — взвеси убитых микробных клеток или их антигенов для обнаружения антител в сыворотке больного.',
+          'Виды: корпускулярные (РА), эритроцитарные (РНГА), антигенные (РСК, РП).',
+          'Аллергены — препараты из микробов или их продуктов, вызывающие местную аллергическую реакцию (ГЗТ) у сенсибилизированного человека.',
+          'Примеры: туберкулин, тулярин, бруцеллин, антраксин.',
+          'Применение: кожные пробы (Манту с 2ТЕ PPD-L, Бюрне при бруцеллёзе).'
+        ]
+      },
+      {
+        q: 'Как используются бактериофаги в диагностике и лечении?',
+        plan: [
+          'Что такое бактериофаги',
+          'Как получают',
+          'Фагодиагностика',
+          'Фаготипирование',
+          'Фагопрофилактика и фаголечение'
+        ],
+        answer: [
+          'Бактериофаги — вирусы бактерий, специфически проникающие в бактерии и вызывающие их лизис.',
+          'Получают культивированием поражённых фагом бактерий на питательных средах, выделяют фильтрат, лиофильно высушивают.',
+          'Фагодиагностика — индикация и идентификация микроорганизмов.',
+          'Фаготипирование — внутривидовая идентификация, эпидемиологическое маркирование, поиск источника инфекции.',
+          'Фагопрофилактика и фаголечение — предупреждение и лечение инфекций препаратами фагов.'
+        ]
+      },
+      {
+        q: 'Чем отличаются иммунопрофилактика и иммунотерапия?',
+        plan: [
+          'Иммунопрофилактика — определение',
+          'Иммунотерапия — определение',
+          'Когда применяют',
+          'Серотерапия',
+          'Серопрофилактика'
+        ],
+        answer: [
+          'Иммунопрофилактика — предупреждение инфекционных и неинфекционных болезней путём создания активного или пассивного иммунитета.',
+          'Иммунотерапия — лечение уже развившейся болезни, в основе которой нарушение функции иммунной системы.',
+          'Применяют, когда нужно: сформировать специфический иммунитет, подавить активность звеньев иммунной системы, нормализовать её работу.',
+          'Серотерапия — лечение иммунными сыворотками/иммуноглобулинами (пассивный иммунитет).',
+          'Серопрофилактика — предупреждение болезней сыворотками у контактных лиц.'
+        ]
+      },
+      {
+        q: 'Что такое вакцины и как они классифицируются?',
+        plan: [
+          'Определение',
+          'Действующее начало',
+          'Классификация по Воробьёву',
+          'Живые вакцины',
+          'Неживые вакцины'
+        ],
+        answer: [
+          'Вакцины — ИБП, действующим началом которых является специфический антиген, для активной специфической профилактики (иногда лечения).',
+          'Действующее начало: живые ослабленные микробы, инактивированные клетки/вирионы, субклеточные антигенные комплексы, анатоксины, синтетические антигены.',
+          'Классификация: живые, неживые, молекулярные, комбинированные.',
+          'Живые: аттенуированные, дивергентные, рекомбинантные (векторные).',
+          'Неживые: корпускулярные, субклеточные.'
+        ]
+      },
+      {
+        q: 'Как получают и чем характеризуются живые вакцины?',
+        plan: [
+          'Аттенуация',
+          'Дивергентные вакцины',
+          'Векторные вакцины',
+          'Характеристика иммунитета',
+          'Примеры'
+        ],
+        answer: [
+          'Аттенуация — ослабление микробов химическими/физическими факторами или длительными пассажами через невосприимчивых животных.',
+          'Дивергентные — непатогенные микробы с общими протективными антигенами (осповакцина, БЦЖ).',
+          'Векторные — непатогенные рекомбинантные штаммы с генами протективных антигенов патогенов.',
+          'Иммунитет напряжённый, длительный, близкий к постинфекционному.',
+          'Примеры: оральная полиомиелитная, корь, паротит, краснуха, БЦЖ, чума EV, туляремия, сибирская язва СТИ, жёлтая лихорадка 17D.'
+        ]
+      },
+      {
+        q: 'Как получают убитые вакцины и какие у них особенности?',
+        plan: [
+          'Выращивание патогенов',
+          'Методы инактивации',
+          'Субклеточные вакцины',
+          'Особенности иммунитета',
+          'Примеры'
+        ],
+        answer: [
+          'Патогены выращивают на питательных средах.',
+          'Инактивация химическим (формальдегид, спирт, фенол) или физическим (температура, УФ, ионизирующая радиация) методом.',
+          'Субклеточные — выделение антигенных комплексов (гликопротеинов, ЛПС, белков) с помощью ТХУ, фенола, ферментов, ультрацентрифугирования, хроматографии.',
+          'Иммунитет менее напряжённый, чем у живых, требует нескольких инъекций и ревакцинаций.',
+          'Примеры: коклюшная (в АКДС), брюшнотифозная, сыпнотифозная, гриппозная, гепатит А, герпетическая, клещевого энцефалита, бешенства.'
+        ]
+      },
+      {
+        q: 'Чем отличаются гомологичные и гетерологичные сыворотки?',
+        plan: [
+          'Гомологичные — от кого получают',
+          'Гетерологичные — от кого получают',
+          'Как получают',
+          'Характеристика иммунитета',
+          'Применение'
+        ],
+        answer: [
+          'Гомологичные сыворотки получают от человека (переболевшие, доноры, плацентарная кровь) — они нечужеродные.',
+          'Гетерологичные — от животных (лошади, ослы, кролики), содержат чужеродные белки.',
+          'Получение: гипериммунизация специфическим антигеном, кровопускание в период максимального антителообразования, выделение иммунной сыворотки.',
+          'Иммунитет пассивный: наступает через несколько часов, сохраняется 2–3 недели (гетерологичные) или 4–5 недель (гомологичные).',
+          'Применение: токсинемические инфекции (дифтерия, столбняк, ботулизм, газовая гангрена), корь, краснуха, чума, сибирская язва.'
+        ]
+      },
+      {
+        q: 'Какие побочные действия бывают у вакцин и сывороток и как их предупредить?',
+        plan: [
+          'Местные реакции',
+          'Общие реакции',
+          'Осложнения',
+          'Анафилактический шок и его предупреждение',
+          'Сывороточная болезнь и её предупреждение',
+          'Общие противопоказания'
+        ],
+        answer: [
+          'Местные реакции: гиперемия, отёк, болезненность.',
+          'Общие: повышение температуры, недомогание, головная боль.',
+          'Осложнения: неврологические (энцефалопатия, энцефалит при АКДС), аллергические (анафилактический шок, сывороточная болезнь), аутоиммунные, иммунодефицитные.',
+          'Анафилактический шок — через минуты после введения; предупреждение: аллергическая проба, введение по Безредке.',
+          'Сывороточная болезнь — через 8–10 дней; предупреждение: гомологичные сыворотки, очистка от балластных белков, метод Безредки.',
+          'Общие противопоказания: острые заболевания, аллергии, болезни ЦНС, хронические болезни печени/почек, тяжёлые ССВ, иммунодефициты, злокачественные новообразования.'
+        ]
+      }
+    ]
+  }
+];
+
+// ---------- Пользовательские карточки ----------
+function readGoldenCards() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GOLDEN_CARDS_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch (e) { return []; }
+}
+function saveGoldenCards(arr) {
+  localStorage.setItem(GOLDEN_CARDS_KEY, JSON.stringify(arr));
+}
+
+function getAllGoldenCards() {
+  const sets = GOLDEN_CARD_SETS.map(set => ({
+    ...set,
+    isSet: true,
+    cards: set.cards.map((c, i) => ({
+      id: `${set.id}__${i}`,
+      ...c,
+      subjectKey: set.subjectKey,
+      topicNum: set.topicNum,
+      topicTitle: set.topicTitle,
+      setId: set.id
+    }))
+  }));
+
+  const userCards = readGoldenCards().map(c => ({ ...c, isSet: false }));
+  const userGroup = userCards.length
+    ? [{
+        id: 'user',
+        title: 'Мои карточки',
+        subtitle: 'Создано вручную',
+        isSet: false,
+        cards: userCards
+      }]
+    : [];
+
+  return [...sets, ...userGroup];
+}
+
+function _subjectTitleOf(key) {
+  return (window.subjects && window.subjects[key]?.title) || key || 'Без раздела';
+}
+
+// ---------- Листалка ----------
+let _goldenCardStack = [];
+let _goldenCardIndex = 0;
+let _goldenCardFlipped = false;
+let _goldenCardsKnown = new Set();
+
+function pluralCards(n) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return 'карточка';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'карточки';
+  return 'карточек';
+}
+
+function goldenCardsTab() {
+  const panel = document.getElementById('premiumPanel');
+  if (!panel) return;
+
+  const sets = getAllGoldenCards();
+  const totalCards = sets.reduce((s, set) => s + set.cards.length, 0);
+
+  if (_goldenCardsFilter !== 'all' && !sets.find(s => s.id === _goldenCardsFilter)) {
+    _goldenCardsFilter = 'all';
+  }
+
+  const visibleSets = _goldenCardsFilter === 'all'
+    ? sets
+    : sets.filter(s => s.id === _goldenCardsFilter);
+
+  const deck = visibleSets.flatMap(s => s.cards);
+
+  panel.innerHTML = `
+    <div class="golden-stats-head">
+      <h2 class="golden-panel__title">Карточки</h2>
+      <div class="golden-stats-summary">
+        <span><b>${totalCards}</b> ${pluralCards(totalCards)}</span>
+        ${_goldenCardsKnown.size ? `<span class="golden-stats-summary__sep">·</span><span><b>${_goldenCardsKnown.size}</b> знаю</span>` : ''}
+      </div>
+    </div>
+
+    <p class="golden-cards__hint">
+      Вопрос и план ответа на лицевой стороне. Расскажи по плану — потом переверни и сверься.
+      Листай стрелками или свайпом.
+    </p>
+
+    <div class="golden-stats-controls">
+      <div class="golden-stats-filters">
+        <button type="button" class="golden-filter-chip ${_goldenCardsFilter === 'all' ? 'is-active' : ''}" data-card-set="all">
+          Все наборы
+        </button>
+        ${sets.map(set => `
+          <button type="button" class="golden-filter-chip ${_goldenCardsFilter === set.id ? 'is-active' : ''}" data-card-set="${escapeHtml(set.id)}">
+            ${escapeHtml(set.title)}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    ${deck.length
+      ? `<div class="flash-deck" id="flashDeck"></div>`
+      : `<p class="golden-panel__empty">Пока нет карточек.</p>`
+    }
+  `;
+
+  panel.querySelectorAll('[data-card-set]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _goldenCardsFilter = btn.dataset.cardSet || 'all';
+      _goldenCardStack = [];
+      _goldenCardIndex = 0;
+      _goldenCardFlipped = false;
+      goldenCardsTab();
+    });
+  });
+
+  if (!deck.length) return;
+
+  _goldenCardStack = deck;
+  if (_goldenCardIndex >= deck.length) _goldenCardIndex = 0;
+  _goldenCardFlipped = false;
+
+  const deckEl = panel.querySelector('#flashDeck');
+  renderFlashDeck(deckEl);
+}
+
+function renderFlashDeck(deckEl) {
+  if (!deckEl) return;
+  const deck = _goldenCardStack;
+  const total = deck.length;
+  const idx = _goldenCardIndex;
+  const card = deck[idx];
+  if (!card) return;
+
+  const isKnown = _goldenCardsKnown.has(card.id);
+
+  const planHtml = Array.isArray(card.plan) && card.plan.length
+    ? `<div class="flash-card__plan">
+         <div class="flash-card__label">План ответа</div>
+         <ol class="flash-card__plan-list">
+           ${card.plan.map(p => `<li>${escapeHtmlKeepSupSub(p)}</li>`).join('')}
+         </ol>
+       </div>`
+    : '';
+
+  deckEl.innerHTML = `
+    <div class="flash-deck__head">
+      <span class="flash-deck__set">${escapeHtml(_subjectTitleOf(card.subjectKey))}${card.topicNum ? ' · Тема ' + escapeHtml(card.topicNum) : ''}</span>
+      <span class="flash-deck__counter"><b>${idx + 1}</b> / ${total}</span>
+    </div>
+
+    <div class="flash-deck__stage">
+      <button type="button" class="flash-deck__nav flash-deck__nav--prev" id="flashPrev" ${idx === 0 ? 'disabled' : ''} aria-label="Предыдущая">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+
+      <div class="flash-card ${_goldenCardFlipped ? 'is-flipped' : ''}" id="flashCard" tabindex="0" role="button" aria-label="Перевернуть карточку">
+        <div class="flash-card__inner">
+          <div class="flash-card__face flash-card__face--front">
+            <div class="flash-card__badge">Вопрос</div>
+            <div class="flash-card__q">${escapeHtmlKeepSupSub(card.q || '')}</div>
+            ${planHtml}
+            <div class="flash-card__hint">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              Расскажи по плану, потом переверни
+            </div>
+          </div>
+
+          <div class="flash-card__face flash-card__face--back">
+            <div class="flash-card__badge">Ответ</div>
+            <div class="flash-card__answer">
+              <div class="flash-card__label">Ответ по плану</div>
+              ${Array.isArray(card.answer)
+                ? `<ol class="flash-card__answer-list">
+                     ${card.answer.map((a, i) => `
+                       <li>
+                         <span class="flash-card__answer-num">${i + 1}</span>
+                         <span class="flash-card__answer-text">${escapeHtmlKeepSupSub(a)}</span>
+                       </li>
+                     `).join('')}
+                   </ol>`
+                : `<p>${escapeHtmlKeepSupSub(card.answer || '')}</p>`
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="flash-deck__nav flash-deck__nav--next" id="flashNext" ${idx === total - 1 ? 'disabled' : ''} aria-label="Следующая">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+    </div>
+
+    <div class="flash-deck__actions">
+      <button type="button" class="flash-deck__known ${isKnown ? 'is-active' : ''}" id="flashKnow">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        ${isKnown ? 'Знаю' : 'Отметить «знаю»'}
+      </button>
+      <button type="button" class="flash-deck__flip" id="flashFlip">Перевернуть</button>
+    </div>
+
+    <div class="flash-deck__progress">
+      <span style="width:${((idx + 1) / total) * 100}%"></span>
+    </div>
+  `;
+
+  const flashCard = deckEl.querySelector('#flashCard');
+
+  function flip() {
+    _goldenCardFlipped = !_goldenCardFlipped;
+    flashCard.classList.toggle('is-flipped', _goldenCardFlipped);
+  }
+
+  flashCard.addEventListener('click', flip);
+  flashCard.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); goNext(); }
+  });
+
+  deckEl.querySelector('#flashFlip').addEventListener('click', flip);
+
+  deckEl.querySelector('#flashKnow').addEventListener('click', () => {
+    const id = card.id;
+    if (_goldenCardsKnown.has(id)) _goldenCardsKnown.delete(id);
+    else _goldenCardsKnown.add(id);
+    renderFlashDeck(deckEl);
+  });
+
+  deckEl.querySelector('#flashPrev').addEventListener('click', goPrev);
+  deckEl.querySelector('#flashNext').addEventListener('click', goNext);
+
+  function goPrev() {
+    if (_goldenCardIndex === 0) return;
+    _goldenCardIndex--;
+    _goldenCardFlipped = false;
+    renderFlashDeck(deckEl);
+  }
+  function goNext() {
+    if (_goldenCardIndex >= _goldenCardStack.length - 1) return;
+    _goldenCardIndex++;
+    _goldenCardFlipped = false;
+    renderFlashDeck(deckEl);
+  }
+
+  let sx = 0, sy = 0, tracking = false;
+  flashCard.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; tracking = true;
+  }, { passive: true });
+  flashCard.addEventListener('touchend', (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx;
+    const dy = t.clientY - sy;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) goNext(); else goPrev();
+    }
+  }, { passive: true });
+}
+
+  // Диспетчер вкладок Golden: вызывает нужную функцию рендера
+  function renderGoldenTabContent(tab) {
+    if (tab === 'quizzes') {
+      goldenErrorsTab();
+    } else if (tab === 'cards') {
+      goldenCardsTab();
+    }
+  }
+  window.renderGoldenTabContent = renderGoldenTabContent;
+
   function showView(name) {
     Object.values(views).forEach(v => { if (v) v.classList.remove('is-active'); });
     const v = views[name];
@@ -3402,7 +5282,7 @@ function displayUserName(name) {
     // Профиль: сброс и перезапуск анимации при каждом входе
     if (name === 'profile') {
       v.classList.remove('is-reanimating');
-      void v.offsetWidth;        // force reflow
+      void v.offsetWidth;
       v.classList.add('is-reanimating');
     }
 
@@ -3427,8 +5307,11 @@ function displayUserName(name) {
     if (!rendered[name]) {
       if (name === 'home') { renderCalendar(); updateTodayView(); }
       if (name === 'files') renderSections();
-      if (name === 'tasks') renderTasks();
+      if (name === 'premium') renderPremiumPage();
       rendered[name] = true;
+    } else if (name === 'premium') {
+      // Премиум перерисовываем всегда — состояние могло измениться
+      renderPremiumPage();
     }
     window.scrollTo({ top: 0 });
   }
@@ -3735,50 +5618,13 @@ function displayUserName(name) {
     mo.observe(readerArticle, { childList: true, subtree: true });
   }
 
-  // ---------- QR-СИНХРОНИЗАЦИЯ ----------
-  const JSONBIN_KEY = '$2a$10$ueLrF0JVSgVVWPZgis5xC.1sLjPqGhq1tWOSypgHXo.HBWRQecrU6';
-  const JSONBIN_URL = 'https://api.jsonbin.io/v3/b';
-  const qrShowBtn = $('qrShowBtn');
-  const qrScanBtn = $('qrScanBtn');
-  const qrShowModal = $('qrShowModal');
-  const qrScanModal = $('qrScanModal');
-  const qrCanvas = $('qrCanvas');
-  const qrVideo = $('qrVideo');
-  const qrShowClose = $('qrShowClose');
-  const qrScanClose = $('qrScanClose');
-  let qrStream = null, qrRafId = null, currentBinId = null, pollTimeoutHandle = null, pollActive = false;
-  const isPhone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  if (isPhone) { if (qrShowBtn) qrShowBtn.style.display = 'none'; }
-  else { if (qrScanBtn) qrScanBtn.style.display = 'none'; }
-
   function stopPolling() { pollActive = false; if (pollTimeoutHandle) { clearTimeout(pollTimeoutHandle); pollTimeoutHandle = null; } }
-  function stopQrScanner() {
-    if (qrRafId) cancelAnimationFrame(qrRafId);
-    qrRafId = null;
-    if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
-    if (qrVideo) qrVideo.srcObject = null;
-  }
   function randomId() { return 'doro_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   async function deleteBin(binId) {
     if (!binId) return;
     try { await fetch(`${JSONBIN_URL}/${binId}`, { method: 'DELETE', headers: { 'X-Master-Key': JSONBIN_KEY } }); } catch (e) { /* ignore */ }
   }
-  async function pollBin(binId, onData, onTimeout) {
-    const startTime = Date.now(); const MAX_TOTAL = 15000;
-    const delays = [1000, 2000, 4000, 8000]; let step = 0; pollActive = true;
-    while (pollActive) {
-      if (Date.now() - startTime > MAX_TOTAL) { pollActive = false; if (onTimeout) onTimeout(); return; }
-      try {
-        const r = await fetch(`${JSONBIN_URL}/${binId}/latest`, { headers: { 'X-Master-Key': JSONBIN_KEY } });
-        if (r.ok) {
-          const j = await r.json(); const rec = j.record;
-          if (rec && rec.t === 'doro-hw' && Array.isArray(rec.hw)) { pollActive = false; onData(rec); return; }
-        }
-      } catch (e) { /* продолжим */ }
-      const delay = delays[Math.min(step, delays.length - 1)]; step++;
-      await new Promise(res => { pollTimeoutHandle = setTimeout(res, delay); });
-    }
-  }
+
 
   const syncInfoModal = $('syncInfoModal');
   const syncInfoCancel = $('syncInfoCancel');
@@ -3786,115 +5632,6 @@ function displayUserName(name) {
   const LAST_SYNC_KEY = 'doro.lastSync';
   function todayIso() { return new Date().toISOString().slice(0, 10); }
 
-  async function startQrSession() {
-    if (localStorage.getItem(LAST_SYNC_KEY) === todayIso()) { alert('Сегодня вы уже переносили задания. Следующий перенос — завтра.'); return; }
-    const sessionId = randomId();
-    if (qrCanvas) qrCanvas.innerHTML = '<div style="padding:30px;color:#5a6678;font-size:13px;">Создаю сессию…</div>';
-    if (qrShowModal) qrShowModal.classList.add('open');
-    let binId = null;
-    try {
-      const res = await fetch(JSONBIN_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY, 'X-Bin-Name': 'session_' + sessionId, 'X-Bin-Private': 'true' },
-        body: JSON.stringify({ t: 'doro-session', sid: sessionId, ready: false })
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const json = await res.json();
-      binId = json.metadata.id; currentBinId = binId;
-    } catch (e) {
-      if (qrCanvas) qrCanvas.innerHTML = '<div style="padding:30px;color:#b91c1c;font-size:13px;">Ошибка создания сессии: ' + e.message + '</div>';
-      return;
-    }
-    const qrPayload = JSON.stringify({ t: 'doro-recv', bin: binId, sid: sessionId });
-    if (qrCanvas) qrCanvas.innerHTML = '';
-    try {
-      if (qrCanvas && window.QRCode) new QRCode(qrCanvas, { text: qrPayload, width: 320, height: 320, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
-    } catch (err) { alert('Ошибка генерации QR: ' + err.message); }
-    pollBin(binId,
-      (rec) => { if (qrShowModal) qrShowModal.classList.remove('open'); applyIncoming(rec); },
-      () => {
-        if (!qrShowModal) return;
-        const hint = qrShowModal.querySelector('.qr-modal__sub');
-        if (hint) hint.textContent = 'Время ожидания истекло. Нажмите «Принять ДЗ» ещё раз.';
-      }
-    );
-  }
-
-  if (qrShowBtn) qrShowBtn.addEventListener('click', () => {
-    if (localStorage.getItem(LAST_SYNC_KEY) === todayIso()) { alert('Сегодня вы уже переносили задания. Следующий перенос — завтра.'); return; }
-    if (syncInfoModal) syncInfoModal.classList.add('open');
-  });
-  if (syncInfoCancel) syncInfoCancel.addEventListener('click', () => { if (syncInfoModal) syncInfoModal.classList.remove('open'); });
-  if (syncInfoContinue) syncInfoContinue.addEventListener('click', () => {
-    if (syncInfoModal) syncInfoModal.classList.remove('open');
-    setTimeout(startQrSession, 300);
-  });
-  if (syncInfoModal) syncInfoModal.addEventListener('click', (e) => { if (e.target === syncInfoModal) syncInfoModal.classList.remove('open'); });
-  if (qrShowClose) qrShowClose.addEventListener('click', () => { if (qrShowModal) qrShowModal.classList.remove('open'); stopPolling(); });
-  if (qrShowModal) qrShowModal.addEventListener('click', (e) => { if (e.target === qrShowModal) { qrShowModal.classList.remove('open'); stopPolling(); } });
-
-  async function sendToBin(binId, payload) {
-    try {
-      const res = await fetch(`${JSONBIN_URL}/${binId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return true;
-    } catch (e) { alert('Не удалось отправить данные: ' + e.message); return false; }
-  }
-  async function scanAndSend(text) {
-    try {
-      const parsed = JSON.parse(text);
-      if (parsed.t !== 'doro-recv' || !parsed.bin) { alert('Это не QR от doro.'); return; }
-      if (!homework.length) { alert('У вас нет заданий для отправки.'); return; }
-      const payload = {
-        t: 'doro-hw', v: 1, user: user?.name || null, sid: parsed.sid,
-        hw: homework.map(h => ({ id: h.id, s: h.subjectKey, d: h.dayKey, sl: h.slot, lt: h.lessonTitle || null, dt: h.date, tx: h.text, dn: h.done }))
-      };
-      const ok = await sendToBin(parsed.bin, payload);
-      if (ok) { alert('Отправлено заданий: ' + homework.length + '. ПК получит их в течение пары секунд.'); if (qrScanModal) qrScanModal.classList.remove('open'); }
-    } catch (e) { alert('Не удалось разобрать QR: ' + e.message); }
-  }
-
-  if (qrScanBtn && qrScanModal && qrVideo) {
-    qrScanBtn.addEventListener('click', async () => {
-      qrScanModal.classList.add('open');
-      try {
-        qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        qrVideo.srcObject = qrStream; await qrVideo.play();
-        const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-        function tick() {
-          if (!qrVideo.videoWidth) { qrRafId = requestAnimationFrame(tick); return; }
-          canvas.width = qrVideo.videoWidth; canvas.height = qrVideo.videoHeight;
-          ctx.drawImage(qrVideo, 0, 0, canvas.width, canvas.height);
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          if (window.jsQR) {
-            const code = jsQR(imgData.data, canvas.width, canvas.height);
-            if (code && code.data) { stopQrScanner(); scanAndSend(code.data); return; }
-          }
-          qrRafId = requestAnimationFrame(tick);
-        }
-        tick();
-      } catch (err) { alert('Не удалось получить доступ к камере: ' + err.message); qrScanModal.classList.remove('open'); stopQrScanner(); }
-    });
-  }
-  if (qrScanClose) qrScanClose.addEventListener('click', () => { if (qrScanModal) qrScanModal.classList.remove('open'); stopQrScanner(); });
-  if (qrScanModal) qrScanModal.addEventListener('click', (e) => { if (e.target === qrScanModal) { qrScanModal.classList.remove('open'); stopQrScanner(); } });
-
-  function applyIncoming(data) {
-    if (currentBinId) { deleteBin(currentBinId); currentBinId = null; }
-    localStorage.setItem(LAST_SYNC_KEY, todayIso());
-    const current = JSON.parse(localStorage.getItem(HW_KEY) || '[]');
-    const byId = new Map(current.map(h => [h.id, h]));
-    let added = 0;
-    data.hw.forEach(h => {
-      const mapped = { id: h.id, subjectKey: h.s, dayKey: h.d, slot: h.sl, lessonTitle: h.lt, date: h.dt, text: h.tx, done: !!h.dn, createdAt: Date.now() };
-      if (!byId.has(mapped.id)) { byId.set(mapped.id, mapped); added++; }
-    });
-    localStorage.setItem(HW_KEY, JSON.stringify([...byId.values()]));
-    homework = JSON.parse(localStorage.getItem(HW_KEY));
-    saveHomework(); renderTasks(); renderCalendar();
-    if (rendered.home) updateTodayView();
-    alert('Получено заданий: ' + added);
-  }
 
   // ---------- ЗАКЛАДКИ ----------
   const FAV_KEY = 'doro.bookmarks';
@@ -3979,14 +5716,8 @@ function displayUserName(name) {
   }
 function buildTabSections(raw, tabConfig, topic) {
   const result = {};
-  if (tabConfig.includes('theory')) { const s = splitTheoryAndTests(raw); result.theory = s.hasTabs ? s.theory : raw; }
-  if (tabConfig.includes('tests')) { const s = splitTheoryAndTests(raw); result.tests = s.hasTabs ? s.tests : ''; }
-  if (tabConfig.includes('solve') || tabConfig.includes('read')) {
-    const s = splitTheoryAndTests(raw);
-    const testsPart = s.hasTabs ? s.tests : raw;
-    if (tabConfig.includes('solve')) result.solve = testsPart;
-    if (tabConfig.includes('read'))  result.read  = testsPart;
-  }
+if (tabConfig.includes('theory')) { const s = splitTheoryAndTests(raw); result.theory = s.hasTabs ? s.theory : raw; }
+if (tabConfig.includes('tests')) { const s = splitTheoryAndTests(raw); result.tests = s.hasTabs ? s.tests : ''; }
 if (tabConfig.includes('preparations')) {
   result.preparations = topic.pdf ? (Array.isArray(topic.pdf) ? topic.pdf : [topic.pdf]) : [];
   result.tasksPdf = topic.tasksPdf ? (Array.isArray(topic.tasksPdf) ? topic.tasksPdf : [topic.tasksPdf]) : [];
@@ -4005,7 +5736,7 @@ if (tabConfig.includes('preparations')) {
     if (!contentEl || !readerTabs) return;
     readerTabs.querySelectorAll('.reader__tab').forEach(b => b.classList.toggle('is-active', b.dataset.tab === tab));
   moveTabIndicator();
-  contentEl.classList.remove('is-loaded');
+  // НЕ снимаем .is-loaded — иначе контент будет «пропадать» при переключении
   contentEl.classList.toggle('reader-tab-tests', tab === 'tests');
 if (tab === 'preparations') {
   contentEl.innerHTML = renderPreparations(sections.preparations || [], sections.tasksPdf || []);
@@ -4035,32 +5766,12 @@ if (tab === 'preparations') {
     }
   } else if (tab === 'tests') {
     const testsRaw = sections.tests || '';
-    const hasTests = /\*\*\d+\.\*\*|\d+\.\s|^\s*-\s/m.test(testsRaw);
-    if (hasTests) {
-      renderHtmlInChunks(contentEl, renderTopicContent(testsRaw), {
-        onDone: () => {
-          contentEl.classList.add('is-loaded');
-          document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
-        }
-      });
+    if (parseTestsToQuestions(testsRaw).length) {
+      renderPhysioSolveMode(testsRaw, contentEl);
     } else {
-      contentEl.innerHTML = '<p class="reader__empty">В этой теме их нет, наслаждайся</p>';
+      contentEl.innerHTML = '<p class="reader__empty">В этой теме нет тестов</p>';
     }
-  } else if (tab === 'solve') {
-            const testsRaw = sections.tests || sections.solve || '';
-            if (parseTestsToQuestions(testsRaw).length) {
-              renderPhysioSolveMode(testsRaw, contentEl);
-            } else {
-              contentEl.innerHTML = '<p class="reader__empty">Тесты не найдены</p>';
-            }
-              } else if (tab === 'read') {
-                const testsRaw = sections.tests || sections.read || '';
-                if (parseTestsToQuestions(testsRaw).length) {
-                  renderPhysioReadMode(testsRaw, contentEl, currentSubjectKey);
-                } else {
-                  contentEl.innerHTML = '<p class="reader__empty">Тесты не найдены</p>';
-                }
-              }
+  }
     else {
       const rawSection = sections[tab] || '<p class="reader__empty">Раздел пуст</p>';
       renderHtmlInChunks(contentEl, renderTopicContent(rawSection), {
@@ -4070,8 +5781,6 @@ if (tab === 'preparations') {
         }
       });
     }
-    void contentEl.offsetWidth;
-    contentEl.classList.add('is-loaded');
 
     contentEl.querySelectorAll('.reader__prep-item[data-pdf]').forEach(btn => {
       btn.addEventListener('click', () => openPdfModal([btn.dataset.pdf], 'Препарат'));
@@ -4106,7 +5815,6 @@ if (tab === 'preparations') {
       contentEl.appendChild(wrap);
     }
 
-    if (readerArticle) { readerArticle.classList.remove('is-switching'); void readerArticle.offsetWidth; readerArticle.classList.add('is-switching'); }
     tocBuiltForArticle = null;
     if (readerSettings && readerSettings.classList.contains('open')) buildToc();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4390,9 +6098,7 @@ function renderPreparations(preparations, tasks) {
   }
   updateContinueTile();
 
-  // ---------- АРХИВ ----------
-  const archiveTile = $('archiveTile');
-  if (archiveTile) archiveTile.addEventListener('click', () => window.open('https://disk.yandex.ru/', '_blank', 'noopener'));
+
 
   // ---------- НАВЕРХ ----------
   const islandProgressUp = $('islandProgressUp');
@@ -4998,6 +6704,17 @@ function renderPreparations(preparations, tasks) {
             color:  profile.color  || '#3b82f6'
           };
           saveUser();
+
+          // Подтягиваем Golden из облака
+          if (profile.premiumActive && (!profile.premiumExpiresAt || profile.premiumExpiresAt > Date.now())) {
+            window.doroPremium.savePremium({
+              active: true,
+              expiresAt: profile.premiumExpiresAt || (Date.now() + 30 * 86400000)
+            });
+            // savePremium уже добавил классы и диспатчил событие
+            if (typeof renderPremiumPage === 'function') renderPremiumPage();
+            if (typeof renderProfile === 'function') renderProfile();
+          }
         }
       } catch (e) { console.warn('profile load:', e); }
       renderProfile();
@@ -5008,19 +6725,486 @@ function renderPreparations(preparations, tasks) {
     setTimeout(() => openAuth('register', 'choice'), 400);
   }
 
+  // Всегда грузим роли в фоне, не дожидаясь контента
+  loadEditorNames();
+
   if (window.doroContent && window.doroContent.loadAllTopics) {
-    window.doroContent.loadAllTopics().then(async () => {
-      // Загружаем список редакторов из базы
-      await loadEditorsFromDb();
-      
+    // Не блокируем первый экран загрузкой тем — грузим параллельно
+    Promise.all([
+      window.doroContent.loadAllTopics().catch(e => console.warn('[boot] loadAllTopics:', e))
+    ]).then(() => {
       if (typeof window.renderSections === 'function') window.renderSections();
-      bootAuth();
     });
+    bootAuth();
   } else {
     bootAuth();
   }
+  // ============================================================
+  //  ЗАГРУЗЧИК ТЕМЫ — прогресс в шапке + «выпрыг» читалки
+  // ============================================================
+  const TopicLoader = (function () {
+    const wrap   = document.getElementById('islandTopicProgress');
+    const fill   = document.getElementById('islandTopicFill');
+    const value  = document.getElementById('islandTopicValue');
+
+    let raf = null;
+    let progress = 0;
+    let target = 0;
+    let done = false;
+    let startedAt = 0;
+    let fakeTimer = null;
+    let token = 0;              // ← защита от «двойного finish/start»
+    let hideTimer = null;
+
+    // Минимальное время показа «100%»
+    const MIN_FULL_VISIBLE_MS = 700;
+
+    function paint() {
+      if (fill)  fill.style.width = progress + '%';
+      if (value) value.textContent = Math.round(progress) + '%';
+    }
+
+    function tick() {
+      const diff = target - progress;
+      if (Math.abs(diff) < 0.4) {
+        progress = target;
+      } else {
+        progress += diff * 0.12;
+      }
+      paint();
+      if (progress < target - 0.4) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        raf = null;
+      }
+    }
+
+    function ensureLoop() {
+      if (!raf) raf = requestAnimationFrame(tick);
+    }
+
+    function startFake() {
+      startedAt = performance.now();
+      clearInterval(fakeTimer);
+      const step = () => {
+        if (done) return;
+        const t = Math.min(1, (performance.now() - startedAt) / 1100);
+        const eased = 1 - Math.pow(1 - t, 2);
+        let want;
+        if (t < 1) want = eased * 60;
+        else {
+          const over = (performance.now() - startedAt - 1100) / 3000;
+          want = 60 + Math.min(30, over * 30);
+        }
+        if (want > target) { target = want; ensureLoop(); }
+        if (t < 1 || !done) fakeTimer = setTimeout(step, 60);
+      };
+      step();
+    }
+
+    function cleanupTimers() {
+      clearInterval(fakeTimer);
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    }
+
+    return {
+      start() {
+        if (!wrap) return;
+        const myToken = ++token;
+        done = false;
+        progress = 0;
+        target = 0;
+        paint();
+        cleanupTimers();
+        wrap.classList.remove('is-done', 'is-visible'); // сначала убрать
+        void wrap.offsetWidth;                          // рефлоу
+        wrap.classList.add('is-visible');               // потом показать
+        wrap.setAttribute('aria-hidden', 'false');
+        startFake();
+        ensureLoop();
+        return myToken;
+      },
+
+      set(p) {
+        if (done) return;
+        const clamped = Math.min(100, Math.max(0, p));
+        if (clamped > target) {
+          target = clamped;
+          ensureLoop();
+        }
+      },
+
+      async finish() {
+        if (!wrap) return;
+        const myToken = ++token;
+        done = true;
+        clearInterval(fakeTimer);
+
+        // Дорастаем до 100 через tick
+        target = 100;
+        ensureLoop();
+        await new Promise((resolve) => {
+          const check = () => {
+            if (myToken !== token) { resolve(); return; }  // нас отменили
+            if (progress >= 99.5) { progress = 100; paint(); resolve(); }
+            else requestAnimationFrame(check);
+          };
+          check();
+        });
+
+        // Даём пользователю увидеть 100%
+        await new Promise(r => setTimeout(r, MIN_FULL_VISIBLE_MS));
+        if (myToken !== token) return;              // нас отменили — выходим
+
+        wrap.classList.add('is-done');
+        hideTimer = setTimeout(() => {
+          if (myToken !== token) return;
+          wrap.classList.remove('is-visible', 'is-done');
+          wrap.setAttribute('aria-hidden', 'true');
+        }, 500);
+      },
+
+      reset() {
+        token++;                                   // отменить все текущие операции
+        done = true;
+        cleanupTimers();
+        target = 0;
+        progress = 0;
+        paint();
+        if (wrap) {
+          wrap.classList.remove('is-visible', 'is-done');
+          wrap.setAttribute('aria-hidden', 'true');
+        }
+      },
+    };
+  })();
   // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
   renderProfile();
   showView('home');
   updateViewAsBanner();
+
+  window.openTopic = openTopic;
+  window.showView = showView;
+
+  // ============================================================
+  //  Периодическая проверка Golden (раз в 3 минуты)
+  // ============================================================
+  setInterval(async () => {
+    if (!window.doroCloudReady || !window.doroPremium || !user) return;
+    try {
+      const cloud = await window.doroCloudReady;
+      if (!cloud) return;
+      const profile = await cloud.getMyProfile(user);
+      if (!profile) return;
+      if (profile.premiumActive && (!profile.premiumExpiresAt || profile.premiumExpiresAt > Date.now())) {
+        if (!window.doroPremium.isPremiumActive()) {
+          window.doroPremium.savePremium({
+            active: true,
+            expiresAt: profile.premiumExpiresAt || (Date.now() + 30 * 86400000)
+          });
+          if (typeof renderPremiumPage === 'function') renderPremiumPage();
+          if (typeof renderProfile === 'function') renderProfile();
+        }
+      } else {
+        // Golden сняли в админке — отзываем локально
+        if (window.doroPremium.isPremiumActive()) {
+          window.doroPremium.savePremium({ active: false });
+          if (typeof renderPremiumPage === 'function') renderPremiumPage();
+          if (typeof renderProfile === 'function') renderProfile();
+        }
+      }
+    } catch (e) {}
+  }, 180000);
 });
+// ============================================================
+//  ПРЕДПРОСМОТР ПРОФИЛЯ ПРИ НАВЕДЕНИИ
+// ============================================================
+(function initProfileHoverCard() {
+  const HOVER_DELAY = 180;
+  const HIDE_DELAY  = 320;
+  let openTimer = null;
+  let closeTimer = null;
+  let pop = null;
+  let currentAnchor = null;
+
+  const badgeMap = { fire:'🔥', medal:'🥇', bolt:'⚡', diamond:'💎', grad:'🎓', crown:'👑' };
+
+  function ensurePop() {
+    if (pop) return pop;
+    pop = document.createElement('div');
+    pop.className = 'user-hover';
+    pop.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(pop);
+    pop.addEventListener('mouseenter', () => clearTimeout(closeTimer));
+    pop.addEventListener('mouseleave', scheduleHide);
+    return pop;
+  }
+
+  function initials(name) {
+    if (!name) return '?';
+    const p = name.trim().split(/\s+/);
+    if (!p.length) return '?';
+    if (p.length === 1) return p[0][0].toUpperCase();
+    return (p[0][0] + p[1][0]).toUpperCase();
+  }
+
+  function isGolden() {
+    return !!(window.doroPremium && window.doroPremium.isPremiumActive());
+  }
+
+  function getMine() {
+    try { return JSON.parse(localStorage.getItem('doro.user') || 'null'); } catch (e) { return null; }
+  }
+
+  function buildHtml(u) {
+    const color = u.color || '#3b82f6';
+    const emoji = u.avatarEmoji || '';
+    const me = getMine();
+    const isMine = !!(me && me.name
+      && me.name.toLowerCase() === u.name.toLowerCase()
+      && ((me.group || '') === (u.group || '')));
+    const badge = (isGolden() && u.profileBadge && badgeMap[u.profileBadge]) || '';
+    const frame = (isGolden() && u.avatarFrame) ? u.avatarFrame : 'none';
+    const bg    = (isGolden() && u.profileBg)    ? u.profileBg    : 'default';
+    const fx    = (isGolden() && u.profileEffect)? u.profileEffect: 'default';
+
+    const avatarBg = emoji
+      ? `linear-gradient(135deg,
+          color-mix(in srgb, ${color} 18%, #fff),
+          color-mix(in srgb, ${color} 28%, #fff))`
+      : `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 60%, #fff))`;
+
+    return `
+      <div class="user-hover__card" data-bg="${bg}" data-effect="${fx}" style="--ac:${color}">
+        <div class="user-hover__avatar${emoji ? ' is-emoji' : ''}" data-frame="${frame}"
+             style="background:${avatarBg};--ac:${color}">
+          ${emoji || initials(u.name)}
+        </div>
+        <div class="user-hover__name">
+          ${escapeHtml(u.name)}${badge ? `<span class="user-hover__badge">${badge}</span>` : ''}
+        </div>
+        ${u.status ? `<div class="user-hover__status">${escapeHtml(u.status)}</div>` : ''}
+        ${u.group ? `<div class="user-hover__group">Группа ${escapeHtml(u.group)}</div>` : ''}
+        ${isMine ? `<div class="user-hover__me">это вы</div>` : ''}
+      </div>
+    `;
+  }
+
+  function position(anchor) {
+    if (!pop || !anchor) return;
+    const r = anchor.getBoundingClientRect();
+    const popRect = pop.getBoundingClientRect();
+    const margin = 10;
+
+    let top = r.bottom + window.scrollY + margin;
+    let left = r.left + window.scrollX;
+
+    if (left + popRect.width > window.innerWidth - 12) {
+      left = window.innerWidth - popRect.width - 12 + window.scrollX;
+    }
+    if (left < 12 + window.scrollX) left = 12 + window.scrollX;
+
+    if (r.bottom + popRect.height + margin > window.innerHeight && r.top > popRect.height + margin) {
+      top = r.top + window.scrollY - popRect.height - margin;
+    }
+
+    pop.style.top  = top + 'px';
+    pop.style.left = left + 'px';
+  }
+
+  function show(u, anchor) {
+    clearTimeout(closeTimer);
+    if (!u || !u.name) return;
+    ensurePop();
+    pop.innerHTML = buildHtml(u);
+    pop.classList.add('is-visible');
+    pop.setAttribute('aria-hidden', 'false');
+    currentAnchor = anchor;
+    requestAnimationFrame(() => position(anchor));
+  }
+
+  function hide() {
+    clearTimeout(openTimer);
+    clearTimeout(closeTimer);
+    if (!pop) return;
+    pop.classList.remove('is-visible');
+    pop.setAttribute('aria-hidden', 'true');
+    currentAnchor = null;
+  }
+
+  function scheduleHide() {
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(hide, HIDE_DELAY);
+  }
+
+  function scheduleShow(u, anchor) {
+    clearTimeout(openTimer);
+    openTimer = setTimeout(() => show(u, anchor), HOVER_DELAY);
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    const el = e.target.closest('[data-preview-user]');
+    if (!el) return;
+    if (currentAnchor === el) return;
+
+    // Если уже открыт попап для другого элемента — не переключаем сразу,
+    // а закрываем старый и открываем новый с той же задержкой
+    let data;
+    try { data = JSON.parse(el.dataset.previewUser || 'null'); } catch (_) {}
+    if (!data || !data.name) return;
+    scheduleShow(data, el);
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    const el = e.target.closest('[data-preview-user]');
+    if (!el) return;
+    if (e.relatedTarget && (el.contains(e.relatedTarget) || (pop && pop.contains(e.relatedTarget)))) return;
+    scheduleHide();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.pointerType === 'mouse') return;
+    const el = e.target.closest('[data-preview-user]');
+    if (!el) {
+      if (pop && pop.classList.contains('is-visible')) hide();
+      return;
+    }
+    if (currentAnchor === el && pop && pop.classList.contains('is-visible')) {
+      hide();
+      return;
+    }
+    let data;
+    try { data = JSON.parse(el.dataset.previewUser || 'null'); } catch (_) {}
+    if (!data || !data.name) return;
+    show(data, el);
+  });
+
+  window.addEventListener('scroll', () => {
+    if (pop && pop.classList.contains('is-visible') && currentAnchor) position(currentAnchor);
+  }, { passive: true });
+  // ============================================================
+//  МОДАЛКА ПОДДЕРЖКИ (GOLDEN)
+// ============================================================
+(function initSupportModal() {
+  const SUPPORT_SEEN_KEY = 'doro.supportModal.seen.v1';
+  const modal    = document.getElementById('supportModal');
+  const closeBtn = document.getElementById('supportModalClose');
+  const backdrop = document.getElementById('supportModalBackdrop');
+  const goBtn    = document.getElementById('supportModalGo');
+
+  if (!modal) return;
+
+  // Показываем окно, только если его еще не видели
+  if (!localStorage.getItem(SUPPORT_SEEN_KEY)) {
+    setTimeout(() => {
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+    }, 1000); // Небольшая задержка, чтобы сайт успел прогрузиться
+  }
+
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    localStorage.setItem(SUPPORT_SEEN_KEY, '1'); // Запоминаем, что видели
+  }
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (backdrop) backdrop.addEventListener('click', closeModal);
+
+  if (goBtn) {
+    goBtn.addEventListener('click', () => {
+      closeModal();
+      // Перекидываем на вкладку Golden
+      const navLink = document.querySelector('.nav a[data-view="premium"]');
+      if (navLink) navLink.click();
+    });
+  }
+})();
+  window.addEventListener('resize', () => {
+    if (pop && pop.classList.contains('is-visible') && currentAnchor) position(currentAnchor);
+  });
+})();
+
+// ============================================================
+//  МОДАЛКА ОПЛАТЫ GOLDEN (QR + карта + заявка)
+// ============================================================
+(function initPayModal() {
+  const $ = (id) => document.getElementById(id);
+  const modal   = $('payModal');
+  const paidBtn = $('payPaidBtn');
+  const errEl   = $('payError');
+  const success = $('paySuccess');
+  const cardNum = $('payCardNum');
+
+  if (!modal) return;
+
+  function showError(msg) {
+    if (errEl) { errEl.textContent = msg || ''; errEl.style.display = msg ? 'block' : 'none'; }
+  }
+
+  function open() {
+    if (!window.doroPremium) return;
+    if (window.doroPremium.isPremiumActive()) {
+      alert('Golden уже активен');
+      return;
+    }
+
+    showError('');
+    if (success) success.style.display = 'none';
+    if (paidBtn) {
+      paidBtn.style.display = '';
+      paidBtn.disabled = false;
+      paidBtn.textContent = 'Я оплатил(а) · отправить заявку';
+    }
+
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+
+    window.doroPremium.getMyPaymentRequest().then(req => {
+      if (req && req.status === 'pending') {
+        if (paidBtn) paidBtn.style.display = 'none';
+        if (success) success.style.display = 'flex';
+      }
+    });
+  }
+
+  function close() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  modal.querySelectorAll('[data-pay-close]').forEach(el => {
+    el.addEventListener('click', close);
+  });
+
+  if (cardNum) {
+    cardNum.addEventListener('click', () => {
+      const txt = cardNum.textContent.replace(/\s/g, '');
+      navigator.clipboard?.writeText(txt).then(() => {
+        const old = cardNum.textContent;
+        cardNum.textContent = 'скопировано ✓';
+        setTimeout(() => { cardNum.textContent = old; }, 1200);
+      });
+    });
+  }
+
+  if (paidBtn) {
+    paidBtn.addEventListener('click', async () => {
+      showError('');
+      paidBtn.disabled = true;
+      paidBtn.textContent = 'Отправляю…';
+      try {
+        await window.doroPremium.submitPaymentRequest();
+        paidBtn.style.display = 'none';
+        if (success) success.style.display = 'flex';
+      } catch (e) {
+        showError(e.message || 'Не удалось отправить заявку');
+        paidBtn.disabled = false;
+        paidBtn.textContent = 'Я оплатил(а) · отправить заявку';
+      }
+    });
+  }
+
+  window.__openPayModal = open;
+})();

@@ -203,13 +203,15 @@
     }
   }
 
+  let _editorDebounce = null;
   const observer = new MutationObserver(() => {
-    if (window.doroRoles && window.doroRoles.isEditor()) {
-      injectEditorButtons();
-    }
+    if (!window.doroRoles || !window.doroRoles.isEditor()) return;
+    clearTimeout(_editorDebounce);
+    _editorDebounce = setTimeout(() => injectEditorButtons(), 150);
   });
 
   document.addEventListener('DOMContentLoaded', () => {
+    if (!window.doroRoles || !window.doroRoles.isEditor()) return;  // обычным юзерам observer не нужен
     const readerArticle = document.getElementById('reader-article');
     if (readerArticle) {
       observer.observe(readerArticle, { childList: true, subtree: true });
