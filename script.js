@@ -1525,7 +1525,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // новая кнопка «Тема» сама себя перерисовывает через paintRsThemeBtn
   }
   function syncAllThemeSwitchers() { syncThemeSeg(); syncReaderTheme(); }
-
+  // Подстраховка: если Firebase не ответил, но в резервной копии есть подписка — восстанавливаем
+  (function restorePremiumBackup() {
+    try {
+      const backup = localStorage.getItem('doro.premium.backup');
+      const current = localStorage.getItem('doro.premium.v1');
+      const isCurrentlyActive = current ? JSON.parse(current).active : false;
+      
+      if (backup && !isCurrentlyActive) {
+        const p = JSON.parse(backup);
+        if (p.expiresAt && p.expiresAt > Date.now()) {
+          window.doroPremium.savePremium(p);
+          console.log('✅ Подписка восстановлена из резервной копии');
+        } else {
+          localStorage.removeItem('doro.premium.backup');
+        }
+      }
+    } catch (e) {}
+  })();
   (function initTheme() {
     const mode = getThemeMode();
     const theme = resolveTheme(mode);
@@ -6730,9 +6747,16 @@ function renderPreparations(preparations, tasks) {
               active: true,
               expiresAt: profile.premiumExpiresAt || (Date.now() + 30 * 86400000)
             });
-            // savePremium уже добавил классы и диспатчил событие
             if (typeof renderPremiumPage === 'function') renderPremiumPage();
             if (typeof renderProfile === 'function') renderProfile();
+          } else {
+            // Если в базе подписки нет или она истекла — принудительно выключаем её в браузере,
+            // чтобы не было рассинхрона (когда в браузере есть, а в базе нет)
+            if (window.doroPremium && window.doroPremium.isPremiumActive()) {
+              window.doroPremium.savePremium({ active: false });
+              if (typeof renderPremiumPage === 'function') renderPremiumPage();
+              if (typeof renderProfile === 'function') renderProfile();
+            }
           }
         }
       } catch (e) { console.warn('profile load:', e); }
@@ -6936,6 +6960,17 @@ function renderPreparations(preparations, tasks) {
     } catch (e) {}
   }, 180000);
 });
+  // Слушаем событие, когда подписка меняется на сайте
+  document.addEventListener('doro:premium-changed', () => {
+    if (window.doroPremium && window.doroPremium.isPremiumActive()) {
+      // Если подписка появилась, сохраняем её копию в браузер,
+      // чтобы при следующей загрузке она не пропала, даже если Firebase не ответит
+      const p = window.doroPremium.readPremium();
+      localStorage.setItem('doro.premium.backup', JSON.stringify(p));
+    } else {
+      localStorage.removeItem('doro.premium.backup');
+    }
+  });
 // ============================================================
 //  ПРЕДПРОСМОТР ПРОФИЛЯ ПРИ НАВЕДЕНИИ
 // ============================================================
