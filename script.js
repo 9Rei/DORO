@@ -2493,8 +2493,8 @@ function displayUserName(name) {
           cur.profileBg     = u.profileBg     || cur.profileBg;
           cur.profileEffect = u.profileEffect || cur.profileEffect;
           cur.profileBadge  = u.profileBadge  || cur.profileBadge;
-          if (u.premiumActive && (u.updatedAt || 0) >= cur.updatedAt) {
-            cur.premiumActive = true;
+          if (u.premiumActive !== undefined) {
+            cur.premiumActive = u.premiumActive;
             cur.premiumExpiresAt = u.premiumExpiresAt || 0;
           }
         }

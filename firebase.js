@@ -125,7 +125,7 @@ function initCloud(user) {
     _profileDocId(p) {
       const norm = (s) => (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
       const name = norm(p && p.name);
-      const group = ((p && p.group) || '').trim().toUpperCase();
+      const group = norm(p && p.group); // <-- ИСПРАВЛЕНО (всё в нижнем регистре)
       if (!name || !group) return null;
       return `${name}__${group}`;
     },

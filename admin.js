@@ -23,7 +23,7 @@
 
   function userDocId(name, group) {
     const n = (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
-    const g = (group || '').trim().toUpperCase();
+    const g = (group || '').trim().toLowerCase(); // <-- ИСПРАВЛЕНО
     return n + '__' + g;
   }
 
@@ -257,9 +257,9 @@
     }
   }
 
-  function userDocIdFor(name, group) {
+ function userDocIdFor(name, group) {
     const n = (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
-    const g = (group || '').trim().toUpperCase();
+    const g = (group || '').trim().toLowerCase(); // <-- ИСПРАВЛЕНО
     return n + '__' + g;
   }
 
