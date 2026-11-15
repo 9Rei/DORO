@@ -1,19 +1,16 @@
-// ============================================================
-//  premium.js — премиум doro: состояние, лимиты, хранилище
-// ============================================================
+// DORO Golden premium state and payment-request workflow
 (function () {
   'use strict';
-
   const PREMIUM_KEY = 'doro.premium.v1';
   const QUIZ_ATTEMPTS_KEY = 'doro.quizAttempts.v1';
   const BRAND_NAME = 'Golden';
   const PRICE_RUB = 79;
   const QUIZ_LIMIT_FREE = 15;
+  const FIRESTORE_MODULE = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-  // ---- чтение/запись состояния ----
   function readPremium() {
     try { return JSON.parse(localStorage.getItem(PREMIUM_KEY) || 'null') || { active: false }; }
-    catch (e) { return { active: false }; }
+    catch (_) { return { active: false }; }
   }
   function savePremium(data) {
     const normalized = {
@@ -21,9 +18,9 @@
       since: Number(data && data.since) || Date.now(),
       expiresAt: Number(data && data.expiresAt) || 0
     };
-    localStorage.setItem(PREMIUM_KEY, JSON.stringify(normalized));
-    // Синхронизируем классы на <html> и уведомляем слушателей один раз.
-    if (normalized.active && (!normalized.expiresAt || normalized.expiresAt > Date.now())) {
+    try { localStorage.setItem(PREMIUM_KEY, JSON.stringify(normalized)); } catch (_) {}
+    const active = normalized.active && (!normalized.expiresAt || normalized.expiresAt > Date.now());
+    if (active) {
       document.documentElement.classList.add('role-premium');
       document.documentElement.classList.remove('role-user');
     } else {
@@ -37,9 +34,7 @@
   }
   function isPremiumActive() {
     const p = readPremium();
-    if (!p.active) return false;
-    if (p.expiresAt && p.expiresAt < Date.now()) return false;
-    return true;
+    return !!p.active && (!p.expiresAt || p.expiresAt > Date.now());
   }
   function daysLeft() {
     const p = readPremium();
@@ -48,158 +43,127 @@
   }
   function activatePremium(days) {
     const data = readPremium();
-    const base = (data.active && data.expiresAt && data.expiresAt > Date.now())
+    const base = data.active && data.expiresAt && data.expiresAt > Date.now()
       ? data.expiresAt : Date.now();
     savePremium({
       active: true,
       since: data.since || Date.now(),
-      expiresAt: base + (days || 30) * 86400000,
+      expiresAt: base + (Number(days) || 30) * 86400000
     });
-    // savePremium уже обновил классы и отправил событие.
-
-    // Сохраняем премиум в облако, чтобы другие устройства могли его увидеть.
+    // Compatibility with the previous UI/API. The authoritative subscription
+    // fields for admin approvals remain users.premiumActive/premiumExpiresAt.
     try {
       if (window.doroCloudReady) {
-        const doroPremiumSnap = readPremium();
+        const snap = readPremium();
         window.doroCloudReady.then(cloud => {
           if (cloud && cloud.saveProfile) {
             const u = JSON.parse(localStorage.getItem('doro.user') || '{}');
-            cloud.saveProfile({
-              ...u,
-              premium: { active: true, expiresAt: doroPremiumSnap.expiresAt }
-            });
+            cloud.saveProfile({ ...u, premium: { active: true, expiresAt: snap.expiresAt } });
           }
         });
       }
-    } catch (e) { /* ignore */ }
-
+    } catch (_) {}
     return true;
   }
   function deactivatePremium() {
     savePremium({ active: false });
-    // savePremium уже обновил классы и отправил событие.
-
-    // Снимаем премиум в облаке.
     try {
       if (window.doroCloudReady) {
         window.doroCloudReady.then(cloud => {
           if (cloud && cloud.saveProfile) {
             const u = JSON.parse(localStorage.getItem('doro.user') || '{}');
-            cloud.saveProfile({
-              ...u,
-              premium: { active: false, expiresAt: 0 }
-            });
+            cloud.saveProfile({ ...u, premium: { active: false, expiresAt: 0 } });
           }
         });
       }
-    } catch (e) { /* ignore */ }
+    } catch (_) {}
   }
-
-  // ---- лимит попыток тестов ----
   function readAttempts() {
     try { return JSON.parse(localStorage.getItem(QUIZ_ATTEMPTS_KEY) || '{}'); }
-    catch (e) { return {}; }
+    catch (_) { return {}; }
   }
-  function getQuizAttempts(subjectKey) {
-    return readAttempts()[subjectKey] || 0;
-  }
-  function addQuizAttempt(subjectKey) {
+  function getQuizAttempts(key) { return readAttempts()[key] || 0; }
+  function addQuizAttempt(key) {
     const all = readAttempts();
-    all[subjectKey] = (all[subjectKey] || 0) + 1;
+    all[key] = (all[key] || 0) + 1;
     localStorage.setItem(QUIZ_ATTEMPTS_KEY, JSON.stringify(all));
   }
-  function canStartQuiz(subjectKey) {
-    if (isPremiumActive()) return true;
-    return getQuizAttempts(subjectKey) < QUIZ_LIMIT_FREE;
+  function canStartQuiz(key) { return isPremiumActive() || getQuizAttempts(key) < QUIZ_LIMIT_FREE; }
+  function quizAttemptsLeft(key) { return isPremiumActive() ? Infinity : Math.max(0, QUIZ_LIMIT_FREE - getQuizAttempts(key)); }
+  function quizAttemptsLabel(key) { return isPremiumActive() ? 'Без лимита' : (quizAttemptsLeft(key) > 0 ? `Осталось ${quizAttemptsLeft(key)}` : 'Лимит исчерпан'); }
+
+  async function firestore() {
+    if (!window.doroDb) throw new Error('Нет подключения к базе данных.');
+    return import(FIRESTORE_MODULE);
   }
-  function quizAttemptsLeft(subjectKey) {
-    if (isPremiumActive()) return Infinity;
-    return Math.max(0, QUIZ_LIMIT_FREE - getQuizAttempts(subjectKey));
+  function timestampMs(v) {
+    if (typeof v === 'number') return v;
+    if (v && typeof v.toMillis === 'function') return v.toMillis();
+    return 0;
   }
-  function quizAttemptsLabel(subjectKey) {
-    if (isPremiumActive()) return 'Без лимита';
-    const left = quizAttemptsLeft(subjectKey);
-    return left > 0 ? `Осталось ${left}` : 'Лимит исчерпан';
+  async function getMyPaymentRequest() {
+    if (!window.doroDb) return null;
+    const uid = window.doroCloud && window.doroCloud.uid;
+    if (!uid) return null;
+    try {
+      const { collection, getDocs, query, where } = await firestore();
+      // No orderBy: avoids requiring a composite index. Sort the small user's request set client-side.
+      const snap = await getDocs(query(collection(window.doroDb, 'payment_requests'), where('uid', '==', uid)));
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      all.sort((a, b) => timestampMs(b.createdAt) - timestampMs(a.createdAt));
+      // Keep the existing pending request visible even if a newer rejected request exists.
+      return all.find(r => r.status === 'pending') ||
+        all.find(r => r.status === 'approved' && timestampMs(r.approvedExpiresAt) > Date.now()) ||
+        all[0] || null;
+    } catch (e) {
+      console.warn('[Golden] getMyPaymentRequest:', e.message || e);
+      return null;
+    }
+  }
+  async function submitPaymentRequest() {
+    if (!window.doroDb) throw new Error('Нет подключения к базе данных.');
+    const uid = window.doroCloud && window.doroCloud.uid;
+    if (!uid) throw new Error('Сначала войди в аккаунт.');
+    const u = JSON.parse(localStorage.getItem('doro.user') || 'null');
+    if (!u || !u.name || !u.group) throw new Error('Сначала заполни имя и группу в профиле.');
+
+    const existing = await getMyPaymentRequest();
+    if (existing && existing.status === 'pending') {
+      // Return the existing request instead of creating duplicates on repeated taps.
+      return existing.id;
+    }
+    if (existing && existing.status === 'approved' && timestampMs(existing.approvedExpiresAt) > Date.now()) {
+      throw new Error('У тебя уже есть одобренная заявка Golden. Если подписка не отображается, обнови страницу или обратись к администратору.');
+    }
+
+    const { collection, doc, setDoc, serverTimestamp } = await firestore();
+    const reqId = 'pay_' + uid + '_' + Date.now();
+    await setDoc(doc(window.doroDb, 'payment_requests', reqId), {
+      uid: String(uid),
+      name: String(u.name).trim(),
+      group: String(u.group).trim(),
+      amount: PRICE_RUB,
+      days: 30,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      source: 'manual_transfer'
+    });
+    return reqId;
   }
 
-  // ---- инициализация ----
   function init() {
     if (isPremiumActive()) {
       document.documentElement.classList.add('role-premium');
       document.documentElement.classList.remove('role-user');
     }
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 
   window.doroPremium = {
-    BRAND_NAME,
-    PRICE_RUB, QUIZ_LIMIT_FREE,
+    BRAND_NAME, PRICE_RUB, QUIZ_LIMIT_FREE,
     isPremiumActive, daysLeft, activatePremium, deactivatePremium,
-    getQuizAttempts, addQuizAttempt, canStartQuiz, quizAttemptsLeft,
-    quizAttemptsLabel,
-    readPremium, savePremium,
-    submitPaymentRequest,
-    getMyPaymentRequest,
+    getQuizAttempts, addQuizAttempt, canStartQuiz, quizAttemptsLeft, quizAttemptsLabel,
+    readPremium, savePremium, submitPaymentRequest, getMyPaymentRequest
   };
-
-  // ============================================================
-  //  ЗАЯВКА НА ОПЛАТУ (для ручной активации)
-  // ============================================================
-  async function submitPaymentRequest() {
-    if (!window.doroDb) throw new Error('Нет подключения к базе');
-    const uid = window.doroCloud?.uid;
-    if (!uid) throw new Error('Нет авторизации');
-
-    const u = JSON.parse(localStorage.getItem('doro.user') || '{}');
-    if (!u.name || !u.group) throw new Error('Сначала заполни имя и группу в профиле');
-
-    const { setDoc, doc, serverTimestamp } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-    );
-
-    const reqId = 'pay_' + uid + '_' + Date.now();
-
-    await setDoc(doc(window.doroDb, 'payment_requests', reqId), {
-      uid,
-      name: u.name,
-      group: u.group,
-      amount: 79,
-      days: 30,
-      status: 'pending',
-      createdAt: serverTimestamp(),
-      source: 'manual_transfer',
-    });
-
-    return reqId;
-  }
-
-  async function getMyPaymentRequest() {
-    if (!window.doroDb) return null;
-    const uid = window.doroCloud?.uid;
-    if (!uid) return null;
-
-    const { query, collection, where, getDocs, orderBy, limit } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-    );
-
-    try {
-      const q = query(
-        collection(window.doroDb, 'payment_requests'),
-        where('uid', '==', uid),
-        orderBy('createdAt', 'desc'),
-        limit(1)
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) return null;
-      const d = snap.docs[0];
-      return { id: d.id, ...d.data() };
-    } catch (e) {
-      console.warn('[pay] getMyPaymentRequest:', e.message);
-      return null;
-    }
-  }
 })();

@@ -15872,7 +15872,7 @@ body.pe-modal-open { overflow: hidden; }
    ПРЕДПРОСМОТР ПРОФИЛЯ ПРИ НАВЕДЕНИИ
    ============================================================ */
 .user-hover {
-  position: absolute;
+  position: fixed;
   z-index: 9999;
   top: 0;
   left: 0;
@@ -17146,4 +17146,89 @@ html.role-admin .nav-admin-link::after {
     max-height: calc(100vh - 24px);
     padding: 22px 16px 18px;
   }
+}
+
+/* DORO profile refresh: cleaner account controls and resilient hover preview */
+.profile-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 8% 0%, color-mix(in srgb, var(--ac, var(--accent)) 16%, transparent), transparent 48%),
+    radial-gradient(ellipse at 100% 100%, rgba(251, 191, 36, .10), transparent 42%),
+    var(--surface, rgba(255,255,255,.72));
+  border: 1px solid color-mix(in srgb, var(--ac, var(--accent)) 20%, var(--border, rgba(120,130,150,.18)));
+  box-shadow: 0 22px 60px -38px color-mix(in srgb, var(--ac, var(--accent)) 45%, transparent), 0 1px 0 rgba(255,255,255,.7) inset;
+}
+.profile-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 12% auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ac, var(--accent)) 65%, white), transparent);
+  pointer-events: none;
+}
+.profile-card__avatar {
+  outline: 5px solid color-mix(in srgb, var(--ac, var(--accent)) 13%, transparent);
+  outline-offset: 4px;
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+#view-profile.is-active .profile-card__avatar:hover { transform: translateY(-2px) scale(1.025); }
+.profile-account-actions {
+  width: min(100%, 430px);
+  margin: 22px auto 0;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+.profile-account-actions__hint {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-soft, #64748b);
+  text-align: center;
+}
+.profile-account-actions__buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; width: 100%; }
+.profile-account-btn {
+  min-height: 42px;
+  border-radius: 14px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.profile-account-btn:hover { transform: translateY(-1px); }
+.profile-account-btn:active { transform: scale(.98); }
+.profile-account-btn:disabled { opacity: .6; cursor: wait; }
+.profile-account-btn[hidden] { display: none !important; }
+.profile-account-btn--primary {
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent, #3b82f6), color-mix(in srgb, var(--accent, #3b82f6) 68%, #8b5cf6));
+  box-shadow: 0 8px 22px -12px var(--accent, #3b82f6);
+}
+.profile-account-btn--quiet {
+  color: var(--text-soft, #64748b);
+  background: color-mix(in srgb, var(--surface, #fff) 82%, transparent);
+  border-color: var(--border, rgba(120,130,150,.25));
+}
+.profile-account-btn--quiet:hover { color: #dc2626; border-color: rgba(220,38,38,.32); background: rgba(220,38,38,.06); }
+.user-hover {
+  max-width: calc(100vw - 24px);
+  z-index: 2147483000;
+  contain: layout style;
+  will-change: top, left, transform, opacity;
+}
+.user-hover__card {
+  width: min(260px, calc(100vw - 24px));
+  max-height: min(360px, calc(100vh - 24px));
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.user-hover__name, .user-hover__status { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .profile-account-actions { margin-top: 18px; }
+  .profile-account-btn { flex: 1 1 145px; }
+  .user-hover__card { width: min(240px, calc(100vw - 24px)); padding: 15px; border-radius: 18px; }
 }

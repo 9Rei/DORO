@@ -1744,11 +1744,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const cloud = await window.doroCloudReady;
       if (!cloud) return;
       await cloud.saveProfile(user || {});
+      // A profile edit must be reflected in the public Users tab without waiting for an old cache.
+      try { localStorage.removeItem('doro.usersCache.v2'); } catch (_) {}
+      if (typeof usersCache !== 'undefined') { usersCache = null; usersCacheTime = 0; }
+      if (typeof renderProfileUsers === 'function' && document.getElementById('panelUsers')?.classList.contains('is-open')) {
+        renderProfileUsers(true);
+      }
     } catch (e) {
       console.warn('Cloud save failed:', e);
     }
   }
   function renderProfile() {
+    const accountLoginBtn = $('profileLoginBtn');
+    const accountLogoutBtn = $('profileLogoutBtn');
+    const accountHint = $('profileAccountHint');
+    const hasAccount = localStorage.getItem('doro.hasPasswordAccount') === '1';
+    if (accountLoginBtn) accountLoginBtn.hidden = hasAccount;
+    if (accountLogoutBtn) accountLogoutBtn.hidden = !hasAccount;
+    if (accountHint) accountHint.textContent = hasAccount
+      ? 'Аккаунт защищён паролем · профиль хранится в облаке'
+      : 'Войди или восстанови аккаунт, чтобы профиль сохранялся в облаке';
+
     const avatarLetter = $('avatarLetter');
     const heroLetter = $('profileHeroLetter');
     const heroAvatar = $('profileHeroAvatar');
@@ -2493,7 +2509,9 @@ function displayUserName(name) {
   }
 
   function userKey(u) {
-    return normalizeUserName(u.name).toLowerCase() + '::' + (u.group || '').trim().toLowerCase();
+    // UID is the real account identity. Name+group is only a fallback for old profiles without UID.
+    if (u && u.uid) return 'uid::' + String(u.uid);
+    return 'legacy::' + normalizeUserName(u && u.name).toLowerCase() + '::' + String(u && u.group || '').trim().toLowerCase();
   }
 
   function mergeUsers(list) {
@@ -2585,7 +2603,7 @@ function displayUserName(name) {
 
   // ---------- КЭШ ПОЛЬЗОВАТЕЛЕЙ ----------
   const USERS_CACHE_KEY = 'doro.usersCache.v2'; // v2 — сбросит старый кэш на 200 записей
-  const USERS_CACHE_TTL = 60 * 60 * 1000; // 1 час: обновления профилей не висят в кэше неделями
+  const USERS_CACHE_TTL = 5 * 60 * 1000; // 5 минут; ручное обновление доступно сразу
   let usersFetching = false;
 
   // Пытаемся загрузить кэш из localStorage при старте
@@ -6552,6 +6570,40 @@ function renderPreparations(preparations, tasks) {
     document.body.classList.remove('onboard-open');
   }
 
+  const profileLoginBtn = $('profileLoginBtn');
+  const profileLogoutBtn = $('profileLogoutBtn');
+  if (profileLoginBtn) profileLoginBtn.addEventListener('click', () => {
+    openAuth('login', 'form');
+  });
+  if (profileLogoutBtn) profileLogoutBtn.addEventListener('click', async () => {
+    if (!confirm('Выйти из аккаунта на этом устройстве? Данные профиля в облаке останутся.')) return;
+    profileLogoutBtn.disabled = true;
+    profileLogoutBtn.textContent = 'Выхожу…';
+    try {
+      const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
+      if (cloud && typeof cloud.logout === 'function' && !cloud.isAnonymous) {
+        await cloud.logout();
+      }
+      localStorage.removeItem('doro.hasPasswordAccount');
+      localStorage.removeItem(AUTH_LOGIN_KEY);
+      localStorage.removeItem('doro.user');
+      localStorage.removeItem('doro.premium.v1');
+      localStorage.removeItem('doro.premium.backup');
+      user = null;
+      document.documentElement.classList.remove('role-premium');
+      saveUser();
+      renderProfile();
+      showView('profile');
+      openAuth('register', 'choice');
+    } catch (e) {
+      console.error('[profile] logout failed:', e);
+      alert('Не удалось выйти: ' + (e.message || e));
+    } finally {
+      profileLogoutBtn.disabled = false;
+      profileLogoutBtn.textContent = 'Выйти из аккаунта';
+    }
+  });
+
   if (authModal) {
     // Цепочка группы в форме
     if (authLetters && authYear && authNum) {
@@ -6645,6 +6697,7 @@ function renderPreparations(preparations, tasks) {
         if (!cloud) {
           if (!user) user = {};
           user.name = name; user.group = group;
+          user.uid = cloud.uid || user.uid || '';
           user.status = user.status || USER_STATUSES[0];
           user.color  = user.color  || '#3b82f6';
           saveUser();
@@ -6660,6 +6713,7 @@ function renderPreparations(preparations, tasks) {
 
           user = user || {};
           user.name = name; user.group = group;
+          user.uid = cloud.uid || user.uid || '';
           user.status = user.status || USER_STATUSES[0];
           user.color  = user.color  || '#3b82f6';
           saveUser();
@@ -6758,25 +6812,34 @@ function renderPreparations(preparations, tasks) {
       try {
         const profile = await cloud.getMyProfile(user);
         if (profile) {
-  user = {
-    name:          profile.name          || '',
-    group:         profile.group         || '',
-    status:        profile.status        || USER_STATUSES[0],
-    color:         profile.color         || '#3b82f6',
-    avatarEmoji:   profile.avatarEmoji   || '',           // <-- добавить
-    avatarFrame:   profile.avatarFrame   || 'none',       // <-- добавить
-    profileBg:     profile.profileBg     || 'default',    // <-- добавить
-    profileBadge:  profile.profileBadge  || 'none',       // <-- добавить
-    profileEffect: profile.profileEffect || 'default'     // <-- добавить
-  };
-  saveUser();
-
-          // Облако имеет приоритет только когда поле подписки действительно присутствует.
-          // Старые документы без premiumActive не должны сбрасывать локальную Golden.
+          user = {
+            name: profile.name || user?.name || '',
+            group: profile.group || user?.group || '',
+            uid: profile.uid || cloud.uid || user?.uid || '',
+            status: profile.status || user?.status || USER_STATUSES[0],
+            color: profile.color || user?.color || '#3b82f6',
+            avatarEmoji: profile.avatarEmoji || user?.avatarEmoji || '',
+            avatarFrame: profile.avatarFrame || user?.avatarFrame || 'none',
+            profileBg: profile.profileBg || user?.profileBg || 'default',
+            profileBadge: profile.profileBadge || user?.profileBadge || 'none',
+            profileEffect: profile.profileEffect || user?.profileEffect || 'default'
+          };
+          saveUser();
+          // Cloud wins only when the subscription field exists in the document.
           applyCloudPremium(profile);
           markPremiumSync(user);
+        } else if (user && user.name && user.group) {
+          // Auth account still exists, but its Firestore profile was deleted.
+          // Restore it with the current authenticated UID from the local profile draft.
+          await cloud.saveProfile(user);
+          try { localStorage.removeItem('doro.usersCache.v2'); } catch (_) {}
+          usersCache = null;
+          usersCacheTime = 0;
+          console.info('[auth] Missing Firestore profile restored from local profile data.');
+        } else {
+          console.warn('[auth] Signed-in account has no Firestore profile and no local profile draft.');
         }
-      } catch (e) { console.warn('profile load:', e); }
+      } catch (e) { console.warn('profile load/restore:', e); }
       renderProfile();
       return;
     }
@@ -7108,23 +7171,22 @@ function renderPreparations(preparations, tasks) {
   function position(anchor) {
     if (!pop || !anchor) return;
     const r = anchor.getBoundingClientRect();
-    const popRect = pop.getBoundingClientRect();
-    const margin = 10;
+    const card = pop.querySelector('.user-hover__card');
+    const box = card ? card.getBoundingClientRect() : pop.getBoundingClientRect();
+    const margin = 12;
+    const gap = 10;
+    const width = Math.min(box.width || 260, window.innerWidth - margin * 2);
+    let left = r.left + (r.width - width) / 2;
+    left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
 
-    let top = r.bottom + window.scrollY + margin;
-    let left = r.left + window.scrollX;
-
-    if (left + popRect.width > window.innerWidth - 12) {
-      left = window.innerWidth - popRect.width - 12 + window.scrollX;
+    // Prefer below the hovered chip; flip above if there is not enough room.
+    let top = r.bottom + gap;
+    if (top + box.height > window.innerHeight - margin && r.top - box.height - gap >= margin) {
+      top = r.top - box.height - gap;
     }
-    if (left < 12 + window.scrollX) left = 12 + window.scrollX;
-
-    if (r.bottom + popRect.height + margin > window.innerHeight && r.top > popRect.height + margin) {
-      top = r.top + window.scrollY - popRect.height - margin;
-    }
-
-    pop.style.top  = top + 'px';
-    pop.style.left = left + 'px';
+    top = Math.max(margin, Math.min(top, window.innerHeight - box.height - margin));
+    pop.style.left = `${Math.round(left)}px`;
+    pop.style.top = `${Math.round(top)}px`;
   }
 
   function show(u, anchor) {
@@ -7160,6 +7222,7 @@ function renderPreparations(preparations, tasks) {
   document.addEventListener('mouseover', (e) => {
     const el = e.target.closest('[data-preview-user]');
     if (!el) return;
+    if (e.relatedTarget && el.contains(e.relatedTarget)) return;
     if (currentAnchor === el) return;
 
     // Если уже открыт попап для другого элемента — не переключаем сразу,

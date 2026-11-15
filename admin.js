@@ -1,483 +1,459 @@
-// ============================================================
-//  admin.js — встроенная админ-панель для создателя
-// ============================================================
+// DORO Golden approval workflow — replacement for admin.js
+// Firestore schema: users/{normalizedName}__{normalizedGroup}
+//   premiumActive: boolean, premiumExpiresAt: number (Unix ms), updatedAt: timestamp
+// payment_requests/{requestId}
+//   uid, name, group, amount, days, status, createdAt, approvedAt, approvedExpiresAt, source
 (function () {
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-
+  const FIRESTORE_MODULE = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
   let activeTab = 'requests';
-  let _interval = null;
+  let refreshTimer = null;
+  let initialized = false;
+  let busy = false;
 
-  // ---------- Проверка роли ----------
-  function isAdmin() {
-    return document.documentElement.classList.contains('role-admin');
-  }
-
-  // ---------- Утилиты ----------
-  function escapeHtml(s) {
-    return String(s || '').replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
-  }
-
-  function userDocId(name, group) {
-    const n = (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
-    const g = (group || '').trim().toLowerCase(); // <-- ИСПРАВЛЕНО
-    return n + '__' + g;
-  }
-
-  function pluralDays(n) {
-    const m10 = n % 10, m100 = n % 100;
-    if (m10 === 1 && m100 !== 11) return 'день';
-    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'дня';
+  const normalize = (v) => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const escapeHtml = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+  const userDocId = (name, group) => `${normalize(name)}__${normalize(group)}`;
+  const msOf = (v) => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (v && typeof v.toMillis === 'function') return v.toMillis();
+    if (v instanceof Date) return v.getTime();
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const formatDate = (v) => {
+    const ms = msOf(v);
+    return ms > 0 ? new Date(ms).toLocaleDateString('ru-RU', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    }) : '—';
+  };
+  const agoText = (v) => {
+    const ms = msOf(v);
+    if (!ms) return '';
+    const mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
+    if (mins < 1) return 'только что';
+    if (mins < 60) return `${mins} мин назад`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours} ч назад`;
+    return `${Math.round(hours / 24)} дн назад`;
+  };
+  const pluralDays = (n) => {
+    const x = Math.abs(Number(n) || 0), a = x % 10, b = x % 100;
+    if (a === 1 && b !== 11) return 'день';
+    if (a >= 2 && a <= 4 && (b < 10 || b >= 20)) return 'дня';
     return 'дней';
-  }
-
-  function agoText(ts) {
-    if (!ts) return '';
-    const ms = typeof ts === 'number' ? ts : (ts.toMillis ? ts.toMillis() : new Date(ts).getTime());
-    const diff = Date.now() - ms;
-    const m = Math.round(diff / 60000);
-    if (m < 1) return 'только что';
-    if (m < 60) return m + ' мин назад';
-    const h = Math.round(m / 60);
-    if (h < 24) return h + ' ч назад';
-    const d = Math.round(h / 24);
-    return d + ' дн назад';
-  }
-
-  // ---------- Заявки ----------
-  async function loadRequests() {
-    const panel = $('adminPanel');
-    const badge = $('adminRequestsBadge');
-    if (!panel) return;
-
-    if (!window.doroDb) {
-      panel.innerHTML = '<div class="admin-empty"><div class="admin-empty__icon">⚠️</div><b>Нет подключения к базе</b><span>Проверь Firebase</span></div>';
-      return;
-    }
-
+  };
+  const firestore = async () => {
+    if (!window.doroDb) throw new Error('Firebase Firestore не подключён. Проверь firebase.js.');
+    return import(FIRESTORE_MODULE);
+  };
+  const clearUserCache = () => {
     try {
-      const { getDocs, collection, query, where, orderBy } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-      );
+      localStorage.removeItem('doro.usersCache.v2');
+      localStorage.removeItem('doro.usersCache');
+    } catch (_) {}
+  };
+  const getRequest = async (reqId) => {
+    const { doc, getDoc } = await firestore();
+    const snap = await getDoc(doc(window.doroDb, 'payment_requests', reqId));
+    if (!snap.exists()) throw new Error('Заявка не найдена. Обнови список.');
+    return { id: snap.id, ...snap.data() };
+  };
 
-      const q = query(
-        collection(window.doroDb, 'payment_requests'),
-        where('status', '==', 'pending'),
-        orderBy('createdAt', 'desc')
-      );
-      const snap = await getDocs(q);
+  // Resolve the profile by UID first. If that lookup succeeds, do not mix its
+  // result with name/group-derived IDs: those legacy IDs may point to the same
+  // person and create a false "multiple profiles" error.
+  async function getCandidateUserRefs(request) {
+    const { collection, doc, getDocs, query, where } = await firestore();
 
-      if (badge) {
-        badge.hidden = snap.size === 0;
-        badge.textContent = String(snap.size);
+    if (request.uid) {
+      try {
+        const snap = await getDocs(query(
+          collection(window.doroDb, 'users'),
+          where('uid', '==', String(request.uid))
+        ));
+        if (!snap.empty) {
+          // If multiple documents really carry this UID, return only those
+          // exact UID matches so the transaction can report the actual conflict.
+          return snap.docs.map(d => doc(window.doroDb, 'users', d.id));
+        }
+        // A successful UID query returned zero documents. Fall back to the two
+        // historical IDs, but transaction validation below will never treat a
+        // different UID as the requested user.
+      } catch (e) {
+        // Query may be denied by legacy rules; try deterministic document IDs.
+        console.warn('[Golden] UID profile lookup failed; trying deterministic IDs:', e.message || e);
       }
-
-      if (snap.empty) {
-        panel.innerHTML = `
-          <button type="button" class="admin-refresh" id="adminRefreshBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-            Обновить
-          </button>
-          <div class="admin-empty">
-            <div class="admin-empty__icon">🎉</div>
-            <b>Заявок нет</b>
-            <span>Как только кто-то нажмёт «Я оплатил» — заявка появится здесь.</span>
-          </div>
-        `;
-        bindRefresh();
-        return;
-      }
-
-      let html = `
-        <button type="button" class="admin-refresh" id="adminRefreshBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-          Обновить
-        </button>
-        <div class="admin-group-title">
-          <b>Ожидают подтверждения</b>
-          <span>${snap.size} ${snap.size === 1 ? 'заявка' : (snap.size < 5 ? 'заявки' : 'заявок')}</span>
-        </div>
-      `;
-
-      snap.docs.forEach(docSnap => {
-        const r = docSnap.data();
-        const id = docSnap.id;
-        const reqId = escapeHtml(id);
-        const name = escapeHtml(r.name || '?');
-        const group = escapeHtml(r.group || '?');
-        const amount = r.amount || 79;
-        const days = r.days || 30;
-        const ago = agoText(r.createdAt);
-
-        html += `
-          <div class="admin-req" data-req-id="${reqId}">
-            <div class="admin-req__body">
-              <div class="admin-req__name">
-                ${name}
-                <span class="admin-req__badge">${group}</span>
-              </div>
-              <div class="admin-req__meta">
-                <span><b>${amount} ₽</b></span>
-                <span>·</span>
-                <span>${days} ${pluralDays(days)} Golden</span>
-                ${ago ? `<span>·</span><span class="admin-req__ago">${ago}</span>` : ''}
-              </div>
-            </div>
-            <div class="admin-req__actions">
-              <button type="button" class="admin-btn admin-btn--approve" data-approve="${reqId}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                Активировать
-              </button>
-              <button type="button" class="admin-btn admin-btn--reject" data-reject="${reqId}">
-                Отклонить
-              </button>
-            </div>
-          </div>
-        `;
-      });
-
-      panel.innerHTML = html;
-
-      panel.querySelectorAll('[data-approve]').forEach(btn => {
-        btn.addEventListener('click', () => approveRequest(btn.dataset.approve, btn));
-      });
-      panel.querySelectorAll('[data-reject]').forEach(btn => {
-        btn.addEventListener('click', () => rejectRequest(btn.dataset.reject, btn));
-      });
-      bindRefresh();
-    } catch (e) {
-      console.error('[admin] loadRequests:', e);
-      panel.innerHTML = `
-        <div class="admin-empty">
-          <div class="admin-empty__icon">⚠️</div>
-          <b>Не удалось загрузить</b>
-          <span>${escapeHtml(e.message || 'Ошибка')}</span>
-          <span style="font-size:11.5px; opacity:0.7; margin-top:8px;">
-            Возможно, нужно создать composite index в Firestore:<br>
-            <code>payment_requests: status ASC, createdAt DESC</code>
-          </span>
-        </div>
-      `;
     }
+
+    const n = normalize(request.name);
+    const group = String(request.group || '').trim().replace(/\\s+/g, ' ');
+    const ids = new Set();
+    if (n && group) {
+      ids.add(`${n}__${normalize(group)}`);
+      ids.add(`${n}__${group.toLowerCase()}`);
+      ids.add(`${n}__${group.toUpperCase()}`);
+    }
+    return [...ids].filter(Boolean).map(id => doc(window.doroDb, 'users', id));
+  }
+
+  function isSamePerson(data, request) {
+    if (!data) return false;
+
+    // If the request has a UID, UID is the ONLY matching key.
+    // A profile with another UID OR with no UID is not considered the same person.
+    // This prevents same-name/same-group legacy profiles from creating ambiguity.
+    if (request.uid) return String(data.uid || '') === String(request.uid);
+
+    // Only legacy requests that genuinely have no UID may use name + group.
+    return normalize(data.name) === normalize(request.name) &&
+      normalize(data.group) === normalize(request.group);
+  }
+
+  async function applyRequest(reqId, mode) {
+    if (busy) throw new Error('Дождись завершения предыдущей операции.');
+    busy = true;
+    try {
+      const { doc, getDoc, runTransaction, serverTimestamp } = await firestore();
+      const reqRef = doc(window.doroDb, 'payment_requests', reqId);
+      const request = await getRequest(reqId);
+      if (!request.uid || !request.name || !request.group) {
+        throw new Error('В заявке отсутствует UID, имя или группа. Не активируй её вручную — сначала проверь документ заявки.');
+      }
+      const refs = await getCandidateUserRefs(request);
+      if (!refs.length) throw new Error('Не удалось определить документ пользователя.');
+      const now = Date.now();
+      const result = await runTransaction(window.doroDb, async (tx) => {
+        const reqSnap = await tx.get(reqRef);
+        if (!reqSnap.exists()) throw new Error('Заявка была удалена.');
+        const req = reqSnap.data();
+        const userSnaps = await Promise.all(refs.map(ref => tx.get(ref)));
+        const candidates = userSnaps.map((snap, i) => ({
+          snap, ref: refs[i], data: snap.exists() ? snap.data() : null
+        })).filter(x => x.snap.exists() && isSamePerson(x.data, req));
+        candidates.sort((a, b) => {
+          const auid = req.uid && a.data.uid === req.uid ? 1 : 0;
+          const buid = req.uid && b.data.uid === req.uid ? 1 : 0;
+          return buid - auid;
+        });
+        let chosen = candidates[0] || null;
+        if (candidates.length > 1) {
+          const ids = candidates.map(x => x.ref.id);
+          throw new Error(
+            `В users действительно найдено несколько документов с UID этой заявки: ${ids.join(', ')}. ` +
+            'Это уже конфликт данных Firestore; ничего не изменено. Проверь эти документы вручную.'
+          );
+        }
+        if (chosen && req.uid && String(chosen.data.uid || '') !== String(req.uid)) {
+          throw new Error('UID заявки не совпадает с UID профиля. Активация остановлена для защиты аккаунта.');
+        }
+        // Never overwrite an existing profile that did not match the request UID.
+        // Creating a profile is allowed only if all deterministic candidate docs are absent.
+        if (!chosen && userSnaps.some(snap => snap.exists())) {
+          const existingIds = userSnaps.filter(snap => snap.exists()).map(snap => snap.id);
+          throw new Error(
+            `Профиль по ожидаемому имени/группе уже существует, но UID не совпадает или отсутствует (${existingIds.join(', ')}). ` +
+            'Ничего не изменено. Проверь UID заявки и документ пользователя.'
+          );
+        }
+
+        const status = String(req.status || 'pending').toLowerCase();
+        let expiresAt = msOf(req.approvedExpiresAt);
+        if (mode === 'approve') {
+          if (status === 'rejected' || status === 'revoked') {
+            throw new Error('Заявка отклонена или отозвана. Попроси пользователя отправить новую заявку.');
+          }
+          if (status === 'approved') {
+            // Idempotent repair: do NOT add days again to an already-approved request.
+            if (!expiresAt) throw new Error('Заявка уже одобрена, но approvedExpiresAt отсутствует. Исправь срок в документе заявки.');
+          } else {
+            const days = Math.max(1, Math.min(3650, Math.floor(Number(req.days) || 30)));
+            const current = chosen && chosen.data ? chosen.data : {};
+            const existingExpiry = current.premiumActive === true ? msOf(current.premiumExpiresAt) : 0;
+            expiresAt = Math.max(now, existingExpiry) + days * 86400000;
+          }
+        } else if (mode === 'repair') {
+          if (status !== 'approved') throw new Error('Восстановить профиль можно только для одобренной заявки.');
+          if (!expiresAt) throw new Error('В заявке отсутствует approvedExpiresAt. Срок нельзя безопасно восстановить.');
+        } else {
+          throw new Error('Неизвестная операция.');
+        }
+
+        const profileRef = chosen ? chosen.ref : refs[0];
+        const profileData = chosen && chosen.data ? chosen.data : {};
+        const isActive = expiresAt > now;
+        tx.set(profileRef, {
+          name: profileData.name || req.name,
+          group: profileData.group || req.group,
+          uid: profileData.uid || req.uid,
+          premiumActive: isActive,
+          premiumExpiresAt: isActive ? expiresAt : 0,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        if (status !== 'approved') {
+          tx.update(reqRef, {
+            status: 'approved',
+            approvedAt: serverTimestamp(),
+            approvedExpiresAt: expiresAt,
+            approvedProfileId: profileRef.id
+          });
+        } else if (!req.approvedProfileId) {
+          tx.update(reqRef, { approvedProfileId: profileRef.id });
+        }
+        return { expiresAt, active: isActive, profileId: profileRef.id, alreadyApproved: status === 'approved' };
+      });
+      clearUserCache();
+      return result;
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function rejectRequest(reqId, btn) {
+    if (!confirm('Отклонить эту заявку?')) return;
+    const old = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Отклоняю…'; }
+    try {
+      const { doc, updateDoc, serverTimestamp } = await firestore();
+      const req = await getRequest(reqId);
+      if (req.status === 'approved') throw new Error('Заявка уже одобрена. Используй действие отзыва в разделе «Активированные».');
+      await updateDoc(doc(window.doroDb, 'payment_requests', reqId), {
+        status: 'rejected', rejectedAt: serverTimestamp()
+      });
+      await render();
+    } catch (e) {
+      console.error('[Golden] reject:', e);
+      alert('Не удалось отклонить заявку: ' + (e.message || e));
+      if (btn) { btn.disabled = false; btn.textContent = old || 'Отклонить'; }
+    }
+  }
+
+  async function revokeRequest(reqId, btn) {
+    if (!confirm('Отозвать Golden по этой заявке? Если у пользователя есть другая действующая одобренная заявка, срок будет пересчитан по ней.')) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Отзываю…'; }
+    try {
+      const { collection, doc, getDocs, query, where, runTransaction, serverTimestamp } = await firestore();
+      const request = await getRequest(reqId);
+      const refs = await getCandidateUserRefs(request);
+      // Find other approved requests for the same UID; query by UID only to avoid composite-index dependency.
+      let otherExpiry = 0;
+      if (request.uid) {
+        const snap = await getDocs(query(collection(window.doroDb, 'payment_requests'), where('uid', '==', request.uid)));
+        snap.docs.forEach(d => {
+          if (d.id === reqId) return;
+          const r = d.data();
+          if (r.status === 'approved') otherExpiry = Math.max(otherExpiry, msOf(r.approvedExpiresAt));
+        });
+      }
+      const reqRef = doc(window.doroDb, 'payment_requests', reqId);
+      await runTransaction(window.doroDb, async (tx) => {
+        const reqSnap = await tx.get(reqRef);
+        if (!reqSnap.exists()) throw new Error('Заявка не найдена.');
+        const req = reqSnap.data();
+        const userSnaps = await Promise.all(refs.map(ref => tx.get(ref)));
+        const candidate = userSnaps.map((snap, i) => ({ snap, ref: refs[i], data: snap.exists() ? snap.data() : null }))
+          .find(x => x.snap.exists() && isSamePerson(x.data, req));
+        tx.update(reqRef, { status: 'revoked', revokedAt: serverTimestamp() });
+        if (candidate) {
+          const keepActive = otherExpiry > Date.now();
+          tx.set(candidate.ref, {
+            premiumActive: keepActive,
+            premiumExpiresAt: keepActive ? otherExpiry : 0,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        }
+      });
+      clearUserCache();
+      await render();
+      alert(otherExpiry > Date.now()
+        ? `Эта заявка отозвана. У пользователя сохранён другой срок Golden до ${formatDate(otherExpiry)}.`
+        : 'Заявка отозвана, Golden отключён.');
+    } catch (e) {
+      console.error('[Golden] revoke:', e);
+      alert('Не удалось отозвать Golden: ' + (e.message || e));
+      if (btn) { btn.disabled = false; btn.textContent = 'Отозвать'; }
+    }
+  }
+
+  function refreshButton() {
+    return `<button type="button" class="admin-refresh" id="adminRefreshBtn">↻ Обновить</button>`;
+  }
+
+  async function loadByStatus(status) {
+    const { collection, getDocs, query, where } = await firestore();
+    const snap = await getDocs(query(collection(window.doroDb, 'payment_requests'), where('status', '==', status)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) =>
+      msOf(b.createdAt || b.approvedAt) - msOf(a.createdAt || a.approvedAt));
   }
 
   function bindRefresh() {
     const btn = $('adminRefreshBtn');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-        loadRequests().finally(() => {
-          btn.disabled = false;
-          btn.style.opacity = '';
-        });
-      });
-    }
-  }
-
-  // ---------- Одобрение ----------
-  async function approveRequest(reqId, btn) {
-    if (!confirm('Активировать Golden на 30 дней для этой заявки?')) return;
-
-    btn.disabled = true;
-    const oldText = btn.innerHTML;
-    btn.innerHTML = 'Активирую…';
-
-    try {
-      const {
-        getDoc, doc, updateDoc, serverTimestamp, runTransaction
-      } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-      const reqRef = doc(window.doroDb, 'payment_requests', reqId);
-      const reqSnap = await getDoc(reqRef);
-      if (!reqSnap.exists()) throw new Error('Заявка не найдена');
-
-      const r = reqSnap.data();
-      const days = r.days || 30;
-      const userDocId = userDocIdFor(r.name, r.group);
-      const userRef = doc(window.doroDb, 'users', userDocId);
-
-      // Транзакция: активируем Golden и помечаем заявку
-      const result = await runTransaction(window.doroDb, async (tx) => {
-        const userSnap = await tx.get(userRef);
-        const cur = userSnap.exists() ? userSnap.data() : {};
-        const base = (cur.premiumActive && cur.premiumExpiresAt > Date.now())
-          ? cur.premiumExpiresAt
-          : Date.now();
-        const newExpires = base + days * 86400000;
-
-        tx.set(userRef, {
-          premiumActive: true,
-          premiumExpiresAt: newExpires,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-
-        tx.update(reqRef, {
-          status: 'approved',
-          approvedAt: serverTimestamp(),
-          approvedExpiresAt: newExpires
-        });
-
-        return { newExpires };
-      });
-
-      // Сбрасываем локальный кэш списка пользователей, чтобы Golden обновился сразу.
-      try { localStorage.removeItem('doro.usersCache.v2'); } catch (_) {}
-      // Уведомление
-      const date = new Date(result.newExpires).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-      alert(`Golden активирован до ${date}. На других устройствах обновится при следующей проверке или входе.`);
-
-      loadRequests();
-    } catch (e) {
-      console.error('[admin] approve:', e);
-      alert('Ошибка: ' + (e.message || e));
-      btn.disabled = false;
-      btn.innerHTML = oldText;
-    }
-  }
-
-  // ---------- Отклонение ----------
-  async function rejectRequest(reqId, btn) {
-    if (!confirm('Отклонить заявку? Пользователь получит отказ.')) return;
-
-    btn.disabled = true;
-    try {
-      const { updateDoc, doc, serverTimestamp } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-      );
-      await updateDoc(doc(window.doroDb, 'payment_requests', reqId), {
-        status: 'rejected',
-        rejectedAt: serverTimestamp()
-      });
-      loadRequests();
-    } catch (e) {
-      alert('Ошибка: ' + e.message);
-      btn.disabled = false;
-    }
-  }
-
- function userDocIdFor(name, group) {
-    const n = (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
-    const g = (group || '').trim().toLowerCase(); // <-- ИСПРАВЛЕНО
-    return n + '__' + g;
-  }
-
-  // ---------- Переключение вкладок ----------
-  function bindTabs() {
-    document.querySelectorAll('[data-admin-tab]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tab = btn.dataset.adminTab;
-        if (tab === activeTab) return;
-        activeTab = tab;
-        document.querySelectorAll('[data-admin-tab]').forEach(b => {
-          b.classList.toggle('is-active', b.dataset.adminTab === tab);
-        });
-        render();
-      });
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try { await render(); } finally { if (btn.isConnected) btn.disabled = false; }
     });
   }
 
-  // ---------- Рендер текущей вкладки ----------
-  function render() {
-    if (activeTab === 'requests') {
-      loadRequests();
-    } else if (activeTab === 'activated') {
-      renderActivatedTab();
-    }
-  }
-
-  // ---------- Активированные подписки ----------
-  async function renderActivatedTab() {
+  async function renderRequests() {
     const panel = $('adminPanel');
-    if (!panel) return;
-
-    panel.innerHTML = `
-      <button type="button" class="admin-refresh" id="adminRefreshBtn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-        Обновить
-      </button>
-      <div id="adminActivatedList">
-        <div class="admin-empty">Загрузка…</div>
-      </div>
-    `;
+    const badge = $('adminRequestsBadge');
+    panel.innerHTML = `${refreshButton()}<div class="admin-empty">Загрузка заявок…</div>`;
     bindRefresh();
-    loadActivated();
-  }
-
-  async function loadActivated() {
-    const list = $('adminActivatedList');
-    if (!list || !window.doroDb) return;
-
     try {
-      const { getDocs, collection, query, where, orderBy } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-      );
-
-      // Берём заявки со статусом approved
-      const q = query(
-        collection(window.doroDb, 'payment_requests'),
-        where('status', '==', 'approved'),
-        orderBy('approvedAt', 'desc')
-      );
-      const snap = await getDocs(q);
-
-      if (snap.empty) {
-        list.innerHTML = `
-          <div class="admin-empty">
-            <div class="admin-empty__icon">💎</div>
-            <b>Пока никого</b>
-            <span>Как только ты активируешь первую заявку — она появится здесь.</span>
-          </div>
-        `;
-        return;
+      const requests = await loadByStatus('pending');
+      if (badge) {
+        badge.hidden = !requests.length;
+        badge.textContent = String(requests.length);
       }
-
-      list.innerHTML = '';
-      snap.docs.forEach(d => {
-        const r = d.data();
-        const reqId = d.id;
-        const name = escapeHtml(r.name || '?');
-        const group = escapeHtml(r.group || '?');
-        const uid = escapeHtml(r.uid || '—');
-        const days = r.days || 30;
-        const expires = r.approvedExpiresAt
-          ? new Date(r.approvedExpiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-          : '—';
-        const approvedAt = r.approvedAt?.toMillis
-          ? new Date(r.approvedAt.toMillis()).toLocaleDateString('ru-RU')
-          : '—';
-
-        const el = document.createElement('div');
-        el.className = 'admin-req';
-        el.innerHTML = `
+      if (!requests.length) {
+        panel.innerHTML = `${refreshButton()}<div class="admin-empty"><div class="admin-empty__icon">🎉</div><b>Заявок нет</b><span>Новые заявки появятся здесь.</span></div>`;
+        bindRefresh(); return;
+      }
+      panel.innerHTML = `${refreshButton()}<div class="admin-group-title"><b>Ожидают подтверждения</b><span>${requests.length}</span></div>` +
+        requests.map(r => `<article class="admin-req" data-req-id="${escapeHtml(r.id)}">
           <div class="admin-req__body">
-            <div class="admin-req__name">
-              ${name}
-              <span class="admin-req__badge">${group}</span>
-            </div>
-            <div class="admin-req__meta">
-              <span><b>${days}</b> ${pluralDays(days)} Golden</span>
-              <span>·</span>
-              <span>до <b>${expires}</b></span>
-              <span>·</span>
-              <span class="admin-req__ago">активирована ${approvedAt}</span>
-            </div>
-            <div class="admin-req__meta" style="margin-top:6px;">
-              <span style="font-family: 'SFMono-Regular', Consolas, monospace; font-size:11px; word-break:break-all;">
-                UID: <b>${uid}</b>
-              </span>
-            </div>
+            <div class="admin-req__name">${escapeHtml(r.name || 'Без имени')} <span class="admin-req__badge">${escapeHtml(r.group || 'Без группы')}</span></div>
+            <div class="admin-req__meta"><b>${escapeHtml(r.amount == null ? 79 : r.amount)} ₽</b> · ${escapeHtml(r.days || 30)} ${pluralDays(r.days || 30)} Golden ${agoText(r.createdAt) ? '· ' + escapeHtml(agoText(r.createdAt)) : ''}</div>
+            <div class="admin-req__meta">UID: <code>${escapeHtml(r.uid || 'не указан')}</code></div>
           </div>
           <div class="admin-req__actions">
-            <button type="button" class="admin-btn admin-btn--reject" data-revoke="${escapeHtml(reqId)}" data-name="${name}" data-group="${group}">
-              Отозвать
-            </button>
-          </div>
-        `;
-        list.appendChild(el);
-      });
-
-      // Обработчик отзыва
-      list.querySelectorAll('[data-revoke]').forEach(btn => {
-        btn.addEventListener('click', () => revokeActivation(btn.dataset.revoke, btn.dataset.name, btn.dataset.group, btn));
-      });
-
+            <button type="button" class="admin-btn admin-btn--approve" data-approve="${escapeHtml(r.id)}">✓ Активировать</button>
+            <button type="button" class="admin-btn admin-btn--reject" data-reject="${escapeHtml(r.id)}">Отклонить</button>
+          </div></article>`).join('');
+      panel.querySelectorAll('[data-approve]').forEach(btn => btn.addEventListener('click', async () => {
+        if (!confirm('Подтвердить оплату и активировать Golden на срок, указанный в заявке?')) return;
+        btn.disabled = true; btn.textContent = 'Активирую…';
+        try {
+          const result = await applyRequest(btn.dataset.approve, 'approve');
+          alert(result.active
+            ? `Golden активирован до ${formatDate(result.expiresAt)}. Профиль: ${result.profileId}.`
+            : `Заявка обработана, но срок уже истёк (${formatDate(result.expiresAt)}).`);
+          await render();
+        } catch (e) {
+          console.error('[Golden] approve:', e);
+          alert('Не удалось активировать Golden: ' + (e.message || e));
+          btn.disabled = false; btn.textContent = '✓ Активировать';
+        }
+      }));
+      panel.querySelectorAll('[data-reject]').forEach(btn => btn.addEventListener('click', () => rejectRequest(btn.dataset.reject, btn)));
+      bindRefresh();
     } catch (e) {
-      console.error('[admin] loadActivated:', e);
-      list.innerHTML = `<div class="admin-empty">Ошибка: ${escapeHtml(e.message || 'Не удалось загрузить')}</div>`;
+      console.error('[Golden] pending list:', e);
+      panel.innerHTML = `${refreshButton()}<div class="admin-empty"><b>Не удалось загрузить заявки</b><span>${escapeHtml(e.message || e)}</span><span>Проверь Firestore Rules и подключение.</span></div>`;
+      bindRefresh();
     }
   }
 
-  async function revokeActivation(reqId, name, group, btn) {
-    if (!confirm(`Отозвать Golden у ${name} (${group})? Подписка снимется, заявка снова станет "ожидает".`)) return;
-
-    btn.disabled = true;
-    btn.textContent = 'Отзываю…';
-
+  async function renderActivated() {
+    const panel = $('adminPanel');
+    const badge = $('adminRequestsBadge');
+    panel.innerHTML = `${refreshButton()}<div class="admin-empty">Загрузка активированных заявок…</div>`;
+    bindRefresh();
     try {
-      const { getDoc, doc, updateDoc, setDoc, serverTimestamp } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-      );
-
-      // Возвращаем заявку в pending
-      await updateDoc(doc(window.doroDb, 'payment_requests', reqId), {
-        status: 'pending',
-        approvedAt: null,
-        approvedExpiresAt: null
-      });
-
-      // Снимаем премиум у пользователя
-      const userDocId = userDocIdFor(name, group);
-      const userRef = doc(window.doroDb, 'users', userDocId);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        await setDoc(userRef, {
-          premiumActive: false,
-          premiumExpiresAt: 0,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+      const approved = await loadByStatus('approved');
+      if (badge) badge.hidden = true;
+      if (!approved.length) {
+        panel.innerHTML = `${refreshButton()}<div class="admin-empty"><div class="admin-empty__icon">💎</div><b>Одобренных заявок нет</b></div>`;
+        bindRefresh(); return;
       }
-
-      try { localStorage.removeItem('doro.usersCache.v2'); } catch (_) {}
-      alert('Golden отозван. Заявка вернулась в ожидающие.');
-      loadActivated();
+      panel.innerHTML = `${refreshButton()}<div class="admin-group-title"><b>Одобренные заявки</b><span>${approved.length}</span></div>` +
+        approved.map(r => {
+          const exp = msOf(r.approvedExpiresAt);
+          const active = exp > Date.now();
+          return `<article class="admin-req">
+            <div class="admin-req__body">
+              <div class="admin-req__name">${escapeHtml(r.name || 'Без имени')} <span class="admin-req__badge">${escapeHtml(r.group || 'Без группы')}</span></div>
+              <div class="admin-req__meta">${active ? 'Срок до' : 'Срок истёк/не указан'} <b>${formatDate(exp)}</b> · ${escapeHtml(r.days || 30)} ${pluralDays(r.days || 30)}</div>
+              <div class="admin-req__meta">UID: <code>${escapeHtml(r.uid || 'не указан')}</code></div>
+              <div class="admin-req__meta">Профиль: <code>${escapeHtml(r.approvedProfileId || userDocId(r.name, r.group))}</code></div>
+            </div>
+            <div class="admin-req__actions">
+              <button type="button" class="admin-btn admin-btn--approve" data-repair="${escapeHtml(r.id)}">Синхронизировать профиль</button>
+              <button type="button" class="admin-btn admin-btn--reject" data-revoke="${escapeHtml(r.id)}">Отозвать</button>
+            </div></article>`;
+        }).join('');
+      panel.querySelectorAll('[data-repair]').forEach(btn => btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Проверяю…';
+        try {
+          const result = await applyRequest(btn.dataset.repair, 'repair');
+          alert(result.active
+            ? `Профиль синхронизирован. Golden действует до ${formatDate(result.expiresAt)}.`
+            : `Профиль синхронизирован, но срок подписки уже истёк (${formatDate(result.expiresAt)}).`);
+          await render();
+        } catch (e) {
+          console.error('[Golden] repair:', e);
+          alert('Не удалось синхронизировать профиль: ' + (e.message || e));
+          btn.disabled = false; btn.textContent = 'Синхронизировать профиль';
+        }
+      }));
+      panel.querySelectorAll('[data-revoke]').forEach(btn => btn.addEventListener('click', () => revokeRequest(btn.dataset.revoke, btn)));
+      bindRefresh();
     } catch (e) {
-      console.error('[admin] revoke:', e);
-      alert('Ошибка: ' + (e.message || e));
-      btn.disabled = false;
-      btn.textContent = 'Отозвать';
+      console.error('[Golden] approved list:', e);
+      panel.innerHTML = `${refreshButton()}<div class="admin-empty"><b>Не удалось загрузить одобренные заявки</b><span>${escapeHtml(e.message || e)}</span></div>`;
+      bindRefresh();
     }
   }
-  // ---------- Инициализация ----------
-  function init() {
-    // Ждём, пока roles.js проставит роль
-    let tries = 0;
-    const wait = setInterval(() => {
-      tries++;
-      if (isAdmin()) {
-        clearInterval(wait);
-        setup();
-      } else if (tries > 50) { // 5 секунд
-        clearInterval(wait);
-        // Если так и не админ — просто не показываем ничего
-      }
-    }, 100);
+
+  async function render() {
+    const panel = $('adminPanel');
+    if (!panel) return;
+    if (!window.doroDb) {
+      panel.innerHTML = '<div class="admin-empty"><b>Нет подключения к Firestore</b><span>Проверь firebase.js.</span></div>';
+      return;
+    }
+    if (activeTab === 'activated') await renderActivated();
+    else await renderRequests();
   }
 
   function setup() {
-    if (!$('view-admin')) return;
-
-    bindTabs();
-
-    // Клик по пункту меню «Админ» → загружаем данные
-    document.querySelectorAll('a[data-view="admin"]').forEach(link => {
-      link.addEventListener('click', () => {
-        setTimeout(() => render(), 200);
+    if (initialized || !$('view-admin')) return;
+    initialized = true;
+    document.querySelectorAll('[data-admin-tab]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        activeTab = btn.dataset.adminTab === 'activated' ? 'activated' : 'requests';
+        document.querySelectorAll('[data-admin-tab]').forEach(b => {
+          b.classList.toggle('is-active', b === btn);
+        });
+        await render();
       });
     });
-
-    // Реакция на roles-ready (если роль пришла позже)
-    document.addEventListener('doro:roles-ready', () => {
-      if (isAdmin()) setup();
+    document.querySelectorAll('a[data-view="admin"]').forEach(link => {
+      link.addEventListener('click', () => setTimeout(() => render(), 150));
     });
-
-    // Автообновление раз в минуту, если мы на вкладке админа
-    if (_interval) clearInterval(_interval);
-    _interval = setInterval(() => {
-      const adminView = $('view-admin');
-      if (!adminView || !adminView.classList.contains('is-active')) return;
-      if (activeTab === 'requests') loadRequests();
-      else if (activeTab === 'activated') loadActivated();
+    document.addEventListener('doro:roles-ready', () => {
+      if (isAdmin()) render();
+    });
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => {
+      const view = $('view-admin');
+      if (view && view.classList.contains('is-active')) render();
     }, 60000);
+    render();
   }
 
-  // Стартуем после загрузки страницы
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  function isAdmin() {
+    return document.documentElement.classList.contains('role-admin') ||
+      (window.doroRoles && typeof window.doroRoles.isAdmin === 'function' && window.doroRoles.isAdmin());
   }
+  function init() {
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries++;
+      if (isAdmin()) {
+        clearInterval(timer);
+        setup();
+      } else if (tries >= 100) {
+        clearInterval(timer);
+      }
+    }, 100);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
