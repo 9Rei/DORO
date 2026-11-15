@@ -459,6 +459,9 @@ window.SCHEDULES = {
   "ЛД2529": {
     _weekAnchor: "2026-11-11",
 
+    // ★ Как и у ЛД2525: по микробиологии идут на 1 тему вперёд.
+    _topicOffset: { microbio: 1 },
+
     "ПН": [
       { time: "8:00–9:30",   title: "Биоэтика", subjectKey: "bioethics" },
       { time: "9:40–11:10",  title: "ОМиПК",    subjectKey: "omipk" }
