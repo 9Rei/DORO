@@ -16,14 +16,22 @@
     catch (e) { return { active: false }; }
   }
   function savePremium(data) {
-    localStorage.setItem(PREMIUM_KEY, JSON.stringify(data));
-    // Синхронизируем классы на <html>
-    if (data && data.active && (!data.expiresAt || data.expiresAt > Date.now())) {
+    const normalized = {
+      active: !!(data && data.active),
+      since: Number(data && data.since) || Date.now(),
+      expiresAt: Number(data && data.expiresAt) || 0
+    };
+    localStorage.setItem(PREMIUM_KEY, JSON.stringify(normalized));
+    // Синхронизируем классы на <html> и уведомляем слушателей один раз.
+    if (normalized.active && (!normalized.expiresAt || normalized.expiresAt > Date.now())) {
       document.documentElement.classList.add('role-premium');
       document.documentElement.classList.remove('role-user');
     } else {
       document.documentElement.classList.remove('role-premium');
-      document.documentElement.classList.add('role-user');
+      if (!document.documentElement.classList.contains('role-admin') &&
+          !document.documentElement.classList.contains('role-editor')) {
+        document.documentElement.classList.add('role-user');
+      }
     }
     document.dispatchEvent(new CustomEvent('doro:premium-changed'));
   }
@@ -47,11 +55,9 @@
       since: data.since || Date.now(),
       expiresAt: base + (days || 30) * 86400000,
     });
-    document.documentElement.classList.add('role-premium');
-    document.documentElement.classList.remove('role-user');
-    document.dispatchEvent(new CustomEvent('doro:premium-changed'));
+    // savePremium уже обновил классы и отправил событие.
 
-    // ★ Сохраняем премиум в облако, чтобы другие видели
+    // Сохраняем премиум в облако, чтобы другие устройства могли его увидеть.
     try {
       if (window.doroCloudReady) {
         const doroPremiumSnap = readPremium();
@@ -71,11 +77,9 @@
   }
   function deactivatePremium() {
     savePremium({ active: false });
-    document.documentElement.classList.remove('role-premium');
-    document.documentElement.classList.add('role-user');
-    document.dispatchEvent(new CustomEvent('doro:premium-changed'));
+    // savePremium уже обновил классы и отправил событие.
 
-    // ★ Снимаем премиум в облаке
+    // Снимаем премиум в облаке.
     try {
       if (window.doroCloudReady) {
         window.doroCloudReady.then(cloud => {

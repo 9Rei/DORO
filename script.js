@@ -1882,7 +1882,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const oldUser = JSON.parse(localStorage.getItem('doro.user') || 'null');
       const oldId = (oldUser && oldUser.name && oldUser.group)
-        ? ((oldUser.name.trim().toLowerCase().replace(/\s+/g, ' ')) + '__' + oldUser.group.trim().toUpperCase())
+        ? ((oldUser.name.trim().toLowerCase().replace(/\s+/g, ' ')) + '__' + oldUser.group.trim().replace(/\s+/g, ' ').toLowerCase())
         : null;
 
       user = user || {};
@@ -1896,12 +1896,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.doroCloudReady) {
           const cloud = await window.doroCloudReady;
           if (cloud) {
-            // Сохраняем новый документ (ID = name__group)
-            await cloud.saveProfile(user);
-            // Удаляем старый, если он был и отличается
-            const newId = user.name.trim().toLowerCase().replace(/\s+/g, ' ') + '__' + (user.group || '').trim().toUpperCase();
-            if (oldId && oldId !== newId && cloud.deleteUserDoc) {
-              try { await cloud.deleteUserDoc(oldId); } catch (e) {}
+            // При смене имени сначала читаем старый профиль, чтобы перенести Golden,
+            // и удаляем старый документ только после успешного сохранения нового.
+            const oldCloudProfile = oldUser && oldUser.name && oldUser.group
+              ? await cloud.getMyProfile(oldUser).catch(() => null) : null;
+            const savePayload = { ...user };
+            if (oldCloudProfile && Object.prototype.hasOwnProperty.call(oldCloudProfile, 'premiumActive')) {
+              savePayload.premium = {
+                active: oldCloudProfile.premiumActive === true,
+                expiresAt: Number(oldCloudProfile.premiumExpiresAt || 0)
+              };
+            }
+            await cloud.saveProfile(savePayload);
+            const newId = cloud._profileDocId ? cloud._profileDocId(user)
+              : user.name.trim().toLowerCase().replace(/\s+/g, ' ') + '__' + (user.group || '').trim().replace(/\s+/g, ' ').toLowerCase();
+            if (oldCloudProfile && oldId && oldId !== newId && cloud.deleteUserDoc) {
+              await cloud.deleteUserDoc(oldId);
+            }
+            if (oldId && oldId !== newId) {
               try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
               usersCache = null;
               usersCacheTime = 0;
@@ -1949,7 +1961,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const oldUser = JSON.parse(localStorage.getItem('doro.user') || 'null');
       const oldId = (oldUser && oldUser.name && oldUser.group)
-        ? ((oldUser.name.trim().toLowerCase().replace(/\s+/g, ' ')) + '__' + oldUser.group.trim().toUpperCase())
+        ? ((oldUser.name.trim().toLowerCase().replace(/\s+/g, ' ')) + '__' + oldUser.group.trim().replace(/\s+/g, ' ').toLowerCase())
         : null;
 
       if (!user) user = {};
@@ -1962,10 +1974,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.doroCloudReady) {
           const cloud = await window.doroCloudReady;
           if (cloud) {
-            await cloud.saveProfile(user);
-            const newId = (user.name || '').trim().toLowerCase().replace(/\s+/g, ' ') + '__' + groupStr.trim().toUpperCase();
-            if (oldId && oldId !== newId && cloud.deleteUserDoc) {
-              try { await cloud.deleteUserDoc(oldId); } catch (e) {}
+            // При смене группы переносим премиум-поля из старого документа прежде,
+            // чем удалить его. Если чтение/запись не удалось — старый документ остаётся.
+            const oldCloudProfile = oldUser && oldUser.name && oldUser.group
+              ? await cloud.getMyProfile(oldUser).catch(() => null) : null;
+            const savePayload = { ...user };
+            if (oldCloudProfile && Object.prototype.hasOwnProperty.call(oldCloudProfile, 'premiumActive')) {
+              savePayload.premium = {
+                active: oldCloudProfile.premiumActive === true,
+                expiresAt: Number(oldCloudProfile.premiumExpiresAt || 0)
+              };
+            }
+            await cloud.saveProfile(savePayload);
+            const newId = cloud._profileDocId ? cloud._profileDocId(user)
+              : (user.name || '').trim().toLowerCase().replace(/\s+/g, ' ') + '__' + groupStr.trim().replace(/\s+/g, ' ').toLowerCase();
+            if (oldCloudProfile && oldId && oldId !== newId && cloud.deleteUserDoc) {
+              await cloud.deleteUserDoc(oldId);
+            }
+            if (oldId && oldId !== newId) {
               try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
               usersCache = null;
               usersCacheTime = 0;
@@ -2559,7 +2585,7 @@ function displayUserName(name) {
 
   // ---------- КЭШ ПОЛЬЗОВАТЕЛЕЙ ----------
   const USERS_CACHE_KEY = 'doro.usersCache.v2'; // v2 — сбросит старый кэш на 200 записей
-  const USERS_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 дней
+  const USERS_CACHE_TTL = 60 * 60 * 1000; // 1 час: обновления профилей не висят в кэше неделями
   let usersFetching = false;
 
   // Пытаемся загрузить кэш из localStorage при старте
@@ -6683,6 +6709,10 @@ function renderPreparations(preparations, tasks) {
             };
           }
           saveUser();
+          if (profile) {
+            applyCloudPremium(profile);
+            markPremiumSync(user);
+          }
 
           if (result && result.migrated) {
             alert(result.restored
@@ -6741,23 +6771,10 @@ function renderPreparations(preparations, tasks) {
   };
   saveUser();
 
-          // Подтягиваем Golden из облака
-          if (profile.premiumActive && (!profile.premiumExpiresAt || profile.premiumExpiresAt > Date.now())) {
-            window.doroPremium.savePremium({
-              active: true,
-              expiresAt: profile.premiumExpiresAt || (Date.now() + 30 * 86400000)
-            });
-            if (typeof renderPremiumPage === 'function') renderPremiumPage();
-            if (typeof renderProfile === 'function') renderProfile();
-          } else {
-            // Если в базе подписки нет или она истекла — принудительно выключаем её в браузере,
-            // чтобы не было рассинхрона (когда в браузере есть, а в базе нет)
-            if (window.doroPremium && window.doroPremium.isPremiumActive()) {
-              window.doroPremium.savePremium({ active: false });
-              if (typeof renderPremiumPage === 'function') renderPremiumPage();
-              if (typeof renderProfile === 'function') renderProfile();
-            }
-          }
+          // Облако имеет приоритет только когда поле подписки действительно присутствует.
+          // Старые документы без premiumActive не должны сбрасывать локальную Golden.
+          applyCloudPremium(profile);
+          markPremiumSync(user);
         }
       } catch (e) { console.warn('profile load:', e); }
       renderProfile();
@@ -6931,34 +6948,77 @@ function renderPreparations(preparations, tasks) {
   window.showView = showView;
 
   // ============================================================
-  //  Периодическая проверка Golden (раз в 3 минуты)
+  //  Golden: синхронизация не чаще раза в сутки (плюс при старте)
   // ============================================================
-  setInterval(async () => {
-    if (!window.doroCloudReady || !window.doroPremium || !user) return;
+  const PREMIUM_SYNC_INTERVAL = 24 * 60 * 60 * 1000;
+  const PREMIUM_SYNC_PREFIX = 'doro.premium.lastSync.';
+
+  function premiumSyncStorageKey(profile) {
+    const norm = value => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const identity = norm(profile && profile.name) + '__' + norm(profile && profile.group);
+    return PREMIUM_SYNC_PREFIX + encodeURIComponent(identity);
+  }
+
+  function markPremiumSync(profile) {
+    try { localStorage.setItem(premiumSyncStorageKey(profile), String(Date.now())); } catch (_) {}
+  }
+
+  function applyCloudPremium(profile) {
+    if (!profile || !window.doroPremium) return false;
+    // Отсутствие поля не равно отзыву: старые профили/частично загруженные документы
+    // не должны выключать локальную подписку.
+    if (!Object.prototype.hasOwnProperty.call(profile, 'premiumActive')) return false;
+
+    const cloudActive = profile.premiumActive === true;
+    const rawExpiry = Number(profile.premiumExpiresAt || 0);
+    const active = cloudActive && (!rawExpiry || rawExpiry > Date.now());
+
+    if (active) {
+      const localPremium = window.doroPremium.readPremium();
+      const fallbackExpiry = localPremium && localPremium.active && Number(localPremium.expiresAt) > 0
+        ? Number(localPremium.expiresAt) : (Date.now() + 30 * 86400000);
+      window.doroPremium.savePremium({
+        active: true,
+        since: Number(localPremium && localPremium.since) || Date.now(),
+        expiresAt: rawExpiry || fallbackExpiry
+      });
+    } else {
+      window.doroPremium.savePremium({ active: false });
+    }
+    if (typeof renderPremiumPage === 'function') renderPremiumPage();
+    if (typeof renderProfile === 'function') renderProfile();
+    return true;
+  }
+
+  let premiumSyncInFlight = false;
+  async function syncGoldenIfDue(force = false) {
+    if (premiumSyncInFlight || !user || !user.name || !user.group || !window.doroCloudReady || !window.doroPremium) return;
+    const key = premiumSyncStorageKey(user);
+    let last = 0;
+    try { last = Number(localStorage.getItem(key) || 0); } catch (_) {}
+    if (!force && last && Date.now() - last < PREMIUM_SYNC_INTERVAL) return;
+
+    premiumSyncInFlight = true;
     try {
       const cloud = await window.doroCloudReady;
-      if (!cloud) return;
+      if (!cloud || cloud.isAnonymous || typeof cloud.getMyProfile !== 'function') return;
       const profile = await cloud.getMyProfile(user);
       if (!profile) return;
-      if (profile.premiumActive && (!profile.premiumExpiresAt || profile.premiumExpiresAt > Date.now())) {
-        if (!window.doroPremium.isPremiumActive()) {
-          window.doroPremium.savePremium({
-            active: true,
-            expiresAt: profile.premiumExpiresAt || (Date.now() + 30 * 86400000)
-          });
-          if (typeof renderPremiumPage === 'function') renderPremiumPage();
-          if (typeof renderProfile === 'function') renderProfile();
-        }
-      } else {
-        // Golden сняли в админке — отзываем локально
-        if (window.doroPremium.isPremiumActive()) {
-          window.doroPremium.savePremium({ active: false });
-          if (typeof renderPremiumPage === 'function') renderPremiumPage();
-          if (typeof renderProfile === 'function') renderProfile();
-        }
-      }
-    } catch (e) {}
-  }, 180000);
+      applyCloudPremium(profile);
+      markPremiumSync(user);
+    } catch (e) {
+      // Ошибка сети/прав доступа — сохраняем локальный кэш и попробуем позже.
+      console.warn('[Golden] Синхронизация отложена:', e && e.message ? e.message : e);
+    } finally {
+      premiumSyncInFlight = false;
+    }
+  }
+
+  // Лёгкая локальная проверка раз в час; сетевой запрос будет только если прошло 24 часа.
+  setInterval(() => { syncGoldenIfDue(false); }, 60 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncGoldenIfDue(false);
+  });
 });
   // Слушаем событие, когда подписка меняется на сайте
   document.addEventListener('doro:premium-changed', () => {

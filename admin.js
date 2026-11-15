@@ -224,9 +224,11 @@
         return { newExpires };
       });
 
+      // Сбрасываем локальный кэш списка пользователей, чтобы Golden обновился сразу.
+      try { localStorage.removeItem('doro.usersCache.v2'); } catch (_) {}
       // Уведомление
       const date = new Date(result.newExpires).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-      alert(`Golden активирован до ${date}. У пользователя появится в течение пары минут.`);
+      alert(`Golden активирован до ${date}. На других устройствах обновится при следующей проверке или входе.`);
 
       loadRequests();
     } catch (e) {
@@ -419,6 +421,7 @@
         }, { merge: true });
       }
 
+      try { localStorage.removeItem('doro.usersCache.v2'); } catch (_) {}
       alert('Golden отозван. Заявка вернулась в ожидающие.');
       loadActivated();
     } catch (e) {

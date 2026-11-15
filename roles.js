@@ -7,6 +7,7 @@
   let currentRole = 'user';
   let currentSubjects = [];
   let currentDisplayName = '';
+  let initRun = 0;
 
   window.doroRoles = {
     getRole: () => currentRole,
@@ -23,6 +24,10 @@
   };
 
   async function initRoles() {
+    const run = ++initRun;
+    currentRole = 'user';
+    currentSubjects = [];
+    currentDisplayName = '';
     try {
       console.log('[roles] Ожидание Firebase...');
       
@@ -39,7 +44,8 @@
       }
 
       const uid = window.doroCloud.uid;
-      console.log('[roles] Мой UID:', uid); // <-- ВОТ ОН, СВЕРЬ ЕГО С БАЗОЙ!
+      if (run !== initRun) return;
+      console.log('[roles] Мой UID:', uid);
 
       if (!window.doroDb) {
         console.error('[roles] window.doroDb не найден. Проверь firebase.js');
@@ -50,6 +56,7 @@
       
       console.log('[roles] Запрашиваю документ /roles/' + uid);
       const roleDoc = await getDoc(doc(window.doroDb, 'roles', uid));
+      if (run !== initRun) return;
       
       if (roleDoc.exists()) {
         const data = roleDoc.data();
@@ -64,13 +71,27 @@
     } catch (err) {
       console.error('[roles] Ошибка:', err);
     } finally {
-      document.documentElement.classList.remove('role-user', 'role-editor', 'role-premium', 'role-admin');
-      document.documentElement.classList.add('role-' + currentRole);
-      document.dispatchEvent(new CustomEvent('doro:roles-ready', { 
-        detail: { role: currentRole, subjects: currentSubjects } 
-      }));
+      if (run === initRun) {
+        // Golden and staff roles are independent. Preserve Golden while refreshing staff permissions.
+        document.documentElement.classList.remove('role-user', 'role-editor', 'role-admin');
+        if (currentRole === 'user') {
+          if (window.doroPremium && window.doroPremium.isPremiumActive()) {
+            document.documentElement.classList.add('role-premium');
+          } else {
+            document.documentElement.classList.remove('role-premium');
+            document.documentElement.classList.add('role-user');
+          }
+        } else {
+          document.documentElement.classList.add('role-' + currentRole);
+        }
+        document.dispatchEvent(new CustomEvent('doro:roles-ready', {
+          detail: { role: currentRole, subjects: currentSubjects }
+        }));
+      }
     }
   }
+
+  window.addEventListener('doro:cloud-ready', () => { initRoles(); });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initRoles);

@@ -1,13 +1,18 @@
+// ============================================================
+// DORO Firebase bridge — stable auth/profile access
+// Keep this file compatible with the existing classic scripts.
+// ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDocs, deleteDoc, collection, serverTimestamp, query, orderBy, limit, getCountFromServer }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc, collection,
+  serverTimestamp, query, orderBy, limit, getCountFromServer, startAfter, where
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth, signInAnonymously, onAuthStateChanged,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
   EmailAuthProvider, linkWithCredential, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-// Твои реальные ключи из Firebase
 const app = initializeApp({
   apiKey: "AIzaSyCC_iROLLuC0_Q25zY1ktzs6SoDctmF7og",
   authDomain: "doro-c27d6.firebaseapp.com",
@@ -18,127 +23,141 @@ const app = initializeApp({
 });
 
 const db = getFirestore(app);
-window.doroDb = db; // Экспортируем db для других скриптов (например, roles.js)
 const auth = getAuth(app);
+window.doroDb = db;
 
-let readyResolve;
-const ready = new Promise(r => { readyResolve = r; });
+let resolveInitialReady;
+let initialReadySettled = false;
+const initialReady = new Promise(resolve => { resolveInitialReady = resolve; });
+window.doroCloudReady = initialReady;
 
-// Страховка: если через 8 сек ничего не произошло — резолвим null,
-// чтобы script.js всё равно показал окно регистрации
-const fallbackTimer = setTimeout(() => {
-  if (!window.doroCloudReady) {
-    console.warn('[firebase] Таймаут инициализации — offline-режим');
-    window.doroCloud = null;
-    window.doroCloudReady = Promise.resolve(null);
-    readyResolve(null);
-  }
-}, 8000);
-
-// Ждём, пока Firebase определит текущего пользователя
-onAuthStateChanged(auth, (firebaseUser) => {
-  clearTimeout(fallbackTimer);
-  if (firebaseUser) {
-    initCloud(firebaseUser);
+function publishCloud(cloud) {
+  window.doroCloud = cloud || null;
+  if (!initialReadySettled) {
+    initialReadySettled = true;
+    resolveInitialReady(window.doroCloud);
   } else {
-    // Нет активного пользователя — создаём анонимного (для старых юзеров)
-    signInAnonymously(auth).catch(e => {
-      console.error('Anonymous auth error:', e);
-      window.doroCloud = null;
-      window.doroCloudReady = Promise.resolve(null);   // ← КРИТИЧНО
-      readyResolve(null);
-    });
+    // If the initial timeout elapsed, let later consumers use the recovered connection.
+    window.doroCloudReady = Promise.resolve(window.doroCloud);
   }
+  // Roles/admin must be reloaded when Firebase changes anonymous -> real account.
+  try {
+    window.dispatchEvent(new CustomEvent('doro:cloud-ready', {
+      detail: { uid: window.doroCloud && window.doroCloud.uid, isAnonymous: !!(window.doroCloud && window.doroCloud.isAnonymous) }
+    }));
+  } catch (_) {}
+}
+
+// Do not let a slow Auth startup permanently leave doroCloudReady undefined.
+setTimeout(() => {
+  if (!initialReadySettled) {
+    console.warn('[firebase] Auth initialization is slow; starting in offline mode for now.');
+    initialReadySettled = true;
+    resolveInitialReady(null);
+  }
+}, 12000);
+
+let anonymousSignInInFlight = false;
+onAuthStateChanged(auth, firebaseUser => {
+  if (firebaseUser) {
+    publishCloud(createCloudApi(firebaseUser));
+    return;
+  }
+  if (anonymousSignInInFlight) return;
+  anonymousSignInInFlight = true;
+  signInAnonymously(auth).catch(error => {
+    console.error('[firebase] Anonymous sign-in failed:', error);
+    publishCloud(null);
+  }).finally(() => { anonymousSignInInFlight = false; });
 });
 
-function initCloud(user) {
-  window.doroCloud = {
-    uid: user.uid,
-    isAnonymous: !!user.isAnonymous,
+function createCloudApi(initialUser) {
+  const normalizeText = value => String(value || '').trim().replace(/\s+/g, ' ');
+  const normalizeLogin = value => normalizeText(value).toLowerCase();
+  const currentUid = () => (auth.currentUser && auth.currentUser.uid) || initialUser.uid;
+
+  const api = {
+    uid: initialUser.uid,
+    isAnonymous: !!initialUser.isAnonymous,
+
+    _profileDocId(profile) {
+      const name = normalizeLogin(profile && profile.name);
+      const group = normalizeLogin(profile && profile.group);
+      if (!name || !group) return null;
+      return `${name}__${group}`;
+    },
 
     async register(login, password) {
-      // login уже должен быть нормализован: "антон_лд2511"
-      const email = `${login}@doro.local`;
-      const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
-      return newUser.uid;
+      const safeLogin = normalizeLogin(login);
+      if (!safeLogin || !password) throw new Error('Введите логин и пароль.');
+      const credential = await createUserWithEmailAndPassword(auth, `${safeLogin}@doro.local`, password);
+      return credential.user.uid;
     },
 
     async login(login, password) {
-      const email = `${login}@doro.local`;
-      const { user: loggedUser } = await signInWithEmailAndPassword(auth, email, password);
-      return loggedUser.uid;
+      const safeLogin = normalizeLogin(login);
+      if (!safeLogin || !password) throw new Error('Введите логин и пароль.');
+      const credential = await signInWithEmailAndPassword(auth, `${safeLogin}@doro.local`, password);
+      return credential.user.uid;
     },
 
-    // Вход с автоматической миграцией старого анонимного профиля:
-    // - если email уже создан — обычный вход;
-    // - если нет — создаём пароль для текущего uid + claimIdentity переносит данные.
+    // Existing account first; if there is no account, create one to migrate a saved local profile.
+    // If creation says the email is already in use, the entered password was not accepted.
     async loginOrMigrate(profile, password) {
-      const login = (profile.name.toLowerCase() + '_' + profile.group.toLowerCase());
+      const login = `${normalizeLogin(profile && profile.name)}_${normalizeLogin(profile && profile.group)}`;
       const email = `${login}@doro.local`;
-
       try {
-        const { user: loggedUser } = await signInWithEmailAndPassword(auth, email, password);
-        return { uid: loggedUser.uid, restored: false, migrated: false };
-      } catch (err) {
-        if (err.code !== 'auth/user-not-found' && err.code !== 'auth/invalid-credential') {
-          throw err;
-        }
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+        return { uid: credential.user.uid, restored: false, migrated: false };
+      } catch (signInError) {
+        const canTryMigration = signInError && (
+          signInError.code === 'auth/user-not-found' ||
+          signInError.code === 'auth/invalid-credential' ||
+          signInError.code === 'auth/wrong-password'
+        );
+        if (!canTryMigration) throw signInError;
       }
 
-      let newUid;
+      let created;
       try {
-        const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
-        newUid = newUser.uid;
-      } catch (err) {
-        if (err.code === 'auth/email-already-in-use') {
-          throw new Error('Этот логин уже занят другим пользователем. Если это вы — введите правильный пароль.');
+        created = await createUserWithEmailAndPassword(auth, email, password);
+      } catch (createError) {
+        if (createError && createError.code === 'auth/email-already-in-use') {
+          throw new Error('Неверный пароль. Проверь логин и пароль и попробуй ещё раз.');
         }
-        throw err;
+        throw createError;
       }
 
-      const claimResult = await window.doroCloud.claimIdentity(profile);
-      return {
-        uid: newUid,
-        restored: !!claimResult.restored,
-        migrated: true,
-        removed: claimResult.removed
-      };
+      // Wait for auth state to reflect the new UID before writing the profile.
+      await waitForAuthUid(created.user.uid, 5000);
+      const claimResult = await api.claimIdentity(profile || {});
+      return { uid: created.user.uid, restored: !!claimResult.restored, migrated: true, removed: 0 };
     },
 
     async linkAnonymous(login, password) {
-      // Для старых пользователей: привязать текущий анонимный uid к email/паролю
       if (!auth.currentUser || !auth.currentUser.isAnonymous) {
         throw new Error('Текущий пользователь не анонимный');
       }
-      const email = `${login}@doro.local`;
+      const email = `${normalizeLogin(login)}@doro.local`;
       const credential = EmailAuthProvider.credential(email, password);
-      await linkWithCredential(auth.currentUser, credential);
-      return auth.currentUser.uid;
+      const result = await linkWithCredential(auth.currentUser, credential);
+      return result.user.uid;
     },
 
     async logout() {
       await signOut(auth);
     },
 
-    // Детерминированный ID: "имя__ГРУППА" в нижнем регистре.
-    // Один человек = один документ, независимо от количества uid.
-    _profileDocId(p) {
-      const norm = (s) => (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
-      const name = norm(p && p.name);
-      const group = norm(p && p.group); // <-- ИСПРАВЛЕНО (всё в нижнем регистре)
-      if (!name || !group) return null;
-      return `${name}__${group}`;
-    },
-
-    async saveProfile(p) {
-      const id = window.doroCloud._profileDocId(p);
-      if (!id) { console.warn('saveProfile: нет имени или группы — пропускаю'); return; }
+    async saveProfile(profile) {
+      const p = profile || {};
+      const id = api._profileDocId(p);
+      if (!id) throw new Error('Нельзя сохранить профиль: заполните имя и группу.');
 
       const payload = {
-        uid: window.doroCloud.uid,
-        name: p.name || '',
+        uid: currentUid(),
+        name: normalizeText(p.name),
         status: p.status || '',
-        group: (p.group || '').trim().toUpperCase(),
+        group: normalizeText(p.group).toUpperCase(),
         color: p.color || '#3b82f6',
         avatarEmoji: p.avatarEmoji || '',
         avatarFrame: p.avatarFrame || 'none',
@@ -147,126 +166,126 @@ function initCloud(user) {
         profileEffect: p.profileEffect || 'default',
         updatedAt: serverTimestamp()
       };
-
-      // Премиум пишем только когда он явно передан (чтобы обычное сохранение не сбрасывало)
+      // Only modify Golden when the caller explicitly passes premium.
       if (p.premium && typeof p.premium === 'object') {
-        payload.premiumActive = !!p.premium.active;
-        payload.premiumExpiresAt = p.premium.expiresAt || 0;
+        payload.premiumActive = p.premium.active === true;
+        payload.premiumExpiresAt = Number(p.premium.expiresAt || 0);
       }
-
       await setDoc(doc(db, 'users', id), payload, { merge: true });
+      return { id, ...payload };
     },
 
     async getMyProfile(profile) {
-      const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-      const p = profile || (() => {
-        try { return JSON.parse(localStorage.getItem('doro.user') || 'null'); }
-        catch (e) { return null; }
-      })();
-      const id = window.doroCloud._profileDocId(p);
+      let p = profile;
+      if (!p) {
+        try { p = JSON.parse(localStorage.getItem('doro.user') || 'null'); }
+        catch (_) { p = null; }
+      }
+      const id = api._profileDocId(p);
       if (!id) return null;
-      const snap = await getDoc(doc(db, 'users', id));
-      return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+      const snapshot = await getDoc(doc(db, 'users', id));
+      if (snapshot.exists()) return { id: snapshot.id, ...snapshot.data() };
+
+      // Compatibility with older DORO versions that stored the group in uppercase
+      // inside the document ID (name__GROUP). Do not delete the legacy record here.
+      const legacyName = normalizeLogin(p && p.name);
+      const legacyGroup = normalizeText(p && p.group).toUpperCase();
+      const legacyId = legacyName && legacyGroup ? `${legacyName}__${legacyGroup}` : null;
+      if (legacyId && legacyId !== id) {
+        const legacySnapshot = await getDoc(doc(db, 'users', legacyId));
+        if (legacySnapshot.exists()) return { id: legacySnapshot.id, ...legacySnapshot.data(), _legacyId: legacySnapshot.id };
+      }
+      return null;
     },
 
-    async listAllUsers(pageSize = 500) {
-      const { startAfter, getDocs: getDocsAll, query: queryAll, orderBy: orderByAll, limit: limitAll } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    async listAllUsers(pageSize = 300) {
+      const size = Math.max(1, Math.min(Number(pageSize) || 300, 500));
       const all = [];
       let lastDoc = null;
       while (true) {
-        let q;
-        if (lastDoc) {
-          q = queryAll(collection(db, 'users'), orderByAll('updatedAt', 'desc'), startAfter(lastDoc), limitAll(pageSize));
-        } else {
-          q = queryAll(collection(db, 'users'), orderByAll('updatedAt', 'desc'), limitAll(pageSize));
-        }
-        const snap = await getDocsAll(q);
-        if (snap.empty) break;
-        snap.docs.forEach(d => {
-          all.push({ id: d.id, ...d.data(), updatedAt: d.data().updatedAt?.toMillis?.() || 0 });
+        // Avoid orderBy(updatedAt): older documents without that field were silently omitted.
+        const parts = [collection(db, 'users')];
+        if (lastDoc) parts.push(startAfter(lastDoc));
+        parts.push(limit(size));
+        const snapshot = await getDocs(query(...parts));
+        if (snapshot.empty) break;
+        snapshot.docs.forEach(d => {
+          const data = d.data();
+          all.push({ id: d.id, ...data, updatedAt: data.updatedAt && data.updatedAt.toMillis ? data.updatedAt.toMillis() : 0 });
         });
-        lastDoc = snap.docs[snap.docs.length - 1];
-        if (snap.docs.length < pageSize) break;
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        if (snapshot.size < size) break;
       }
       return all;
     },
 
     async listUsersSince(sinceTimestamp) {
-      const { where, query: q, collection: col, getDocs: gd } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-      );
-      const sinceDate = new Date(sinceTimestamp || 0);
-
-      const qq = q(
-        col(db, 'users'),
-        where('updatedAt', '>', sinceDate)
-      );
-
-      const snap = await gd(qq);
-      return snap.docs.map(d => {
+      const sinceDate = new Date(Number(sinceTimestamp) || 0);
+      const snapshot = await getDocs(query(collection(db, 'users'), where('updatedAt', '>', sinceDate)));
+      return snapshot.docs.map(d => {
         const data = d.data();
-        return {
-          id: d.id,
-          ...data,
-          updatedAt: data.updatedAt?.toMillis?.() || 0
-        };
+        return { id: d.id, ...data, updatedAt: data.updatedAt && data.updatedAt.toMillis ? data.updatedAt.toMillis() : 0 };
       });
     },
 
     async countUsers() {
-      const snap = await getCountFromServer(collection(db, 'users'));
-      return snap.data().count;
+      const snapshot = await getCountFromServer(collection(db, 'users'));
+      return snapshot.data().count;
     },
 
     async claimIdentity(profile) {
-      // Дубликатов больше нет: ID документа детерминирован (name__group).
-      // Firestore физически не даст создать второй документ с тем же ID.
-      // Метод оставлен для совместимости со старым кодом (script.js его ещё вызывает).
-      await window.doroCloud.saveProfile(profile);
-      return {
-        removed: 0,
-        kept: window.doroCloud._profileDocId(profile),
-        restored: null
-      };
-    },
-    async deleteUserDoc(uid) {
-      await deleteDoc(doc(db, 'users', uid));
+      const p = profile || {};
+      // Preserve cloud profile fields (especially Golden) when linking an old/anonymous login.
+      const existing = await api.getMyProfile(p).catch(() => null);
+      const payload = { ...(existing || {}), ...p };
+      if (existing && Object.prototype.hasOwnProperty.call(existing, 'premiumActive') && !p.premium) {
+        payload.premium = {
+          active: existing.premiumActive === true,
+          expiresAt: Number(existing.premiumExpiresAt || 0)
+        };
+      }
+      await api.saveProfile(payload);
+      return { removed: 0, kept: api._profileDocId(p), restored: !!existing };
     },
 
+    async deleteUserDoc(documentId) {
+      if (!documentId) return;
+      await deleteDoc(doc(db, 'users', String(documentId)));
+    },
+
+    // Deliberately read-only: automatic duplicate cleanup can destroy legacy profiles/subscriptions.
     async cleanupAllDuplicates() {
-      const all = await window.doroCloud.listAllUsers(500);
-      const norm = (s) => (s || '').trim().replace(/\s+/g, ' ').toLowerCase();
-      const seen = new Map();   // key = name::group → best record
-      const toDelete = [];
-      const myUid = user.uid;   // текущий пользователь — не трогаем
-
-      // Сортируем: у кого updatedAt больше — тот «главный»
-      all.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-
-      for (const u of all) {
-        const nameKey = norm(u.name);
-        if (!nameKey) continue;
-        const key = nameKey + '::' + (u.group || '').trim().toUpperCase();
-
-        // Текущий пользователь всегда «главный» для своей пары name::group
-        if (u.id === myUid) { seen.set(key, u); continue; }
-
-        if (!seen.has(key)) {
-          seen.set(key, u);
-        } else {
-          toDelete.push(u.id);
-        }
+      const all = await api.listAllUsers(300);
+      const normalize = value => normalizeLogin(value);
+      const seen = new Map();
+      const duplicates = [];
+      for (const record of all) {
+        const key = `${normalize(record.name)}::${normalize(record.group)}`;
+        if (key === '::') continue;
+        if (seen.has(key)) duplicates.push({ key, ids: [seen.get(key), record.id] });
+        else seen.set(key, record.id);
       }
-
-      for (const id of toDelete) {
-        try { await deleteDoc(doc(db, 'users', id)); }
-        catch (e) { console.warn('cleanup delete failed:', id, e); }
-      }
-      return { removed: toDelete.length, kept: [...seen.values()].map(u => u.id) };
+      return { removed: 0, duplicates, kept: [...seen.values()] };
     }
   };
 
-  // Сообщаем всем, что cloud готов
-  window.doroCloudReady = Promise.resolve(window.doroCloud);
-  readyResolve(window.doroCloud);
+  return api;
+}
+
+function waitForAuthUid(uid, timeoutMs) {
+  if (auth.currentUser && auth.currentUser.uid === uid) return Promise.resolve();
+  return new Promise(resolve => {
+    let done = false;
+    const timer = setTimeout(finish, timeoutMs);
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      if (user && user.uid === uid) finish();
+    });
+    function finish() {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve();
+    }
+  });
 }
