@@ -119,7 +119,7 @@ window.subjects = {
     author: "Кайгородов Антон",
   tabs: ["theory", "tests"],
     topics: [
-      { num: "3.1", title: "Свойства крови. Лейкоциты. КФО содержания лейкоцитов. Иммунитет.", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-11-07", file: "content/physio/ФИЗА_3.1.md" },
+      { num: "3.1", title: "Свойства крови. Лейкоциты. КФО содержания лейкоцитов. Иммунитет.", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-11-16", file: "content/physio/ФИЗА_3.1.md" },
       { num: "2.5", title: "Коллоквиум по разделу: Регуляция физиологических функций", steps: ["Прочитать файлик"], date: "2026-11-07", file: "content/physio/ФИЗА_2.5.md" },
       { num: "2.4", title: "Частная эндокринология. Клинико-физиологическая оценка гипо - и гиперфункции желёз", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-11-02", file: "content/physio/ФИЗА_2.4Т.md" },
       { num: "2.3", title: "Гуморально-гормональная регуляция. Гипоталамо-гипофизарная система", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-10-26", file: "content/physio/ФИЗА_2.3Т.md" },
@@ -132,6 +132,7 @@ window.subjects = {
     author: "Мария Прокопьева",
     tabs: ["theory", "preparations"],
     topics: [
+      { num: "29", title: "Морфологическая характеристика органов эндокринной системы", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_29.md", pdf: "content/histology/29П.pdf" },
       { num: "28", title: "Коллоквиум по разделу: Органы пищеварительной системы, органы дыхания, кожа и ее производные. Диагностика препаратов.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_28.md", pdf: "content/histology/28П.pdf", tasksPdf: ["content/histology/ЗАДАЧИ_28.pdf", "content/histology/КРАТКИЙ_28.pdf"] },
       { num: "27", title: "Морфологическая характеристика кожи и ее производных. Морфологическая характеристика органов дыхания", steps: ["Прочитать файлик","Тема разделена на 2 части", "В конце темы краткий вариант", "Решить тест"], date: "2026-11-02", file: "content/histology/ГИСТА_27.md", pdf: "content/histology/27П.pdf" },
       { num: "26", title: "Пищеварительная система. Морфологическая характеристика печени и поджелудочной железы", steps: ["Прочитать файлик", "Решить тест"], date: "2026-10-27", file: "content/histology/ГИСТА_26.md", pdf: "content/histology/26П.pdf" },
@@ -322,6 +323,9 @@ function getScheduleForGroup(group) {
   const key = (group || "").trim().toUpperCase();
   if (key && all[key]) return all[key];
   if (cfg.fallbackGroup && all[cfg.fallbackGroup]) return all[cfg.fallbackGroup];
+  // последний шанс: первая группа из SCHEDULES
+  const firstKey = Object.keys(all)[0];
+  if (firstKey && all[firstKey]) return all[firstKey];
   return {};
 }
 
@@ -334,8 +338,13 @@ function getEffectiveGroup() {
   if (_viewAsGroup) return _viewAsGroup;
   try {
     const u = JSON.parse(localStorage.getItem('doro.user') || 'null');
-    return (u && u.group) || '';
-  } catch (e) { return ''; }
+    const g = (u && u.group) || '';
+    if (g) return g;
+  } catch (e) {}
+  // fallback на группу по умолчанию, чтобы расписание не было пустым
+  return (typeof formatGroup === 'function' && typeof GROUP_DEFAULT !== 'undefined')
+    ? formatGroup(GROUP_DEFAULT)
+    : '';
 }
 
 function currentSchedule() {
@@ -347,7 +356,8 @@ function currentSchedule() {
 // Возвращает true, если это «первая» (нечётная) неделя для этой группы.
 function isFirstWeek(date, schedule) {
   const cfg = window.SCHEDULE_CONFIG || {};
-  const anchorStr = (schedule && schedule._weekAnchor) || cfg.weekAnchor || "2026-10-29";
+  let anchorStr = (schedule && schedule._weekAnchor) || cfg.weekAnchor || "2026-10-29";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchorStr)) anchorStr = "2026-10-29"; // защита от опечаток
   const [y, m, d] = anchorStr.split("-").map(Number);
   const anchor = new Date(y, m - 1, d);
   anchor.setHours(0, 0, 0, 0);
@@ -416,10 +426,19 @@ function getUpcomingLectures(daysAhead) {
   var list = [];
   var lectures = currentLectures();
   Object.keys(lectures).forEach(function (subject) {
-    lectures[subject].forEach(function (item) {
+    var arr = lectures[subject];
+    if (!Array.isArray(arr)) return;           // ← защита от _weekAnchor/_topicOffset
+    arr.forEach(function (item) {
+      if (!item || typeof item.d !== 'string') return;   // ← защита от мусора
       var parts = item.d.split(".");
       if (parts.length !== 2) return;
-      var d = new Date(LECTURE_YEAR, parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+      var day = parseInt(parts[0], 10);
+      var month = parseInt(parts[1], 10);
+      if (!day || !month) return;
+      // год: если месяц < 9 (сентябрь) — считаем следующим годом
+      var now = new Date();
+      var year = (month >= 9) ? now.getFullYear() : now.getFullYear() + 1;
+      var d = new Date(year, month - 1, day);
       d.setHours(0, 0, 0, 0);
       if (d >= today && d <= limit) list.push({ date: d, subject: subject, dateStr: item.d, time: item.t });
     });

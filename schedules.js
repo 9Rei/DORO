@@ -30,35 +30,10 @@ window.SCHEDULE_CONFIG = {
 window.LECTURES = {
 
   // ---------- ЛД2511 ----------
+  // Полное расписание ЛД2511 лежит в SCHEDULES.
+  // Здесь — только датированные лекции (их пока нет).
   "ЛД2511": {
-    _weekAnchor: "2026-10-29", // четверг — «первая» (нечётная) неделя
-
-    "ПН": [
-      { time: "8:00–10:25", title: "Микробио", subjectKey: "microbio", room: "239 каб.", teacher: "Бжитских Екатерина Евгеньевна" },
-      { time: "10:40–13:05", title: "Биохимия", subjectKey: "biochem", room: "305 каб.", teacher: "Волобой Нина Леонидовна" }
-    ],
-    "ВТ": [
-      { time: "8:00–9:30", title: "ОМиПК", subjectKey: "omipk", subgroups: [
-        { label: "А", room: "48 каб.", teacher: "Старчикова М.В." },
-        { label: "Б", room: "43 каб.", teacher: "Кленова А.Ф." }
-      ]},
-      { time: "9:40–11:10", title: "Биоэтика", subjectKey: "bioethics", subgroups: [
-        { label: "А", room: "53 каб.", teacher: "Кочетова Ю.Ю." },
-        { label: "Б", room: "55 каб.", teacher: "Вольферц М.В." }
-      ]}
-    ],
-    "СР": [
-      { time: "8:00–10:25", title: "БЖД", subjectKey: "hygiene", room: "220 каб.", teacher: "Асманова Мария Андреевна" },
-      { time: "10:40–13:05", title: "Гигиена", subjectKey: "hygiene", room: "133 каб.", teacher: "Ушаков Александр Анатольевич" }
-    ],
-    "ЧТ": [
-      { time: "8:00–10:25", title: "Норм физа", subjectKey: "physio", room: "409 каб.", teacher: "Шахматов Игорь Ильич" },
-      { time: "10:40–12:10", title: "История медицины", subjectKey: "history", week: "odd" }
-    ],
-    "ПТ": [
-      { time: "10:30–12:00", title: "Физра", subjectKey: "physio", room: "4 каб.", teacher: "Воронцов Павел Геннадьевич" },
-      { time: "13:30–15:55", title: "Гиста", subjectKey: "histology", room: "433 каб.", teacher: "Грибанова Ольга Геннадьевна" }
-    ]
+    _weekAnchor: "2026-10-29"
   },
 
     // ---------- П2503 ----------
@@ -228,6 +203,7 @@ window.SCHEDULES = {
 
   // ---------- ЛД2511 (текущая, можно оставить как есть) ----------
   "ЛД2511": {
+    _weekAnchor: "2026-10-29",
     "ПН": [
       { time: "8:00–10:25", title: "Микробио", subjectKey: "microbio", room: "239 каб.", teacher: "Бжитских Екатерина Евгеньевна" },
       { time: "10:40–13:05", title: "Биохимия", subjectKey: "biochem", room: "305 каб.", teacher: "Волобой Нина Леонидовна" }
@@ -247,7 +223,8 @@ window.SCHEDULES = {
       { time: "10:40–13:05", title: "Гигиена", subjectKey: "hygiene", room: "133 каб.", teacher: "Ушаков Александр Анатольевич" }
     ],
     "ЧТ": [
-      { time: "8:00–10:25", title: "Норм физа", subjectKey: "physio", room: "409 каб.", teacher: "Шахматов Игорь Ильич" }
+      { time: "8:00–10:25", title: "Норм физа", subjectKey: "physio", room: "409 каб.", teacher: "Шахматов Игорь Ильич" },
+      { time: "10:40–12:10", title: "История медицины", subjectKey: "history", week: "odd" }
     ],
     "ПТ": [
       { time: "10:30–12:00", title: "Физра", subjectKey: "physio", room: "4 каб.", teacher: "Воронцов Павел Геннадьевич" },
