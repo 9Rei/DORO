@@ -12,6 +12,11 @@
   let refreshTimer = null;
   let initialized = false;
   let busy = false;
+  // Short in-memory cache avoids rereading the same request list when the admin
+  // switches tabs/views. Explicit refresh and completed actions bypass it.
+  const requestCache = new Map();
+  const REQUEST_CACHE_MS = 20_000;
+  function invalidateRequestCache() { requestCache.clear(); }
 
   const normalize = (v) => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
   const escapeHtml = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({
@@ -225,7 +230,8 @@
       await updateDoc(doc(window.doroDb, 'payment_requests', reqId), {
         status: 'rejected', rejectedAt: serverTimestamp()
       });
-      await render();
+      invalidateRequestCache();
+      await render(true);
     } catch (e) {
       console.error('[Golden] reject:', e);
       alert('Не удалось отклонить заявку: ' + (e.message || e));
@@ -269,7 +275,8 @@
         }
       });
       clearUserCache();
-      await render();
+      invalidateRequestCache();
+      await render(true);
       alert(otherExpiry > Date.now()
         ? `Эта заявка отозвана. У пользователя сохранён другой срок Golden до ${formatDate(otherExpiry)}.`
         : 'Заявка отозвана, Golden отключён.');
@@ -284,11 +291,17 @@
     return `<button type="button" class="admin-refresh" id="adminRefreshBtn">↻ Обновить</button>`;
   }
 
-  async function loadByStatus(status) {
+  async function loadByStatus(status, force = false) {
+    const cached = requestCache.get(status);
+    if (!force && cached && Date.now() - cached.at < REQUEST_CACHE_MS) {
+      return cached.rows;
+    }
     const { collection, getDocs, query, where } = await firestore();
     const snap = await getDocs(query(collection(window.doroDb, 'payment_requests'), where('status', '==', status)));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) =>
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) =>
       msOf(b.createdAt || b.approvedAt) - msOf(a.createdAt || a.approvedAt));
+    requestCache.set(status, { at: Date.now(), rows });
+    return rows;
   }
 
   function bindRefresh() {
@@ -296,17 +309,17 @@
     if (!btn) return;
     btn.addEventListener('click', async () => {
       btn.disabled = true;
-      try { await render(); } finally { if (btn.isConnected) btn.disabled = false; }
+      try { invalidateRequestCache(); await render(true); } finally { if (btn.isConnected) btn.disabled = false; }
     });
   }
 
-  async function renderRequests() {
+  async function renderRequests(force = false) {
     const panel = $('adminPanel');
     const badge = $('adminRequestsBadge');
     panel.innerHTML = `${refreshButton()}<div class="admin-empty">Загрузка заявок…</div>`;
     bindRefresh();
     try {
-      const requests = await loadByStatus('pending');
+      const requests = await loadByStatus('pending', force);
       if (badge) {
         badge.hidden = !requests.length;
         badge.textContent = String(requests.length);
@@ -334,7 +347,8 @@
           alert(result.active
             ? `Golden активирован до ${formatDate(result.expiresAt)}. Профиль: ${result.profileId}.`
             : `Заявка обработана, но срок уже истёк (${formatDate(result.expiresAt)}).`);
-          await render();
+          invalidateRequestCache();
+          await render(true);
         } catch (e) {
           console.error('[Golden] approve:', e);
           alert('Не удалось активировать Golden: ' + (e.message || e));
@@ -350,13 +364,13 @@
     }
   }
 
-  async function renderActivated() {
+  async function renderActivated(force = false) {
     const panel = $('adminPanel');
     const badge = $('adminRequestsBadge');
     panel.innerHTML = `${refreshButton()}<div class="admin-empty">Загрузка активированных заявок…</div>`;
     bindRefresh();
     try {
-      const approved = await loadByStatus('approved');
+      const approved = await loadByStatus('approved', force);
       if (badge) badge.hidden = true;
       if (!approved.length) {
         panel.innerHTML = `${refreshButton()}<div class="admin-empty"><div class="admin-empty__icon">💎</div><b>Одобренных заявок нет</b></div>`;
@@ -385,7 +399,8 @@
           alert(result.active
             ? `Профиль синхронизирован. Golden действует до ${formatDate(result.expiresAt)}.`
             : `Профиль синхронизирован, но срок подписки уже истёк (${formatDate(result.expiresAt)}).`);
-          await render();
+          invalidateRequestCache();
+          await render(true);
         } catch (e) {
           console.error('[Golden] repair:', e);
           alert('Не удалось синхронизировать профиль: ' + (e.message || e));
@@ -401,15 +416,15 @@
     }
   }
 
-  async function render() {
+  async function render(force = false) {
     const panel = $('adminPanel');
     if (!panel) return;
     if (!window.doroDb) {
       panel.innerHTML = '<div class="admin-empty"><b>Нет подключения к Firestore</b><span>Проверь firebase.js.</span></div>';
       return;
     }
-    if (activeTab === 'activated') await renderActivated();
-    else await renderRequests();
+    if (activeTab === 'activated') await renderActivated(force);
+    else await renderRequests(force);
   }
 
   function setup() {
@@ -430,11 +445,10 @@
     document.addEventListener('doro:roles-ready', () => {
       if (isAdmin()) render();
     });
+    // No polling: it repeatedly reads every pending/approved request while the
+    // admin page stays open. Refresh is manual, and actions refresh automatically.
     if (refreshTimer) clearInterval(refreshTimer);
-    refreshTimer = setInterval(() => {
-      const view = $('view-admin');
-      if (view && view.classList.contains('is-active')) render();
-    }, 60000);
+    refreshTimer = null;
     render();
   }
 
