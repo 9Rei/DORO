@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="DORO_Golden_White_Gold.css">
   <link rel="stylesheet" href="editor.css">
 </head>
 <body>
@@ -778,80 +779,81 @@
 
     <div class="onboard__glow" aria-hidden="true"></div>
 
-    <div class="onboard__hero">
-      <div class="onboard__avatar" style="background: linear-gradient(135deg, #fbbf24, #d97706);">
-        <span style="font-size: 32px;">★</span>
-      </div>
-      <span class="onboard__step">Golden · 79 ₽ / 30 дней</span>
-    </div>
+<div class="onboard__hero">
+  <div class="onboard__avatar"
+       style="background: linear-gradient(135deg, #f5df9b, #c69a3b);">
+    <span style="font-size: 30px; color: #fff;">★</span>
+  </div>
+  <span class="onboard__step">GOLDEN</span>
+</div>
 
-    <h2 class="onboard__title" id="payTitle" style="font-size: 22px; margin-bottom: 6px;">Оплата Golden</h2>
-    <p class="onboard__sub" style="font-size: 13.5px; margin-bottom: 14px;">
-      Переведи 79 ₽ по номеру телефона. <b>Обязательно</b> укажи в комментарии своё имя и группу (как на сайте), чтобы админ знал, кому включить Golden.
-    </p>
+<h2 class="onboard__title" id="payTitle"
+    style="font-size: 24px; margin-bottom: 4px;">
+  Подключение Golden
+</h2>
 
-    <!-- Реквизиты -->
-    <div style="
-      display: flex; flex-direction: column; gap: 10px;
-      padding: 16px; border-radius: 16px;
-      background: rgba(255,255,255,0.6);
-      border: 1px solid rgba(245,158,11,0.3);
-      font-size: 14px;
-      margin-bottom: 12px;
-    ">
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-        <span style="color: var(--text-soft);">Номер телефона</span>
-        <button type="button" id="payCardNum" class="golden-phone-copy" title="Нажми, чтобы скопировать номер" aria-label="Скопировать номер телефона">+7 962 798-70-15 <span aria-hidden="true">⧉</span></button>
-      </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-        <span style="color: var(--text-soft);">Банк</span>
-        <b>Любой банк через СБП</b>
-      </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
-        <span style="color: var(--text-soft);">Сумма</span>
-        <b style="color: #b45309; font-size: 16px;">79 ₽</b>
-      </div>
-    </div>
+<p class="onboard__sub"
+   style="font-size: 13px; margin-bottom: 20px;">
+  Больше возможностей для учёбы.
+</p>
 
-    <p style="font-size: 12px; color: var(--text-soft); text-align: center; margin: 0 0 14px; line-height: 1.5;">
-      Переведи вручную через любой банк по СБП. В комментарии укажи имя и группу, как в профиле. Нажми на номер, чтобы скопировать.
-    </p>
+<div class="golden-pay-card">
+  <div class="golden-pay-price">
+    <strong>79 ₽</strong>
+    <span> / 30 дней</span>
+  </div>
 
-    <!-- После ручного перевода пользователь подаёт заявку на проверку -->
-    <div style="
-      display: flex; gap: 10px; align-items: flex-start;
-      padding: 12px 14px; border-radius: 12px;
-      background: rgba(251,191,36,0.12);
-      border: 1px solid rgba(245,158,11,0.35);
-      font-size: 12.5px; line-height: 1.45;
-      color: color-mix(in srgb, var(--text) 80%, #b45309);
-      margin-bottom: 14px;
-    ">
-      <span style="font-size: 16px; line-height: 1;">⚠️</span>
-      <div>
-        <b>Важно!</b> После ручного перевода нажми кнопку <b>«Я перевёл(а) — подать заявку»</b> ниже.
-        Golden включится после проверки перевода администратором.
-      </div>
-    </div>
+  <div class="golden-pay-divider"></div>
 
-    <button type="button" class="onboard__btn" id="payPaidBtn" style="margin-top: 4px;">
-      Я перевёл(а) — подать заявку
-    </button>
+  <span class="golden-pay-label">Перевод через СБП</span>
 
-    <button type="button" class="auth-back" data-pay-close style="align-self: center; margin-top: 4px;">
-      ← Закрыть
-    </button>
+  <button type="button" id="payCardNum"
+          class="golden-phone-copy"
+          title="Нажми, чтобы скопировать номер"
+          aria-label="Скопировать номер телефона">
+    +7 962 798-70-15 <span aria-hidden="true">⧉</span>
+  </button>
 
-    <p id="payError" style="color: #ef4444; font-size: 12.5px; text-align: center; margin: 0; display: none;"></p>
+  <p class="golden-pay-hint">
+    Нажми на номер, чтобы скопировать
+  </p>
+</div>
 
-    <div id="paySuccess" style="display: none; flex-direction: column; align-items: center; gap: 10px; padding: 16px 0 4px; text-align: center;">
-      <div style="font-size: 44px; line-height: 1;">⏳</div>
-      <b style="font-size: 15px; color: var(--text);">Заявка отправлена</b>
-      <p style="font-size: 13px; color: var(--text-soft); margin: 0; line-height: 1.5;">
-        Заявка ожидает проверки администратором. После подтверждения Golden включится в профиле.
-      </p>
-    </div>
-    </div><!-- /.onboard__box -->
+<p class="golden-pay-note">
+  После перевода отправь заявку. Golden включится после проверки оплаты.
+</p>
+
+<button type="button" class="onboard__btn"
+        id="payPaidBtn" style="margin-top: 6px;">
+  Я оплатил
+</button>
+
+<button type="button" class="auth-back"
+        data-pay-close
+        style="align-self: center; margin-top: 8px;">
+  Закрыть
+</button>
+
+<p id="payError"
+   style="color: #ef4444; font-size: 12.5px;
+          text-align: center; margin: 0; display: none;">
+</p>
+
+<div id="paySuccess"
+     style="display: none; flex-direction: column;
+            align-items: center; gap: 10px;
+            padding: 16px 0 4px; text-align: center;">
+  <div style="font-size: 36px;">⏳</div>
+  <b style="font-size: 16px; color: var(--text);">
+    Заявка отправлена
+  </b>
+  <p style="font-size: 13px; color: var(--text-soft);
+            margin: 0; line-height: 1.5;">
+    Ожидай подтверждения оплаты администратором.
+  </p>
+</div>
+</div><!-- /.onboard__box -->
+</div><!-- /#payModal -->
 </div><!-- /#payModal -->
 <!-- ================= МОДАЛКА ПРЕЗЕНТАЦИИ GOLDEN ================= -->
 <div class="support-modal" id="supportModal" aria-hidden="true">
