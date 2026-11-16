@@ -6,6 +6,28 @@
 
   const topicsCache = new Map();
   const TOPICS_CACHE_MAX = 10;
+  const TOPICS_INDEX_KEY = 'doro.topicsIndex.v1';
+  const TOPICS_INDEX_TTL = 7 * 24 * 60 * 60 * 1000; // темы меняются редко; редакторская публикация инвалидирует кэш
+  function invalidateTopicsIndex() { try { localStorage.removeItem(TOPICS_INDEX_KEY); } catch (_) {} }
+  function invalidateTopicText(id) {
+    if (!id) return;
+    topicsCache.delete(id);
+    try { localStorage.removeItem(topicTextCacheKey(id)); } catch (_) {}
+  }
+  let topicsIndexLoadPromise = null;
+  const topicTextCacheKey = id => 'doro.topicText.v1:' + id;
+  function readPersistentTopicText(id) {
+    try { const item = JSON.parse(localStorage.getItem(topicTextCacheKey(id)) || 'null');
+      if (item && typeof item.text === 'string' && Date.now() - item.time < 7 * 24 * 60 * 60 * 1000) return item.text;
+      if (item) localStorage.removeItem(topicTextCacheKey(id));
+    } catch (_) {}
+    return null;
+  }
+  function savePersistentTopicText(id, text) {
+    // Сохраняем только небольшие тексты: не переполняем localStorage на телефонах.
+    if (typeof text !== 'string' || text.length > 90000) return;
+    try { localStorage.setItem(topicTextCacheKey(id), JSON.stringify({ time: Date.now(), text })); } catch (_) {}
+  }
   function cacheSet(key, value) {
     topicsCache.set(key, value);
     if (topicsCache.size > TOPICS_CACHE_MAX) {
@@ -46,12 +68,25 @@
     // 1. Загрузка ВСЕХ тем из базы при старте сайта
     async loadAllTopics() {
       if (!window.doroDb) return;
+      if (topicsIndexLoadPromise) return topicsIndexLoadPromise;
+      topicsIndexLoadPromise = (async () => {
       try {
-        const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-        const snap = await getDocs(collection(window.doroDb, 'topics'));
-        
-        snap.forEach(doc => {
-          const data = doc.data();
+        let records = null;
+        try {
+          const cached = JSON.parse(localStorage.getItem(TOPICS_INDEX_KEY) || 'null');
+          if (cached && Array.isArray(cached.records) && Date.now() - cached.time < TOPICS_INDEX_TTL) records = cached.records;
+        } catch (_) {}
+        if (!records) {
+          const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+          const snap = await getDocs(collection(window.doroDb, 'topics'));
+          records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          try {
+            // Не кладём тексты тем в localStorage: это может превысить квоту браузера.
+            const compact = records.map(({ content, ...meta }) => meta);
+            localStorage.setItem(TOPICS_INDEX_KEY, JSON.stringify({ time: Date.now(), records: compact }));
+          } catch (_) {}
+        }
+        records.forEach(data => {
           const subjectKey = data.subjectKey;
           
           // Если такого раздела нет, пропускаем
@@ -80,10 +115,12 @@
             window.subjects[subjectKey].topics.push(newTopic);
           }
         });
-        console.log('[content] Список тем обновлен из базы');
+        console.log('[content] Список тем загружен (локальный кэш/Firestore)');
       } catch (e) {
         console.warn('[content] Не удалось загрузить список тем:', e);
-      }
+      } finally { topicsIndexLoadPromise = null; }
+      })();
+      return topicsIndexLoadPromise;
     },
 
     // 2. Загрузка текста темы (сначала из кэша, потом fetch)
@@ -91,9 +128,9 @@
       const subjectKey = topic.subjectKey || window.currentSubjectKey || 'unknown';
       const topicId = `${subjectKey}_${topic.num}`;
 
-      if (topicsCache.has(topicId)) {
-        return topicsCache.get(topicId);
-      }
+      if (topicsCache.has(topicId)) return topicsCache.get(topicId);
+      const persistentText = readPersistentTopicText(topicId);
+      if (persistentText !== null) { cacheSet(topicId, persistentText); return persistentText; }
 
       // Тема есть только в базе (loadAllTopics не успел / content не подтянулся)
       if (topic.isFromDb && window.doroDb) {
@@ -103,6 +140,7 @@
           if (snap.exists() && snap.data().content) {
             const text = snap.data().content;
             cacheSet(topicId, text);
+            savePersistentTopicText(topicId, text);
             return text;
           }
         } catch (e) { console.warn('[content] getDoc fallback failed:', e); }
@@ -119,12 +157,9 @@
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const text = await res.text();
           cacheSet(topicId, text);
-          
-          if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => window.doroContent.syncToDb(topicId, subjectKey, topic, text));
-          } else {
-            setTimeout(() => window.doroContent.syncToDb(topicId, subjectKey, topic, text), 2000);
-          }
+          savePersistentTopicText(topicId, text);
+          // Важно: чтение старого файла больше НЕ вызывает автоматическую запись в Firestore.
+          // Синхронизация в базу доступна только как явное действие редактора.
           return text;
         } catch (e) {
           console.error('Ошибка загрузки ' + topic.file, e);
@@ -154,6 +189,9 @@
           updatedAt: serverTimestamp()
         }, { merge: true });
         
+        invalidateTopicsIndex();
+        savePersistentTopicText(topicId, text);
+        cacheSet(topicId, text);
         console.log(`[content] Тема ${topicId} сохранена в базу (миграция)`);
       } catch (e) {
         console.warn('[content] Не удалось сохранить в базу:', e);
@@ -178,7 +216,9 @@
         author: data.author || 'Редактор',
         updatedAt: serverTimestamp()
       });
-      
+      invalidateTopicsIndex();
+      invalidateTopicText(topicId);
+      if (data.content) { cacheSet(topicId, data.content); savePersistentTopicText(topicId, data.content); }
       return topicId;
     },
 
@@ -188,6 +228,8 @@
       const { deleteDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
       const topicId = `${subjectKey}_${num}`;
       await deleteDoc(doc(window.doroDb, 'topics', topicId));
+      invalidateTopicsIndex();
+      invalidateTopicText(topicId);
       return true;
     },
 
@@ -199,9 +241,10 @@
       const oldTopicId = `${subjectKey}_${oldNum}`;
       const newTopicId = `${subjectKey}_${data.num || oldNum}`;
       
-      // Если номер изменился, удаляем старый документ
+      // Если номер изменился, удаляем старый документ и его локальный кэш.
       if (oldTopicId !== newTopicId) {
         await deleteDoc(doc(window.doroDb, 'topics', oldTopicId));
+        invalidateTopicText(oldTopicId);
       }
 
       await setDoc(doc(window.doroDb, 'topics', newTopicId), {
@@ -216,7 +259,9 @@
         author: data.author || 'Редактор',
         updatedAt: serverTimestamp()
       }, { merge: true });
-      
+      invalidateTopicsIndex();
+      invalidateTopicText(newTopicId);
+      if (data.content) { cacheSet(newTopicId, data.content); savePersistentTopicText(newTopicId, data.content); }
       return newTopicId;
     },
 

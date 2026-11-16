@@ -7,6 +7,9 @@
   const PRICE_RUB = 79;
   const QUIZ_LIMIT_FREE = 15;
   const FIRESTORE_MODULE = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+  const REQUEST_CACHE_TTL = 60 * 1000;
+  let requestCache = { uid: '', time: 0, value: null };
+  let requestReadPromise = null;
 
   function readPremium() {
     try { return JSON.parse(localStorage.getItem(PREMIUM_KEY) || 'null') || { active: false }; }
@@ -101,54 +104,57 @@
     if (v && typeof v.toMillis === 'function') return v.toMillis();
     return 0;
   }
-  async function getMyPaymentRequest() {
+  async function getMyPaymentRequest(force = false) {
     if (!window.doroDb) return null;
     const uid = window.doroCloud && window.doroCloud.uid;
     if (!uid) return null;
-    try {
+    if (!force && requestCache.uid === uid && Date.now() - requestCache.time < REQUEST_CACHE_TTL) return requestCache.value;
+    if (requestReadPromise) return requestReadPromise;
+    requestReadPromise = (async () => { try {
       const { collection, getDocs, query, where } = await firestore();
       // No orderBy: avoids requiring a composite index. Sort the small user's request set client-side.
       const snap = await getDocs(query(collection(window.doroDb, 'payment_requests'), where('uid', '==', uid)));
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       all.sort((a, b) => timestampMs(b.createdAt) - timestampMs(a.createdAt));
       // Keep the existing pending request visible even if a newer rejected request exists.
-      return all.find(r => r.status === 'pending') ||
-        all.find(r => r.status === 'approved' && timestampMs(r.approvedExpiresAt) > Date.now()) ||
-        all[0] || null;
+      const result = all.find(r => r.status === 'pending') ||
+        all.find(r => r.status === 'approved' && timestampMs(r.approvedExpiresAt) > Date.now()) || all[0] || null;
+      requestCache = { uid, time: Date.now(), value: result };
+      return result;
     } catch (e) {
       console.warn('[Golden] getMyPaymentRequest:', e.message || e);
       return null;
-    }
+    } finally { requestReadPromise = null; } })();
+    return requestReadPromise;
   }
+  let submitInFlight = null;
   async function submitPaymentRequest() {
-    if (!window.doroDb) throw new Error('Нет подключения к базе данных.');
-    const uid = window.doroCloud && window.doroCloud.uid;
-    if (!uid) throw new Error('Сначала войди в аккаунт.');
-    const u = JSON.parse(localStorage.getItem('doro.user') || 'null');
-    if (!u || !u.name || !u.group) throw new Error('Сначала заполни имя и группу в профиле.');
+    // Блокируем двойное нажатие: две быстрые попытки не создадут две заявки.
+    if (submitInFlight) return submitInFlight;
+    submitInFlight = (async () => {
+      if (!window.doroDb) throw new Error('Нет подключения к базе данных.');
+      const uid = window.doroCloud && window.doroCloud.uid;
+      if (!uid) throw new Error('Сначала войди в аккаунт.');
+      const u = JSON.parse(localStorage.getItem('doro.user') || 'null');
+      if (!u || !u.name || !u.group) throw new Error('Сначала заполни имя и группу в профиле.');
 
-    const existing = await getMyPaymentRequest();
-    if (existing && existing.status === 'pending') {
-      // Return the existing request instead of creating duplicates on repeated taps.
-      return existing.id;
-    }
-    if (existing && existing.status === 'approved' && timestampMs(existing.approvedExpiresAt) > Date.now()) {
-      throw new Error('У тебя уже есть одобренная заявка Golden. Если подписка не отображается, обнови страницу или обратись к администратору.');
-    }
+      const existing = await getMyPaymentRequest(true);
+      if (existing && existing.status === 'pending') return existing.id;
+      if (existing && existing.status === 'approved' && timestampMs(existing.approvedExpiresAt) > Date.now()) {
+        throw new Error('У тебя уже есть одобренная заявка Golden. Если подписка не отображается, обнови страницу или обратись к администратору.');
+      }
 
-    const { collection, doc, setDoc, serverTimestamp } = await firestore();
-    const reqId = 'pay_' + uid + '_' + Date.now();
-    await setDoc(doc(window.doroDb, 'payment_requests', reqId), {
-      uid: String(uid),
-      name: String(u.name).trim(),
-      group: String(u.group).trim(),
-      amount: PRICE_RUB,
-      days: 30,
-      status: 'pending',
-      createdAt: serverTimestamp(),
-      source: 'manual_transfer'
-    });
-    return reqId;
+      const { collection, doc, setDoc, serverTimestamp } = await firestore();
+      const reqId = 'pay_' + uid + '_' + Date.now();
+      await setDoc(doc(window.doroDb, 'payment_requests', reqId), {
+        uid: String(uid), name: String(u.name).trim(), group: String(u.group).trim(),
+        amount: PRICE_RUB, days: 30, status: 'pending', createdAt: serverTimestamp(), source: 'manual_transfer'
+      });
+      requestCache = { uid, time: 0, value: null };
+      return reqId;
+    })();
+    try { return await submitInFlight; }
+    finally { submitInFlight = null; }
   }
 
   function init() {

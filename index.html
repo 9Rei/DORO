@@ -321,6 +321,14 @@
               </button>
             </div>
 
+            <div class="profile-users__toolbar">
+              <label class="profile-users__search-wrap" for="profileUsersSearch">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+                <input id="profileUsersSearch" class="profile-users__search" type="search" placeholder="Найти группу или пользователя…" autocomplete="off">
+                
+              </label>
+              <p class="profile-users__tip">Нажми на группу, чтобы открыть её расписание</p>
+            </div>
             <div class="profile-users__body" id="profileUsersBody">
               <div class="profile-users__empty">Загрузка…</div>
             </div>
@@ -793,11 +801,11 @@
     ">
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
         <span style="color: var(--text-soft);">Номер телефона</span>
-        <b style="font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;">+7 962 798-70-15</b> <!-- ЗАМЕНИ НА СВОЙ -->
+        <button type="button" id="payCardNum" class="golden-phone-copy" title="Нажми, чтобы скопировать номер" aria-label="Скопировать номер телефона">+7 962 798-70-15 <span aria-hidden="true">⧉</span></button>
       </div>
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
         <span style="color: var(--text-soft);">Банк</span>
-        <b>Сбербанк (или любой по СБП)</b>
+        <b>Любой банк через СБП</b>
       </div>
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
         <span style="color: var(--text-soft);">Сумма</span>
@@ -805,21 +813,11 @@
       </div>
     </div>
 
-    <!-- Кнопка автоматического перевода -->
-      <a href="https://www.sberbank.com/sms/pbpn?requisiteNumber=79627987015&sum=7900" 
-       target="_blank" rel="noopener"
-       style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; margin-bottom: 14px; border-radius: 14px; background: #21A038; color: #fff; text-decoration: none; font-weight: 800; font-size: 15px; box-shadow: 0 6px 16px -6px rgba(33,160,56,0.5);">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-      </svg>
-      Перевести в Сбере
-    </a>
-    <p style="font-size: 11px; color: var(--text-soft); text-align: center; margin: -6px 0 14px; line-height: 1.4;">
-      Откроется приложение Сбера (или другого банка) с готовым переводом.<br>Если у вас не Сбер — переведите на номер вручную.
+    <p style="font-size: 12px; color: var(--text-soft); text-align: center; margin: 0 0 14px; line-height: 1.5;">
+      Переведи вручную через любой банк по СБП. В комментарии укажи имя и группу, как в профиле. Нажми на номер, чтобы скопировать.
     </p>
 
-    <!-- Предупреждение: не забыть нажать «Я оплатил(а)» -->
+    <!-- После ручного перевода пользователь подаёт заявку на проверку -->
     <div style="
       display: flex; gap: 10px; align-items: flex-start;
       padding: 12px 14px; border-radius: 12px;
@@ -831,14 +829,13 @@
     ">
       <span style="font-size: 16px; line-height: 1;">⚠️</span>
       <div>
-        <b>Важно!</b> После оплаты <b>обязательно вернись на сайт</b> и нажми кнопку
-        <b>«Я оплатил(а) · отправить заявку»</b> ниже.<br>
-        Без этого админ не увидит твой перевод и не активирует Golden.
+        <b>Важно!</b> После ручного перевода нажми кнопку <b>«Я перевёл(а) — подать заявку»</b> ниже.
+        Golden включится после проверки перевода администратором.
       </div>
     </div>
 
     <button type="button" class="onboard__btn" id="payPaidBtn" style="margin-top: 4px;">
-      Я оплатил(а) · отправить заявку
+      Я перевёл(а) — подать заявку
     </button>
 
     <button type="button" class="auth-back" data-pay-close style="align-self: center; margin-top: 4px;">
@@ -851,7 +848,7 @@
       <div style="font-size: 44px; line-height: 1;">⏳</div>
       <b style="font-size: 15px; color: var(--text);">Заявка отправлена</b>
       <p style="font-size: 13px; color: var(--text-soft); margin: 0; line-height: 1.5;">
-        Админ проверит перевод (в комментарии должны быть Имя и Группа) и активирует Golden.
+        Заявка ожидает проверки администратором. После подтверждения Golden включится в профиле.
       </p>
     </div>
     </div><!-- /.onboard__box -->

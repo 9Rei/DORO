@@ -8,6 +8,15 @@
   let currentSubjects = [];
   let currentDisplayName = '';
   let initRun = 0;
+  let lastLoadedUid = '';
+  let roleLoadPromise = null;
+  const ROLE_CACHE_TTL = 6 * 60 * 60 * 1000;
+  function cachedRole(uid) {
+    try { const x = JSON.parse(localStorage.getItem('doro.role.v1:' + uid) || 'null');
+      return x && Date.now() - x.time < ROLE_CACHE_TTL ? x : null;
+    } catch (_) { return null; }
+  }
+  function storeRole(uid, data) { try { localStorage.setItem('doro.role.v1:' + uid, JSON.stringify({ ...data, time: Date.now() })); } catch (_) {} }
 
   window.doroRoles = {
     getRole: () => currentRole,
@@ -23,8 +32,10 @@
     ready: null
   };
 
-  async function initRoles() {
+  async function initRoles(force = false) {
+    if (roleLoadPromise) return roleLoadPromise;
     const run = ++initRun;
+    roleLoadPromise = (async () => {
     currentRole = 'user';
     currentSubjects = [];
     currentDisplayName = '';
@@ -45,6 +56,11 @@
 
       const uid = window.doroCloud.uid;
       if (run !== initRun) return;
+      const cached = !force && lastLoadedUid === uid ? cachedRole(uid) : null;
+      if (cached) {
+        currentRole = cached.role || 'user'; currentSubjects = Array.isArray(cached.subjects) ? cached.subjects : [];
+        currentDisplayName = cached.displayName || ''; return;
+      }
       console.log('[roles] Мой UID:', uid);
 
       if (!window.doroDb) {
@@ -63,8 +79,12 @@
         currentRole = data.role || 'user';
         currentSubjects = data.subjects || [];
         currentDisplayName = data.displayName || '';
+        storeRole(uid, { role: currentRole, subjects: currentSubjects, displayName: currentDisplayName });
+        lastLoadedUid = uid;
         console.log(`[roles] Успех! Роль: ${currentRole} (${currentDisplayName})`);
       } else {
+        currentRole = 'user'; currentSubjects = []; currentDisplayName = '';
+        storeRole(uid, { role: currentRole, subjects: [], displayName: '' }); lastLoadedUid = uid;
         console.log('[roles] Документ не найден. Искали ID:', uid);
       }
       
@@ -89,15 +109,16 @@
         }));
       }
     }
+    })().finally(() => { roleLoadPromise = null; });
+    return roleLoadPromise;
   }
 
-  window.addEventListener('doro:cloud-ready', () => { initRoles(); });
+  window.addEventListener('doro:cloud-ready', (event) => {
+    const uid = event && event.detail && event.detail.uid;
+    if (uid && uid !== lastLoadedUid) initRoles(true);
+    else initRoles(false);
+  });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initRoles);
-  } else {
-    initRoles();
-  }
-
-  window.doroRoles.ready = initRoles();
+  // Единственный стартовый вызов: не запускаем два одинаковых getDoc при загрузке.
+  window.doroRoles.ready = initRoles(false);
 })();
