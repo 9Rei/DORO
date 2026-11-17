@@ -119,7 +119,7 @@ window.subjects = {
     author: "Кайгородов Антон",
   tabs: ["theory", "tests"],
     topics: [
-      { num: "3.1", title: "Свойства крови. Лейкоциты. КФО содержания лейкоцитов. Иммунитет.", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-11-16", file: "content/physio/ФИЗА_3.1T.md" },
+      { num: "3.1", title: "Свойства крови. Лейкоциты. КФО содержания лейкоцитов. Иммунитет.", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-11-16", file: "content/physio/ФИЗА_3.1.md" },
       { num: "2.5", title: "Коллоквиум по разделу: Регуляция физиологических функций", steps: ["Прочитать файлик"], date: "2026-11-07", file: "content/physio/ФИЗА_2.5.md" },
       { num: "2.4", title: "Частная эндокринология. Клинико-физиологическая оценка гипо - и гиперфункции желёз", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-11-02", file: "content/physio/ФИЗА_2.4Т.md" },
       { num: "2.3", title: "Гуморально-гормональная регуляция. Гипоталамо-гипофизарная система", steps: ["Законспектировать ДЗ/ Лекцию", "Прочитать файлик тестов", "Выполнить тест и дз"], date: "2026-10-26", file: "content/physio/ФИЗА_2.3Т.md" },
@@ -6587,55 +6587,58 @@ if (authSubmit) authSubmit.addEventListener('click', async () => {
 });
   }
 
-  // ---------- Автозапуск ----------
-  async function bootAuth() {
-    let waitTime = 0;
-    while (!window.doroCloudReady && waitTime < 8000) {
-      await new Promise(r => setTimeout(r, 100));
-      waitTime += 100;
-    }
-
-    const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
-    const hasPasswordAccount = localStorage.getItem('doro.hasPasswordAccount') === '1';
-
-    if (hasPasswordAccount && cloud && !cloud.isAnonymous) {
-      try {
-        if (profile) {
-          user = {
-            name: profile.name || user?.name || '',
-            group: profile.group || user?.group || '',
-            uid: profile.uid || cloud.uid || user?.uid || '',
-            status: profile.status || user?.status || USER_STATUSES[0],
-            color: profile.color || user?.color || '#3b82f6',
-            avatarEmoji: profile.avatarEmoji || user?.avatarEmoji || '',
-            avatarFrame: profile.avatarFrame || user?.avatarFrame || 'none',
-            profileBg: profile.profileBg || user?.profileBg || 'default',
-            profileBadge: profile.profileBadge || user?.profileBadge || 'none',
-            profileEffect: profile.profileEffect || user?.profileEffect || 'default'
-          };
-          saveUser();
-          // Cloud wins only when the subscription field exists in the document.
-          applyCloudPremium(profile);
-          markPremiumSync(user);
-        } else if (user && user.name && user.group) {
-          // Auth account still exists, but its Firestore profile was deleted.
-          // Restore it with the current authenticated UID from the local profile draft.
-          await cloud.saveProfile(user);
-          try { localStorage.removeItem('doro.usersCache.v2'); } catch (_) {}
-          usersCache = null;
-          usersCacheTime = 0;
-          console.info('[auth] Missing Firestore profile restored from local profile data.');
-        } else {
-          console.warn('[auth] Signed-in account has no Firestore profile and no local profile draft.');
-        }
-      } catch (e) { console.warn('profile load/restore:', e); }
-      renderProfile();
-      return;
-    }
-
-    // Открываем окно сразу на экране выбора
-    setTimeout(() => openAuth('register', 'choice'), 400);
+async function bootAuth() {
+  // Ждём, пока Firebase восстановит сессию (максимум 8 секунд)
+  let waitTime = 0;
+  while (!window.doroCloudReady && waitTime < 8000) {
+    await new Promise(r => setTimeout(r, 100));
+    waitTime += 100;
   }
+
+  const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
+  const hasPasswordAccount = localStorage.getItem('doro.hasPasswordAccount') === '1';
+
+  // Если Firebase восстановил сессию (не аноним) — грузим профиль и НЕ показываем модалку
+  if (cloud && !cloud.isAnonymous) {
+    try {
+      const profile = await cloud.getMyProfile();
+      if (profile) {
+        user = {
+          name: profile.name || user?.name || '',
+          group: profile.group || user?.group || '',
+          uid: cloud.uid || user?.uid || '',
+          status: profile.status || user?.status || USER_STATUSES[0],
+          color: profile.color || user?.color || '#3b82f6',
+          avatarEmoji: profile.avatarEmoji || user?.avatarEmoji || '',
+          avatarFrame: profile.avatarFrame || user?.avatarFrame || 'none',
+          profileBg: profile.profileBg || user?.profileBg || 'default',
+          profileBadge: profile.profileBadge || user?.profileBadge || 'none',
+          profileEffect: profile.profileEffect || user?.profileEffect || 'default'
+        };
+        saveUser();
+        if (typeof applyCloudPremium === 'function') applyCloudPremium(profile);
+        if (typeof markPremiumSync === 'function') markPremiumSync(user);
+      } else if (user && user.name && user.group) {
+        // Сессия есть, но документа в Firestore нет — восстановим
+        await cloud.saveProfile(user);
+      }
+    } catch (e) {
+      console.warn('profile load/restore:', e);
+    }
+    renderProfile();
+    return; // ← модалку НЕ открываем
+  }
+
+  // Если сессии нет, но флаг «есть аккаунт» стоит — попробуем войти автоматически? Нет.
+  // Если пользователь никогда не регистрировался — показываем модалку.
+  if (!hasPasswordAccount) {
+    setTimeout(() => openAuth('register', 'choice'), 400);
+  } else {
+    // Флаг есть, но Firebase не восстановил сессию (например, истекла).
+    // Показываем модалку входа, но без «выбора» — сразу форму логина.
+    setTimeout(() => openAuth('login', 'form'), 400);
+  }
+}
 
   if (window.doroContent && window.doroContent.loadAllTopics) {
     // Не блокируем первый экран загрузкой тем — грузим параллельно

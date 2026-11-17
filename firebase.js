@@ -1,9 +1,10 @@
 // ============================================================
-// DORO Firebase bridge — только Auth и Счётчик (без профилей)
+// DORO Firebase bridge — Auth + профили + счётчик
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore, collection, getCountFromServer
+  getFirestore, collection, getCountFromServer,
+  doc, setDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth, signInAnonymously, onAuthStateChanged,
@@ -39,7 +40,10 @@ function publishCloud(cloud) {
   }
   try {
     window.dispatchEvent(new CustomEvent('doro:cloud-ready', {
-      detail: { uid: window.doroCloud && window.doroCloud.uid, isAnonymous: !!(window.doroCloud && window.doroCloud.isAnonymous) }
+      detail: {
+        uid: window.doroCloud && window.doroCloud.uid,
+        isAnonymous: !!(window.doroCloud && window.doroCloud.isAnonymous)
+      }
     }));
   } catch (_) {}
 }
@@ -59,6 +63,14 @@ onAuthStateChanged(auth, firebaseUser => {
     publishCloud(createCloudApi(firebaseUser));
     return;
   }
+
+  // Если пользователь уже был авторизован — не создаём анонимную сессию
+  const hadAccount = localStorage.getItem('doro.hasPasswordAccount') === '1';
+  if (hadAccount) {
+    publishCloud(null);
+    return;
+  }
+
   if (anonymousSignInInFlight) return;
   anonymousSignInInFlight = true;
   signInAnonymously(auth).catch(error => {
@@ -66,9 +78,6 @@ onAuthStateChanged(auth, firebaseUser => {
     publishCloud(null);
   }).finally(() => { anonymousSignInInFlight = false; });
 });
-
-import { doc, setDoc, getDoc, collection, getCountFromServer }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 function createCloudApi(initialUser) {
   const normalizeLogin = value => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
