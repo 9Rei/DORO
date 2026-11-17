@@ -21,6 +21,7 @@
     catch (_) { return { active: false }; }
   }
 
+  // ОБНОВЛЕННАЯ ФУНКЦИЯ С ОТПРАВКОЙ В ОБЛАКО
   function savePremium(data) {
     const normalized = {
       active: !!(data && data.active),
@@ -30,6 +31,17 @@
     try { localStorage.setItem(PREMIUM_KEY, JSON.stringify(normalized)); } catch (_) {}
     applyClasses(normalized);
     document.dispatchEvent(new CustomEvent('doro:premium-changed'));
+
+    // --- Отправляем подписку в Firebase ---
+    if (window.doroCloudReady) {
+      window.doroCloudReady.then(cloud => {
+        if (cloud && cloud.saveProfile) {
+          const user = JSON.parse(localStorage.getItem('doro.user') || '{}');
+          cloud.saveProfile({ ...user, premiumActive: normalized.active, premiumExpiresAt: normalized.expiresAt })
+            .catch(e => console.warn('Ошибка сохранения подписки в облако:', e));
+        }
+      });
+    }
   }
 
   function applyClasses(normalized) {
@@ -66,12 +78,8 @@
     try {
       const payload = JSON.parse(decodeURIComponent(escape(atob(parts[1]))));
       
-      // 1. Проверка срока действия
-      if (payload.e && Date.now() > payload.e) {
-        throw new Error('Срок действия ключа истек.');
-      }
+      if (payload.e && Date.now() > payload.e) throw new Error('Срок действия ключа истек.');
       
-      // 2. Проверка подписи (защита от подделки)
       const key = await crypto.subtle.importKey(
         'raw', new TextEncoder().encode(SECRET_KEY),
         { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
@@ -83,30 +91,22 @@
       
       if (!isValid) throw new Error('Ключ недействителен (неверная подпись).');
 
-      // 3. ПРОВЕРКА: Не использовался ли код ранее на этом устройстве
       const usedCodes = JSON.parse(localStorage.getItem('doro.usedKeys') || '[]');
-      if (usedCodes.includes(token)) {
-        throw new Error('Этот код уже был активирован на этом устройстве.');
-      }
+      if (usedCodes.includes(token)) throw new Error('Этот код уже был активирован на этом устройстве.');
 
-      // 4. ПРОВЕРКА: Привязка к нику (Имя + Группа)
       if (payload.u && payload.u !== "user") {
         const me = JSON.parse(localStorage.getItem('doro.user') || 'null');
-        // Собираем полное имя пользователя (Имя + Группа) для сравнения
         const myFullIdentity = me && me.name ? (me.name + ' ' + (me.group || '')).trim().toLowerCase() : '';
         const keyIdentity = payload.u.trim().toLowerCase();
-        
-        // Проверяем, совпадает ли полное имя и группа
         if (!myFullIdentity.includes(keyIdentity)) {
           throw new Error('Этот код выдан для другого пользователя (не совпадает имя или группа).');
         }
       }
 
-      // Успех! Сохраняем код как использованный
       usedCodes.push(token);
       localStorage.setItem('doro.usedKeys', JSON.stringify(usedCodes));
 
-      // Сохраняем подписку
+      // ВЫЗЫВАЕМ ОБНОВЛЕННУЮ ФУНКЦИЮ
       savePremium({
         active: true,
         since: Date.now(),
@@ -145,7 +145,7 @@
 
   window.doroPremium = {
     BRAND_NAME, PRICE_RUB, QUIZ_LIMIT_FREE,
-    isPremiumActive, daysLeft, activateKey, deactivatePremium, // activatePremium заменили на activateKey
+    isPremiumActive, daysLeft, activateKey, deactivatePremium,
     getQuizAttempts, addQuizAttempt, canStartQuiz, quizAttemptsLeft, quizAttemptsLabel,
     readPremium, savePremium
   };

@@ -4,7 +4,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getFirestore, collection, getCountFromServer,
-  doc, setDoc, getDoc
+  doc, setDoc, getDoc,
+  query, where, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth, signInAnonymously, onAuthStateChanged,
@@ -48,14 +49,13 @@ function publishCloud(cloud) {
   } catch (_) {}
 }
 
-// Таймаут на случай, если Firebase не ответит
 setTimeout(() => {
   if (!initialReadySettled) {
     console.warn('[firebase] Auth initialization is slow; starting in offline mode for now.');
     initialReadySettled = true;
     resolveInitialReady(null);
   }
-}, 12000);
+}, 15000);
 
 let anonymousSignInInFlight = false;
 onAuthStateChanged(auth, firebaseUser => {
@@ -64,13 +64,7 @@ onAuthStateChanged(auth, firebaseUser => {
     return;
   }
 
-  // Если пользователь уже был авторизован — не создаём анонимную сессию
-  const hadAccount = localStorage.getItem('doro.hasPasswordAccount') === '1';
-  if (hadAccount) {
-    publishCloud(null);
-    return;
-  }
-
+  // Убрали проверку hadAccount. Теперь всегда пытаемся войти анонимно.
   if (anonymousSignInInFlight) return;
   anonymousSignInInFlight = true;
   signInAnonymously(auth).catch(error => {
@@ -87,7 +81,6 @@ function createCloudApi(initialUser) {
     uid: initialUser.uid,
     isAnonymous: !!initialUser.isAnonymous,
 
-    // --- Регистрация ---
     async register(login, password) {
       const safeLogin = normalizeLogin(login);
       if (!safeLogin || !password) throw new Error('Введите логин и пароль.');
@@ -95,7 +88,6 @@ function createCloudApi(initialUser) {
       return credential.user.uid;
     },
 
-    // --- Вход ---
     async login(login, password) {
       const safeLogin = normalizeLogin(login);
       if (!safeLogin || !password) throw new Error('Введите логин и пароль.');
@@ -103,20 +95,18 @@ function createCloudApi(initialUser) {
       return credential.user.uid;
     },
 
-    // --- Выход ---
     async logout() {
       await signOut(auth);
     },
 
-    // --- Счётчик ---
     async countUsers() {
       const snapshot = await getCountFromServer(collection(db, 'users'));
       return snapshot.data().count;
     },
 
-    // --- Сохранить профиль ---
     async saveProfile(data) {
       if (!currentUid()) throw new Error('Нет пользователя');
+      
       const payload = {
         name: data.name || '',
         group: data.group || '',
@@ -127,41 +117,49 @@ function createCloudApi(initialUser) {
         profileBg: data.profileBg || 'default',
         profileBadge: data.profileBadge || 'none',
         profileEffect: data.profileEffect || 'default',
+        // Сохраняем подписку (если она есть в переданных данных)
+        premiumActive: !!data.premiumActive,
+        premiumExpiresAt: data.premiumExpiresAt || 0,
         updatedAt: new Date().toISOString()
       };
       await setDoc(doc(db, 'users', currentUid()), payload, { merge: true });
     },
 
-    // --- Загрузить профиль ---
-    async getMyProfile() {
+    // Загрузить профиль (УМНЫЙ ПОИСК: по UID, затем по Имени и Группе)
+    async getMyProfile(data = null) {
       if (!currentUid()) return null;
+      
+      // 1. Ищем по текущему UID
       const snap = await getDoc(doc(db, 'users', currentUid()));
-      return snap.exists() ? snap.data() : null;
-    },
+      if (snap.exists()) return snap.data();
 
-    // --- Совместимость со старым кодом ---
-    async loginOrMigrate(profileData, password) {
-      const login = (profileData.name || '').toLowerCase() + '_' + (profileData.group || '').toLowerCase();
-      try {
-        await this.login(login, password);
-        return { migrated: false, restored: true };
-      } catch (e) {
-        if (e.code === 'auth/user-not-found') {
-          await this.register(login, password);
-          await this.saveProfile(profileData);
-          return { migrated: true, restored: false };
+      // 2. Если по UID нет — ищем по Имени и Группе (если они переданы)
+      if (data && data.name && data.group) {
+        try {
+          const usersRef = collection(db, 'users');
+          const q = query(
+            usersRef,
+            where('name', '==', data.name),
+            where('group', '==', data.group)
+          );
+          const querySnapshot = await getDocs(q);
+          
+          if (!querySnapshot.empty) {
+            // Нашли старый профиль! 
+            const oldDoc = querySnapshot.docs[0];
+            const oldProfile = oldDoc.data();
+            
+            // Привязываем старый профиль к новому UID (перезаписываем)
+            await this.saveProfile(oldProfile); 
+            
+            return oldProfile;
+          }
+        } catch (e) {
+          console.warn('Ошибка поиска по имени/группе:', e);
         }
-        throw e;
       }
-    },
-
-    async claimIdentity(profileData) {
-      try {
-        await this.saveProfile(profileData);
-        return { removed: 0 };
-      } catch (e) {
-        return { removed: 0 };
-      }
+      
+      return null; // Профиль нигде не найден
     }
   };
 }

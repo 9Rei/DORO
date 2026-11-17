@@ -6484,7 +6484,10 @@ function renderPreparations(preparations, tasks) {
         }
       });
     });
-
+  }
+// ============================================================
+//  ВХОД / РЕГИСТРАЦИЯ (ОТПРАВКА ФОРМЫ)
+// ============================================================
 if (authSubmit) authSubmit.addEventListener('click', async () => {
   clearAuthError();
 
@@ -6513,10 +6516,9 @@ if (authSubmit) authSubmit.addEventListener('click', async () => {
     const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
 
     if (!cloud) {
-      // Локальный fallback (без сервера)
+      // Локальный fallback
       if (!user) user = {};
-      user.name = name;
-      user.group = group;
+      user.name = name; user.group = group;
       user.status = user.status || USER_STATUSES[0];
       user.color = user.color || '#3b82f6';
       saveUser();
@@ -6529,15 +6531,21 @@ if (authSubmit) authSubmit.addEventListener('click', async () => {
 
     if (authMode === 'register') {
       await cloud.register(login, password);
-      user = user || {};
-      user.name = name;
-      user.group = group;
-      user.status = user.status || USER_STATUSES[0];
-      user.color = user.color || '#3b82f6';
+      
+      user = {
+        name, group,
+        status: user?.status || USER_STATUSES[0],
+        color: user?.color || '#3b82f6',
+        avatarEmoji: '', avatarFrame: 'none',
+        profileBg: 'default', profileBadge: 'none', profileEffect: 'default'
+      };
       await cloud.saveProfile(user);
+      
     } else {
       await cloud.login(login, password);
-      let profile = await cloud.getMyProfile();
+      
+      let profile = await cloud.getMyProfile({ name, group });
+      
       if (!profile) {
         user = {
           name, group,
@@ -6585,12 +6593,13 @@ if (authSubmit) authSubmit.addEventListener('click', async () => {
     paintAuthForm();
   }
 });
-  }
 
+// ============================================================
+//  ЗАГРУЗКА ПРИ СТАРТЕ (BOOT AUTH)
+// ============================================================
 async function bootAuth() {
-  // Ждём, пока Firebase восстановит сессию (максимум 8 секунд)
   let waitTime = 0;
-  while (!window.doroCloudReady && waitTime < 8000) {
+  while (!window.doroCloudReady && waitTime < 10000) {
     await new Promise(r => setTimeout(r, 100));
     waitTime += 100;
   }
@@ -6598,208 +6607,224 @@ async function bootAuth() {
   const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
   const hasPasswordAccount = localStorage.getItem('doro.hasPasswordAccount') === '1';
 
-  // Если Firebase восстановил сессию (не аноним) — грузим профиль и НЕ показываем модалку
   if (cloud && !cloud.isAnonymous) {
     try {
-      const profile = await cloud.getMyProfile();
+      const localUser = JSON.parse(localStorage.getItem('doro.user') || '{}');
+      const profile = await cloud.getMyProfile({ name: localUser.name, group: localUser.group });
+      
+      // ============================================================
+      // ВОТ СЮДА ВСТАВЛЯЕТЕ НОВЫЙ БЛОК if (profile) { ... }
+      // ============================================================
       if (profile) {
         user = {
-          name: profile.name || user?.name || '',
-          group: profile.group || user?.group || '',
-          uid: cloud.uid || user?.uid || '',
-          status: profile.status || user?.status || USER_STATUSES[0],
-          color: profile.color || user?.color || '#3b82f6',
-          avatarEmoji: profile.avatarEmoji || user?.avatarEmoji || '',
-          avatarFrame: profile.avatarFrame || user?.avatarFrame || 'none',
-          profileBg: profile.profileBg || user?.profileBg || 'default',
-          profileBadge: profile.profileBadge || user?.profileBadge || 'none',
-          profileEffect: profile.profileEffect || user?.profileEffect || 'default'
+          name: profile.name || '',
+          group: profile.group || '',
+          uid: cloud.uid || '',
+          status: profile.status || USER_STATUSES[0],
+          color: profile.color || '#3b82f6',
+          avatarEmoji: profile.avatarEmoji || '',
+          avatarFrame: profile.avatarFrame || 'none',
+          profileBg: profile.profileBg || 'default',
+          profileBadge: profile.profileBadge || 'none',
+          profileEffect: profile.profileEffect || 'default'
         };
         saveUser();
+
+        // ВОССТАНАВЛИВАЕМ ПОДПИСКУ ИЗ БАЗЫ
+        if (profile.premiumActive) {
+          const premiumData = {
+            active: true,
+            since: Date.now(),
+            expiresAt: profile.premiumExpiresAt || (Date.now() + 30 * 86400000)
+          };
+          localStorage.setItem('doro.premium.v1', JSON.stringify(premiumData));
+          if (window.doroPremium && window.doroPremium.savePremium) {
+            window.doroPremium.savePremium(premiumData);
+          }
+          document.documentElement.classList.add('role-premium');
+        }
+
         if (typeof applyCloudPremium === 'function') applyCloudPremium(profile);
         if (typeof markPremiumSync === 'function') markPremiumSync(user);
-      } else if (user && user.name && user.group) {
-        // Сессия есть, но документа в Firestore нет — восстановим
-        await cloud.saveProfile(user);
+        renderProfile();
+        closeAuth();
+        return;
       }
+      // ============================================================
+      // КОНЕЦ БЛОКА if (profile)
+      // ============================================================
+
     } catch (e) {
-      console.warn('profile load/restore:', e);
+      console.warn('Ошибка загрузки профиля:', e);
     }
-    renderProfile();
-    return; // ← модалку НЕ открываем
   }
 
-  // Если сессии нет, но флаг «есть аккаунт» стоит — попробуем войти автоматически? Нет.
-  // Если пользователь никогда не регистрировался — показываем модалку.
   if (!hasPasswordAccount) {
     setTimeout(() => openAuth('register', 'choice'), 400);
   } else {
-    // Флаг есть, но Firebase не восстановил сессию (например, истекла).
-    // Показываем модалку входа, но без «выбора» — сразу форму логина.
     setTimeout(() => openAuth('login', 'form'), 400);
   }
 }
 
-  if (window.doroContent && window.doroContent.loadAllTopics) {
-    // Не блокируем первый экран загрузкой тем — грузим параллельно
-    Promise.all([
-      window.doroContent.loadAllTopics().catch(e => console.warn('[boot] loadAllTopics:', e))
-    ]).then(() => {
-      if (typeof window.renderSections === 'function') window.renderSections();
-    });
-    bootAuth();
-  } else {
-    bootAuth();
+// Запуск
+if (window.doroContent && window.doroContent.loadAllTopics) {
+  Promise.all([
+    window.doroContent.loadAllTopics().catch(e => console.warn('[boot] loadAllTopics:', e))
+  ]).then(() => {
+    if (typeof window.renderSections === 'function') window.renderSections();
+  });
+  bootAuth();
+} else {
+  bootAuth();
+}
+
+// ============================================================
+//  ЗАГРУЗЧИК ТЕМЫ — прогресс в шапке + «выпрыг» читалки
+// ============================================================
+const TopicLoader = (function () {
+  const wrap   = document.getElementById('islandTopicProgress');
+  const fill   = document.getElementById('islandTopicFill');
+  const value  = document.getElementById('islandTopicValue');
+
+  let raf = null;
+  let progress = 0;
+  let target = 0;
+  let done = false;
+  let startedAt = 0;
+  let fakeTimer = null;
+  let token = 0;
+  let hideTimer = null;
+
+  const MIN_FULL_VISIBLE_MS = 700;
+
+  function paint() {
+    if (fill)  fill.style.width = progress + '%';
+    if (value) value.textContent = Math.round(progress) + '%';
   }
-  // ============================================================
-  //  ЗАГРУЗЧИК ТЕМЫ — прогресс в шапке + «выпрыг» читалки
-  // ============================================================
-  const TopicLoader = (function () {
-    const wrap   = document.getElementById('islandTopicProgress');
-    const fill   = document.getElementById('islandTopicFill');
-    const value  = document.getElementById('islandTopicValue');
 
-    let raf = null;
-    let progress = 0;
-    let target = 0;
-    let done = false;
-    let startedAt = 0;
-    let fakeTimer = null;
-    let token = 0;              // ← защита от «двойного finish/start»
-    let hideTimer = null;
-
-    // Минимальное время показа «100%»
-    const MIN_FULL_VISIBLE_MS = 700;
-
-    function paint() {
-      if (fill)  fill.style.width = progress + '%';
-      if (value) value.textContent = Math.round(progress) + '%';
+  function tick() {
+    const diff = target - progress;
+    if (Math.abs(diff) < 0.4) {
+      progress = target;
+    } else {
+      progress += diff * 0.12;
     }
+    paint();
+    if (progress < target - 0.4) {
+      raf = requestAnimationFrame(tick);
+    } else {
+      raf = null;
+    }
+  }
 
-    function tick() {
-      const diff = target - progress;
-      if (Math.abs(diff) < 0.4) {
-        progress = target;
-      } else {
-        progress += diff * 0.12;
+  function ensureLoop() {
+    if (!raf) raf = requestAnimationFrame(tick);
+  }
+
+  function startFake() {
+    startedAt = performance.now();
+    clearInterval(fakeTimer);
+    const step = () => {
+      if (done) return;
+      const t = Math.min(1, (performance.now() - startedAt) / 1100);
+      const eased = 1 - Math.pow(1 - t, 2);
+      let want;
+      if (t < 1) want = eased * 60;
+      else {
+        const over = (performance.now() - startedAt - 1100) / 3000;
+        want = 60 + Math.min(30, over * 30);
       }
-      paint();
-      if (progress < target - 0.4) {
-        raf = requestAnimationFrame(tick);
-      } else {
-        raf = null;
-      }
-    }
-
-    function ensureLoop() {
-      if (!raf) raf = requestAnimationFrame(tick);
-    }
-
-    function startFake() {
-      startedAt = performance.now();
-      clearInterval(fakeTimer);
-      const step = () => {
-        if (done) return;
-        const t = Math.min(1, (performance.now() - startedAt) / 1100);
-        const eased = 1 - Math.pow(1 - t, 2);
-        let want;
-        if (t < 1) want = eased * 60;
-        else {
-          const over = (performance.now() - startedAt - 1100) / 3000;
-          want = 60 + Math.min(30, over * 30);
-        }
-        if (want > target) { target = want; ensureLoop(); }
-        if (t < 1 || !done) fakeTimer = setTimeout(step, 60);
-      };
-      step();
-    }
-
-    function cleanupTimers() {
-      clearInterval(fakeTimer);
-      if (raf) { cancelAnimationFrame(raf); raf = null; }
-      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-    }
-
-    return {
-      start() {
-        if (!wrap) return;
-        const myToken = ++token;
-        done = false;
-        progress = 0;
-        target = 0;
-        paint();
-        cleanupTimers();
-        wrap.classList.remove('is-done', 'is-visible'); // сначала убрать
-        void wrap.offsetWidth;                          // рефлоу
-        wrap.classList.add('is-visible');               // потом показать
-        wrap.setAttribute('aria-hidden', 'false');
-        startFake();
-        ensureLoop();
-        return myToken;
-      },
-
-      set(p) {
-        if (done) return;
-        const clamped = Math.min(100, Math.max(0, p));
-        if (clamped > target) {
-          target = clamped;
-          ensureLoop();
-        }
-      },
-
-      async finish() {
-        if (!wrap) return;
-        const myToken = ++token;
-        done = true;
-        clearInterval(fakeTimer);
-
-        // Дорастаем до 100 через tick
-        target = 100;
-        ensureLoop();
-        await new Promise((resolve) => {
-          const check = () => {
-            if (myToken !== token) { resolve(); return; }  // нас отменили
-            if (progress >= 99.5) { progress = 100; paint(); resolve(); }
-            else requestAnimationFrame(check);
-          };
-          check();
-        });
-
-        // Даём пользователю увидеть 100%
-        await new Promise(r => setTimeout(r, MIN_FULL_VISIBLE_MS));
-        if (myToken !== token) return;              // нас отменили — выходим
-
-        wrap.classList.add('is-done');
-        hideTimer = setTimeout(() => {
-          if (myToken !== token) return;
-          wrap.classList.remove('is-visible', 'is-done');
-          wrap.setAttribute('aria-hidden', 'true');
-        }, 500);
-      },
-
-      reset() {
-        token++;                                   // отменить все текущие операции
-        done = true;
-        cleanupTimers();
-        target = 0;
-        progress = 0;
-        paint();
-        if (wrap) {
-          wrap.classList.remove('is-visible', 'is-done');
-          wrap.setAttribute('aria-hidden', 'true');
-        }
-      },
+      if (want > target) { target = want; ensureLoop(); }
+      if (t < 1 || !done) fakeTimer = setTimeout(step, 60);
     };
-  })();
-  // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
-  renderProfile();
-  showView('home');
-  updateViewAsBanner();
+    step();
+  }
 
-  window.openTopic = openTopic;
-  window.showView = showView;
+  function cleanupTimers() {
+    clearInterval(fakeTimer);
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+  }
 
-});
+  return {
+    start() {
+      if (!wrap) return;
+      const myToken = ++token;
+      done = false;
+      progress = 0;
+      target = 0;
+      paint();
+      cleanupTimers();
+      wrap.classList.remove('is-done', 'is-visible');
+      void wrap.offsetWidth;
+      wrap.classList.add('is-visible');
+      wrap.setAttribute('aria-hidden', 'false');
+      startFake();
+      ensureLoop();
+      return myToken;
+    },
+
+    set(p) {
+      if (done) return;
+      const clamped = Math.min(100, Math.max(0, p));
+      if (clamped > target) {
+        target = clamped;
+        ensureLoop();
+      }
+    },
+
+    async finish() {
+      if (!wrap) return;
+      const myToken = ++token;
+      done = true;
+      clearInterval(fakeTimer);
+
+      target = 100;
+      ensureLoop();
+      await new Promise((resolve) => {
+        const check = () => {
+          if (myToken !== token) { resolve(); return; }
+          if (progress >= 99.5) { progress = 100; paint(); resolve(); }
+          else requestAnimationFrame(check);
+        };
+        check();
+      });
+
+      await new Promise(r => setTimeout(r, MIN_FULL_VISIBLE_MS));
+      if (myToken !== token) return;
+
+      wrap.classList.add('is-done');
+      hideTimer = setTimeout(() => {
+        if (myToken !== token) return;
+        wrap.classList.remove('is-visible', 'is-done');
+        wrap.setAttribute('aria-hidden', 'true');
+      }, 500);
+    },
+
+    reset() {
+      token++;
+      done = true;
+      cleanupTimers();
+      target = 0;
+      progress = 0;
+      paint();
+      if (wrap) {
+        wrap.classList.remove('is-visible', 'is-done');
+        wrap.setAttribute('aria-hidden', 'true');
+      }
+    },
+  };
+})();
+
+// ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
+renderProfile();
+showView('home');
+updateViewAsBanner();
+
+window.openTopic = openTopic;
+window.showView = showView;
+
+}); // <--- ЗАКРЫВАЮЩАЯ СКОБКА ОТ DOMContentLoaded
 
 // ============================================================
 //  МОДАЛКА АКТИВАЦИИ GOLDEN (по ключу)
@@ -6814,21 +6839,14 @@ async function bootAuth() {
   
   if (!modal) return;
 
-  // --- Логика кнопки Telegram ---
   const contactBtn = document.getElementById('payContactBtn');
   if (contactBtn) {
     contactBtn.addEventListener('click', () => {
-      // Берем профиль пользователя
       const me = JSON.parse(localStorage.getItem('doro.user') || '{}');
       const name = me.name || 'Пользователь';
       const group = me.group || 'без группы';
-      
-      // Формируем текст
       const text = `Привет! Я ${name} (${group}). Хочу активировать Golden на 1 месяц. Поможешь?)`;
-      
-      // ВАШ НИК В ТЕЛЕГРАММЕ
       const tgNick = 'KAGOR_GG'; 
-      
       const url = `https://t.me/${tgNick}?text=${encodeURIComponent(text)}`;
       window.open(url, '_blank');
     });
@@ -6863,12 +6881,10 @@ async function bootAuth() {
     modal.setAttribute('aria-hidden', 'true');
   }
 
-  // Закрытие по кнопкам/фону
   modal.querySelectorAll('[data-pay-close]').forEach(el => {
     el.addEventListener('click', close);
   });
 
-  // Кнопка "Активировать"
   if (activateBtn) {
     activateBtn.addEventListener('click', async () => {
       const key = (keyInput.value || '').trim();
@@ -6884,7 +6900,6 @@ async function bootAuth() {
       try {
         await window.doroPremium.activateKey(key);
         
-        // Успех
         if (success) success.style.display = 'flex';
         if (activateBtn) activateBtn.style.display = 'none';
         if (keyInput) keyInput.style.display = 'none';
@@ -6901,6 +6916,5 @@ async function bootAuth() {
     });
   }
 
-  // Внешний вызов из других мест
   window.__openPayModal = open;
 })();
