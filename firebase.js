@@ -5,7 +5,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import {
   getFirestore, collection, getCountFromServer,
   doc, setDoc, getDoc,
-  query, where, getDocs
+  query, where, getDocs,
+  deleteDoc // <--- ДОБАВИТЬ ЭТО
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getAuth, signInAnonymously, onAuthStateChanged,
@@ -160,6 +161,25 @@ function createCloudApi(initialUser) {
       }
       
       return null; // Профиль нигде не найден
+    },
+        // Удаление старых пользователей (не заходивших N дней)
+    async deleteOldUsers(days = 5) {
+      if (!currentUid()) return 0;
+      const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('updatedAt', '<', new Date(cutoff).toISOString()));
+      const snapshot = await getDocs(q);
+      
+      let deleted = 0;
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        // Не удаляем себя и тех, у кого есть подписка
+        if (docSnap.id !== currentUid() && !data.premiumActive) {
+          await deleteDoc(doc(db, 'users', docSnap.id));
+          deleted++;
+        }
+      }
+      return deleted;
     }
   };
 }
