@@ -67,6 +67,9 @@ onAuthStateChanged(auth, firebaseUser => {
   }).finally(() => { anonymousSignInInFlight = false; });
 });
 
+import { doc, setDoc, getDoc, collection, getCountFromServer }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
 function createCloudApi(initialUser) {
   const normalizeLogin = value => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
   const currentUid = () => (auth.currentUser && auth.currentUser.uid) || initialUser.uid;
@@ -75,7 +78,7 @@ function createCloudApi(initialUser) {
     uid: initialUser.uid,
     isAnonymous: !!initialUser.isAnonymous,
 
-    // Регистрация
+    // --- Регистрация ---
     async register(login, password) {
       const safeLogin = normalizeLogin(login);
       if (!safeLogin || !password) throw new Error('Введите логин и пароль.');
@@ -83,7 +86,7 @@ function createCloudApi(initialUser) {
       return credential.user.uid;
     },
 
-    // Вход
+    // --- Вход ---
     async login(login, password) {
       const safeLogin = normalizeLogin(login);
       if (!safeLogin || !password) throw new Error('Введите логин и пароль.');
@@ -91,15 +94,65 @@ function createCloudApi(initialUser) {
       return credential.user.uid;
     },
 
-    // Выход
+    // --- Выход ---
     async logout() {
       await signOut(auth);
     },
 
-    // Получение ТОЛЬКО количества пользователей для цифры на профиле
+    // --- Счётчик ---
     async countUsers() {
       const snapshot = await getCountFromServer(collection(db, 'users'));
       return snapshot.data().count;
+    },
+
+    // --- Сохранить профиль ---
+    async saveProfile(data) {
+      if (!currentUid()) throw new Error('Нет пользователя');
+      const payload = {
+        name: data.name || '',
+        group: data.group || '',
+        status: data.status || '',
+        color: data.color || '#3b82f6',
+        avatarEmoji: data.avatarEmoji || '',
+        avatarFrame: data.avatarFrame || 'none',
+        profileBg: data.profileBg || 'default',
+        profileBadge: data.profileBadge || 'none',
+        profileEffect: data.profileEffect || 'default',
+        updatedAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'users', currentUid()), payload, { merge: true });
+    },
+
+    // --- Загрузить профиль ---
+    async getMyProfile() {
+      if (!currentUid()) return null;
+      const snap = await getDoc(doc(db, 'users', currentUid()));
+      return snap.exists() ? snap.data() : null;
+    },
+
+    // --- Совместимость со старым кодом ---
+    async loginOrMigrate(profileData, password) {
+      const login = (profileData.name || '').toLowerCase() + '_' + (profileData.group || '').toLowerCase();
+      try {
+        await this.login(login, password);
+        return { migrated: false, restored: true };
+      } catch (e) {
+        if (e.code === 'auth/user-not-found') {
+          await this.register(login, password);
+          await this.saveProfile(profileData);
+          return { migrated: true, restored: false };
+        }
+        throw e;
+      }
+    },
+
+    async claimIdentity(profileData) {
+      try {
+        await this.saveProfile(profileData);
+        return { removed: 0 };
+      } catch (e) {
+        return { removed: 0 };
+      }
     }
   };
 }

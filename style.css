@@ -17035,7 +17035,7 @@ html.role-admin .nav-admin-link::after {
   background: rgba(163, 230, 53, 0.15);
   color: var(--accent);
 }
-}
+
 [data-theme="dark"] .admin-refresh {
   background: rgba(20, 23, 15, 0.6);
   border-color: rgba(163, 230, 53, 0.15);

@@ -1758,10 +1758,15 @@ document.addEventListener('DOMContentLoaded', () => {
       avatar.classList.remove('avatar--emoji');
     }
   }
-  async function syncProfileToCloud() {
-    // Синхронизация с облаком отключена — всё хранится локально
-    return;
+async function syncProfileToCloud() {
+  try {
+    const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
+    if (!cloud || cloud.isAnonymous || !user) return;
+    await cloud.saveProfile(user);
+  } catch (e) {
+    console.warn('syncProfileToCloud:', e);
   }
+}
   function renderProfile() {
     const accountLoginBtn = $('profileLoginBtn');
     const accountLogoutBtn = $('profileLogoutBtn');
@@ -6480,131 +6485,106 @@ function renderPreparations(preparations, tasks) {
       });
     });
 
-    // ---- Отправка формы ----
-    if (authSubmit) authSubmit.addEventListener('click', async () => {
-      clearAuthError();
+if (authSubmit) authSubmit.addEventListener('click', async () => {
+  clearAuthError();
 
-      const nameRaw = (authName.value || '').trim();
-      if (!nameRaw) { showAuthError('Введите имя'); return; }
-      const name = nameRaw.split(/\s+/)[0];
+  const nameRaw = (authName.value || '').trim();
+  if (!nameRaw) { showAuthError('Введите имя'); return; }
+  const name = nameRaw.split(/\s+/)[0];
 
-      if (!authChain || !authChain.isComplete()) {
-        showAuthError('Заполните все три поля группы: буквы, год, номер.');
-        return;
+  if (!authChain || !authChain.isComplete()) {
+    showAuthError('Заполните все три поля группы: буквы, год, номер.');
+    return;
+  }
+  const group = formatGroup(authChain.getParts());
+
+  const password = authPassword.value;
+  if (!password || password.length < 6) {
+    showAuthError('Пароль должен быть минимум 6 символов');
+    return;
+  }
+
+  const login = (name.toLowerCase() + '_' + group.toLowerCase());
+
+  authSubmit.disabled = true;
+  authSubmit.textContent = authMode === 'register' ? 'Создаю…' : 'Вхожу…';
+
+  try {
+    const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
+
+    if (!cloud) {
+      // Локальный fallback (без сервера)
+      if (!user) user = {};
+      user.name = name;
+      user.group = group;
+      user.status = user.status || USER_STATUSES[0];
+      user.color = user.color || '#3b82f6';
+      saveUser();
+      localStorage.setItem(ONBOARD_DONE_KEY, '1');
+      localStorage.setItem(AUTH_LOGIN_KEY, login);
+      localStorage.setItem('doro.hasPasswordAccount', '1');
+      closeAuth(); renderProfile(); showView('profile');
+      return;
+    }
+
+    if (authMode === 'register') {
+      await cloud.register(login, password);
+      user = user || {};
+      user.name = name;
+      user.group = group;
+      user.status = user.status || USER_STATUSES[0];
+      user.color = user.color || '#3b82f6';
+      await cloud.saveProfile(user);
+    } else {
+      await cloud.login(login, password);
+      let profile = await cloud.getMyProfile();
+      if (!profile) {
+        user = {
+          name, group,
+          status: user?.status || USER_STATUSES[0],
+          color: user?.color || '#3b82f6',
+          avatarEmoji: '', avatarFrame: 'none',
+          profileBg: 'default', profileBadge: 'none', profileEffect: 'default'
+        };
+        await cloud.saveProfile(user);
+      } else {
+        user = {
+          name: profile.name || name,
+          group: profile.group || group,
+          status: profile.status || USER_STATUSES[0],
+          color: profile.color || '#3b82f6',
+          avatarEmoji: profile.avatarEmoji || '',
+          avatarFrame: profile.avatarFrame || 'none',
+          profileBg: profile.profileBg || 'default',
+          profileBadge: profile.profileBadge || 'none',
+          profileEffect: profile.profileEffect || 'default'
+        };
       }
-      const group = formatGroup(authChain.getParts());
+    }
 
-      const password = authPassword.value;
-      if (!password || password.length < 6) { showAuthError('Пароль должен быть минимум 6 символов'); return; }
+    saveUser();
+    localStorage.setItem(ONBOARD_DONE_KEY, '1');
+    localStorage.setItem(AUTH_LOGIN_KEY, login);
+    localStorage.setItem('doro.hasPasswordAccount', '1');
 
-      const login = (name.toLowerCase() + '_' + group.toLowerCase());
+    closeAuth();
+    renderProfile();
+    showView('profile');
 
-      authSubmit.disabled = true;
-      authSubmit.textContent = authMode === 'register' ? 'Создаю…' : 'Вхожу…';
-
-      try {
-        const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
-
-        if (!cloud) {
-          if (!user) user = {};
-          user.name = name; user.group = group;
-          user.uid = cloud.uid || user.uid || '';
-          user.status = user.status || USER_STATUSES[0];
-          user.color  = user.color  || '#3b82f6';
-          saveUser();
-          localStorage.setItem(ONBOARD_DONE_KEY, '1');
-          localStorage.setItem(AUTH_LOGIN_KEY, login);
-          localStorage.setItem('doro.hasPasswordAccount', '1');
-          closeAuth(); renderProfile(); showView('profile');
-          return;
-        }
-
-        if (authMode === 'register') {
-          await cloud.register(login, password);
-
-          user = user || {};
-          user.name = name; user.group = group;
-          user.uid = cloud.uid || user.uid || '';
-          user.status = user.status || USER_STATUSES[0];
-          user.color  = user.color  || '#3b82f6';
-          saveUser();
-
-          try {
-            if (claim && claim.removed > 0) {
-              try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
-              usersCache = null; usersCacheTime = 0;
-            }
-          } catch (e) { console.warn('claimIdentity:', e); }
-
-          localStorage.setItem(ONBOARD_DONE_KEY, '1');
-          localStorage.setItem(AUTH_LOGIN_KEY, login);
-          localStorage.setItem('doro.hasPasswordAccount', '1');
-          closeAuth(); renderProfile(); showView('profile');
-        } else {
-          const result = await cloud.loginOrMigrate(
-            { name, group, status: user?.status || USER_STATUSES[0], color: user?.color || '#3b82f6' },
-            password
-          );
-
-          let profile = await cloud.getMyProfile({ name, group });
-          if (!profile) {
-            user = { 
-              name, group, 
-              status: user?.status || USER_STATUSES[0], 
-              color: user?.color || '#3b82f6',
-              avatarEmoji: '',
-              avatarFrame: 'none',
-              profileBg: 'default',
-              profileBadge: 'none',
-              profileEffect: 'default'
-            };
-            await cloud.saveProfile(user);
-          } else {
-            user = {
-              name:          profile.name          || name,
-              group:         profile.group         || group,
-              status:        profile.status        || USER_STATUSES[0],
-              color:         profile.color         || '#3b82f6',
-              avatarEmoji:   profile.avatarEmoji   || '',
-              avatarFrame:   profile.avatarFrame   || 'none',
-              profileBg:     profile.profileBg     || 'default',
-              profileBadge:  profile.profileBadge  || 'none',
-              profileEffect: profile.profileEffect || 'default'
-            };
-          }
-          saveUser();
-          if (profile) {
-            applyCloudPremium(profile);
-            markPremiumSync(user);
-          }
-
-          if (result && result.migrated) {
-            alert(result.restored
-              ? 'Нашли ваш старый профиль и привязали к нему пароль. Теперь можно входить с любого устройства.'
-              : 'Пароль создан. Теперь можно входить с любого устройства по этим имени и паролю.');
-            try { localStorage.removeItem('doro.usersCache.v2'); } catch (e) {}
-            usersCache = null; usersCacheTime = 0;
-          }
-
-          localStorage.setItem(ONBOARD_DONE_KEY, '1');
-          localStorage.setItem(AUTH_LOGIN_KEY, login);
-          localStorage.setItem('doro.hasPasswordAccount', '1');
-          closeAuth(); renderProfile(); showView('profile');
-        }
-      } catch (err) {
-        console.error('Auth error:', err);
-        let msg = err.message || 'Ошибка';
-        if (msg.includes('email-already-in-use')) msg = 'Этот логин уже занят. Нажмите «Назад» и выберите «Я уже был здесь».';
-        else if (msg.includes('user-not-found'))  msg = 'Пользователь не найден. Нажмите «Назад» и выберите «Я здесь впервые».';
-        else if (msg.includes('wrong-password') || msg.includes('invalid-credential')) msg = 'Неверный пароль.';
-        else if (msg.includes('invalid-email'))   msg = 'Логин составлен неправильно.';
-        else if (msg.includes('weak-password'))   msg = 'Слишком простой пароль.';
-        showAuthError(msg);
-      } finally {
-        authSubmit.disabled = false;
-        paintAuthForm();
-      }
-    });
+  } catch (err) {
+    console.error('Auth error:', err);
+    let msg = err.message || 'Ошибка';
+    if (msg.includes('email-already-in-use')) msg = 'Этот логин уже занят. Нажмите «Назад» и выберите «Я уже был здесь».';
+    else if (msg.includes('user-not-found')) msg = 'Пользователь не найден. Нажмите «Назад» и выберите «Я здесь впервые».';
+    else if (msg.includes('wrong-password') || msg.includes('invalid-credential')) msg = 'Неверный пароль.';
+    else if (msg.includes('invalid-email')) msg = 'Логин составлен неправильно.';
+    else if (msg.includes('weak-password')) msg = 'Слишком простой пароль.';
+    showAuthError(msg);
+  } finally {
+    authSubmit.disabled = false;
+    paintAuthForm();
+  }
+});
   }
 
   // ---------- Автозапуск ----------
