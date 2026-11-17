@@ -13,8 +13,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="DORO_Golden_Active_Redesign.css">
-  <link rel="stylesheet" href="DORO_Golden_White_Gold.css">
   <link rel="stylesheet" href="editor.css">
 </head>
 <body>
@@ -210,16 +208,7 @@
       <h2>Админ-панель</h2>
     </div>
 
-    <div class="admin-tabs" id="adminTabs">
-      <button type="button" class="admin-tab is-active" data-admin-tab="requests">
-        Заявки на Golden
-        <span class="admin-tab__badge" id="adminRequestsBadge" hidden>0</span>
-      </button>
-      <button type="button" class="admin-tab" data-admin-tab="activated">
-        Активированные
-      </button>
-    </div>
-
+    <!-- Сюда JS будет рендерить генератор -->
     <div class="admin-panel" id="adminPanel">
       <div class="admin-empty">Загрузка…</div>
     </div>
@@ -310,33 +299,6 @@
 
       <!-- ВЫПАДАЮЩИЕ ПАНЕЛИ (открываются под плитками) -->
       <div class="profile-panels">
-
-        <section class="profile-panel" id="panelUsers" aria-hidden="true">
-          <div class="profile-users" id="profileUsers" aria-live="polite">
-            <div class="profile-users__head">
-              <h2 class="profile-users__title">Пользователи</h2>
-              <button type="button" class="profile-users__refresh" id="usersRefreshBtn" title="Обновить список" aria-label="Обновить список">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="23 4 23 10 17 10"></polyline>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                </svg>
-              </button>
-            </div>
-
-            <div class="profile-users__toolbar">
-              <label class="profile-users__search-wrap" for="profileUsersSearch">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
-                <input id="profileUsersSearch" class="profile-users__search" type="search" placeholder="Найти группу или пользователя…" autocomplete="off">
-                
-              </label>
-              <p class="profile-users__tip">Нажми на группу, чтобы открыть её расписание</p>
-            </div>
-            <div class="profile-users__body" id="profileUsersBody">
-              <div class="profile-users__empty">Загрузка…</div>
-            </div>
-          </div>
-        </section>
-
         <section class="profile-panel" id="panelLectures" aria-hidden="true">
           <div class="pop-lecture__info" id="lectureInfo"></div>
         </section>
@@ -773,88 +735,73 @@
     </div>
   </div>
 </div>
-<!-- ================= МОДАЛКА ОПЛАТЫ GOLDEN ================= -->
+<!-- ================= МОДАЛКА АКТИВАЦИИ GOLDEN (по ключу) ================= -->
 <div class="onboard" id="payModal" aria-hidden="true">
   <div class="onboard__backdrop"></div>
   <div class="onboard__box" role="dialog" aria-modal="true" aria-labelledby="payTitle">
 
     <div class="onboard__glow" aria-hidden="true"></div>
 
-<div class="onboard__hero">
-  <div class="onboard__avatar"
-       style="background: linear-gradient(135deg, #f5df9b, #c69a3b);">
-    <span style="font-size: 30px; color: #fff;">★</span>
-  </div>
-  <span class="onboard__step">GOLDEN</span>
-</div>
+    <div class="onboard__hero">
+      <div class="onboard__avatar" style="background: linear-gradient(135deg, #f5df9b, #c69a3b);">
+        <span style="font-size: 30px; color: #fff;">★</span>
+      </div>
+      <span class="onboard__step">GOLDEN</span>
+    </div>
 
-<h2 class="onboard__title" id="payTitle"
-    style="font-size: 24px; margin-bottom: 4px;">
-  Подключение Golden
-</h2>
+    <h2 class="onboard__title" id="payTitle" style="font-size: 24px; margin-bottom: 4px;">
+      Активация Golden
+    </h2>
 
-<p class="onboard__sub"
-   style="font-size: 13px; margin-bottom: 20px;">
-  Больше возможностей для учёбы.
-</p>
+    <p class="onboard__sub" style="font-size: 13px; margin-bottom: 16px;">
+      Чтобы получить доступ, напишите нам в Telegram и укажите свой ник на сайте.
+    </p>
 
-<div class="golden-pay-card">
-  <div class="golden-pay-price">
-    <strong>79 ₽</strong>
-    <span> / 30 дней</span>
-  </div>
+    <div class="golden-pay-card">
+      <span class="golden-pay-label">Шаг 1: Свяжитесь с нами</span>
+      
+      <!-- Кнопка с автоподстановкой текста -->
+      <button type="button" id="payContactBtn" class="golden-phone-copy" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width: 100%; border: none; cursor: pointer; margin-bottom: 10px;">
+        Написать в Telegram (авто) <span style="margin-left: 5px;" aria-hidden="true">↗</span>
+      </button>
+      
+      <!-- Ссылка на ваш ник вручную -->
+      <div style="font-size: 14px; color: #765414; font-weight: 600;">
+        Или напишите вручную: 
+        <a href="https://t.me/KAGOR_GG" target="_blank" rel="noopener" style="color: #d97706; text-decoration: underline;">
+          @KAGOR_GG
+        </a>
+      </div>
+      
+      <p class="golden-pay-hint">
+        Сообщение с вашим именем и группой сформируется автоматически.
+      </p>
+    </div>
 
-  <div class="golden-pay-divider"></div>
+    <div class="golden-pay-card" style="margin-top: 10px;">
+      <span class="golden-pay-label">Шаг 2: Введите полученный код</span>
+      <input id="payKeyInput" class="onboard__input" type="text" placeholder="GOLD.xxxxx.xxxxx" autocomplete="off" spellcheck="false" style="margin-top: 8px;">
+    </div>
 
-  <span class="golden-pay-label">Перевод через СБП</span>
+    <button type="button" class="onboard__btn" id="payActivateBtn" style="margin-top: 16px;">
+      Активировать
+    </button>
 
-  <button type="button" id="payCardNum"
-          class="golden-phone-copy"
-          title="Нажми, чтобы скопировать номер"
-          aria-label="Скопировать номер телефона">
-    +7 962 798-70-15 <span aria-hidden="true">⧉</span>
-  </button>
+    <button type="button" class="auth-back" data-pay-close style="align-self: center; margin-top: 8px;">
+      Закрыть
+    </button>
 
-  <p class="golden-pay-hint">
-    Нажми на номер, чтобы скопировать
-  </p>
-</div>
+    <p id="payError" style="color: #ef4444; font-size: 12.5px; text-align: center; margin: 8px 0 0; display: none;"></p>
 
-<p class="golden-pay-note">
-  После перевода отправь заявку. Golden включится после проверки оплаты.
-</p>
+    <div id="paySuccess" style="display: none; flex-direction: column; align-items: center; gap: 10px; padding: 16px 0 4px; text-align: center;">
+      <div style="font-size: 36px;">✓</div>
+      <b style="font-size: 16px; color: var(--text);">Golden активирован!</b>
+      <p style="font-size: 13px; color: var(--text-soft); margin: 0; line-height: 1.5;">
+        Все возможности подписки доступны.
+      </p>
+    </div>
 
-<button type="button" class="onboard__btn"
-        id="payPaidBtn" style="margin-top: 6px;">
-  Я оплатил
-</button>
-
-<button type="button" class="auth-back"
-        data-pay-close
-        style="align-self: center; margin-top: 8px;">
-  Закрыть
-</button>
-
-<p id="payError"
-   style="color: #ef4444; font-size: 12.5px;
-          text-align: center; margin: 0; display: none;">
-</p>
-
-<div id="paySuccess"
-     style="display: none; flex-direction: column;
-            align-items: center; gap: 10px;
-            padding: 16px 0 4px; text-align: center;">
-  <div style="font-size: 36px;">⏳</div>
-  <b style="font-size: 16px; color: var(--text);">
-    Заявка отправлена
-  </b>
-  <p style="font-size: 13px; color: var(--text-soft);
-            margin: 0; line-height: 1.5;">
-    Ожидай подтверждения оплаты администратором.
-  </p>
-</div>
-</div><!-- /.onboard__box -->
-</div><!-- /#payModal -->
+  </div><!-- /.onboard__box -->
 </div><!-- /#payModal -->
 <!-- ================= МОДАЛКА ПРЕЗЕНТАЦИИ GOLDEN ================= -->
 <div class="support-modal" id="supportModal" aria-hidden="true">
@@ -875,9 +822,9 @@
       Мы добавили необязательную подписку <b>Golden</b> — чтобы оплачивать серверы и быстрее выпускать обновления.
     </p>
     
-    <button type="button" class="support-modal__btn" id="supportModalGo">
-      Узнать подробнее
-    </button>
+<button type="button" class="support-modal__btn" id="supportModalGo">
+  Активировать ключ
+</button>
   </div>
 </div>
   <script type="module" src="firebase.js"></script>

@@ -16953,62 +16953,6 @@ html.role-admin .nav-admin-link::after {
 .admin-empty__icon { font-size: 40px; line-height: 1; }
 .admin-empty b { color: var(--text); font-size: 16px; }
 
-.admin-req {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  margin-bottom: 10px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  transition: border-color .2s, background .2s;
-}
-.admin-req:hover {
-  border-color: rgba(245, 158, 11, 0.6);
-  background: rgba(255, 255, 255, 0.85);
-}
-
-.admin-req__body { flex: 1; min-width: 0; }
-.admin-req__name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--text);
-  margin-bottom: 3px;
-  flex-wrap: wrap;
-}
-.admin-req__badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.admin-req__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  font-size: 12.5px;
-  color: var(--text-soft);
-}
-.admin-req__meta b { color: var(--text); font-weight: 700; }
-.admin-req__ago { opacity: 0.7; }
-
-.admin-req__actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
 .admin-btn {
   display: inline-flex;
   align-items: center;
@@ -17091,13 +17035,6 @@ html.role-admin .nav-admin-link::after {
   background: rgba(163, 230, 53, 0.15);
   color: var(--accent);
 }
-[data-theme="dark"] .admin-req {
-  background: rgba(20, 23, 15, 0.6);
-  border-color: rgba(251, 191, 36, 0.22);
-}
-[data-theme="dark"] .admin-req:hover {
-  background: rgba(20, 23, 15, 0.85);
-  border-color: rgba(251, 191, 36, 0.55);
 }
 [data-theme="dark"] .admin-refresh {
   background: rgba(20, 23, 15, 0.6);
@@ -17106,19 +17043,6 @@ html.role-admin .nav-admin-link::after {
 [data-theme="dark"] .admin-refresh:hover {
   background: rgba(163, 230, 53, 0.1);
   border-color: var(--accent);
-}
-
-@media (max-width: 640px) {
-  .admin-panel { padding: 14px; border-radius: 18px; }
-  .admin-req {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 12px 14px;
-  }
-  .admin-req__actions { justify-content: flex-end; }
-  .admin-btn { flex: 1; }
-  .admin-tab { padding: 9px 14px; font-size: 13px; }
 }
 /* ============================================================
    МОДАЛКА ОПЛАТЫ GOLDEN — прокрутка контента
@@ -17273,41 +17197,644 @@ html.role-admin .nav-admin-link::after {
   .profile-users__search-wrap kbd { display:none; }
 }
 
-/* Golden: цельная премиальная витрина */
-.golden-page { max-width: 1040px; margin-inline:auto; padding: clamp(12px,2.5vw,28px); }
-.golden-page--showcase { position:relative; isolation:isolate; }
-.golden-page--showcase::before { content:""; position:absolute; z-index:-1; pointer-events:none; inset:0 0 auto; height:420px; border-radius:34px; background:radial-gradient(ellipse at 50% 0%,rgba(239,195,86,.18),transparent 66%); }
-.golden-hero { position:relative; overflow:hidden; padding:clamp(28px,6vw,64px) clamp(20px,5vw,54px) clamp(30px,5vw,52px) !important; border:1px solid rgba(205,160,60,.32) !important; border-radius:30px !important; background:radial-gradient(ellipse at 92% 10%,rgba(255,222,133,.18),transparent 36%),linear-gradient(135deg,#171a21 0%,#29251c 54%,#15171c 100%) !important; box-shadow:0 24px 70px rgba(29,25,16,.2),inset 0 1px 0 rgba(255,255,255,.08) !important; text-align:left !important; }
-.golden-hero::after { content:"✦"; position:absolute; top:25px; right:clamp(22px,6vw,64px); color:rgba(247,207,111,.28); font-size:clamp(70px,12vw,128px); line-height:1; pointer-events:none; }
-.golden-wordmark--big { color:#f1cb72 !important; letter-spacing:.12em !important; text-shadow:0 3px 28px rgba(239,192,77,.25); }
-.golden-title { max-width:650px; color:#fff8e7 !important; font-size:clamp(30px,5.2vw,52px) !important; line-height:1.06 !important; letter-spacing:-.045em !important; text-wrap:balance; }
-.golden-sub { max-width:590px; color:rgba(255,248,231,.7) !important; font-size:clamp(14px,1.8vw,16px) !important; line-height:1.7 !important; }
-.golden-price { position:relative; z-index:1; margin-top:24px !important; border:1px solid rgba(255,224,144,.65) !important; border-radius:17px !important; background:linear-gradient(135deg,#ffe7a0,#d6a642) !important; color:#30220b !important; box-shadow:0 12px 28px rgba(201,151,46,.2) !important; transition:transform .2s,box-shadow .2s !important; }
-.golden-price:hover { transform:translateY(-2px); box-shadow:0 17px 34px rgba(201,151,46,.28) !important; }
-.golden-price__tag { background:rgba(69,48,8,.1) !important; color:#513a0e !important; }
-.golden-main-benefit { margin-top:20px; border:1px solid rgba(207,166,78,.24) !important; border-radius:24px !important; box-shadow:0 14px 34px rgba(20,25,35,.06) !important; }
-.golden-other-benefits { gap:12px !important; }
-.golden-other-benefit { border:1px solid var(--island-border) !important; border-radius:18px !important; background:var(--bg-elevated) !important; transition:transform .18s,border-color .18s,box-shadow .18s; }
-.golden-other-benefit:hover { transform:translateY(-2px); border-color:rgba(195,150,48,.35) !important; box-shadow:0 10px 25px rgba(20,30,45,.06); }
-.golden-activate { width:100% !important; max-width:none !important; min-height:58px; border:1px solid #f0cf79 !important; border-radius:17px !important; background:linear-gradient(135deg,#f9df96,#d5a13b) !important; color:#2f220c !important; font-weight:850 !important; letter-spacing:-.01em; box-shadow:0 13px 28px rgba(175,126,26,.2) !important; }
-.golden-fine { color:var(--text-soft) !important; }
-.golden-active-hero { border:1px solid rgba(218,177,83,.36) !important; border-radius:30px !important; box-shadow:0 22px 60px rgba(27,24,17,.16) !important; }
-.golden-active-hero__badge { border:1px solid rgba(255,224,144,.3); }
-.golden-active-days__bar { overflow:hidden; border-radius:999px !important; }
-.golden-active-days__fill { background:linear-gradient(90deg,#f9df96,#c79532) !important; box-shadow:0 0 16px rgba(238,191,77,.35); }
-.golden-active-body { margin-top:18px; }
-.golden-tabs { padding:5px !important; border:1px solid var(--island-border) !important; border-radius:16px !important; background:var(--bg-elevated) !important; }
-.golden-tabs__btn { border-radius:12px !important; }
-.golden-tabs__btn.is-active { background:linear-gradient(135deg,#f8e4a9,#d8ad4f) !important; color:#35270d !important; box-shadow:0 4px 14px rgba(185,139,43,.16); }
-.golden-perk { border:1px solid var(--island-border) !important; border-radius:17px !important; transition:transform .18s,border-color .18s,box-shadow .18s !important; }
-.golden-perk:hover { transform:translateY(-2px); border-color:rgba(197,151,48,.45) !important; box-shadow:0 12px 26px rgba(20,30,45,.07); }
-.golden-manage { margin-top:20px; opacity:.8; }
-[data-theme="dark"] .golden-other-benefit, [data-theme="dark"] .golden-perk { background:rgba(255,255,255,.035) !important; }
-@media (max-width:600px) {
-  .golden-page { padding:10px; }
-  .golden-hero { border-radius:23px !important; padding:28px 21px 30px !important; }
-  .golden-title { font-size:clamp(29px,8vw,39px) !important; }
-  .golden-main-benefit { border-radius:19px !important; }
-  .golden-price { display:flex; flex-wrap:wrap; gap:7px 10px; }
-  .golden-activate { min-height:54px; }
+
+/* ============================================================
+   НОВАЯ МОДАЛКА АКТИВАЦИИ GOLDEN (Шаги + Кнопка Telegram)
+   ============================================================ */
+#payModal .golden-pay-card {
+  padding: 20px 16px 16px;
+  margin: 0 0 14px;
+  border-radius: 18px;
+  background-color: #fffdf7;
+  border: 1px solid #ead8a8;
+  box-shadow: 0 8px 24px rgba(119, 86, 25, 0.08);
+  text-align: center;
+}
+
+#payModal .golden-pay-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #887b61;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Кнопка "Написать в Telegram" */
+#payModal .golden-phone-copy {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+  width: 100%;
+  max-width: 100%;
+  border-radius: 14px;
+  border: 1px solid #e2c477;
+  background-color: #fff4d5;
+  color: #765414;
+  font-size: 15px;
+  font-weight: 800;
+  transition: background 0.2s, transform 0.1s;
+}
+#payModal .golden-phone-copy:hover {
+  background-color: #ffeab0;
+  transform: translateY(-1px);
+}
+#payModal .golden-phone-copy:active {
+  transform: scale(0.98);
+}
+
+#payModal .golden-pay-hint {
+  font-size: 11px;
+  color: #95896f;
+  margin: 10px 0 0;
+  line-height: 1.4;
+}
+
+/* Поле ввода ключа (Шаг 2) */
+#payModal #payKeyInput {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #ead8a8;
+  background: #fffaf0;
+  color: #3d2b0d;
+  font-family: monospace;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+}
+#payModal #payKeyInput:focus {
+  outline: none;
+  border-color: #d9b45c;
+  box-shadow: 0 0 0 3px rgba(217, 180, 92, 0.25);
+}
+
+/* Кнопка "Активировать" */
+#payModal #payActivateBtn {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b 55%, #d97706);
+  color: #451a03;
+  font-weight: 800;
+  border: none;
+  box-shadow: 0 8px 20px -6px rgba(245, 158, 11, 0.5);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+#payModal #payActivateBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px -6px rgba(245, 158, 11, 0.7);
+}
+#payModal #payActivateBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ============================================================
+   НОВАЯ АДМИН-ПАНЕЛЬ (Генератор ключей)
+   ============================================================ */
+.admin-panel .admin-tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+}
+
+.admin-panel .admin-tab {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.admin-panel .admin-tab.is-active {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 2px 10px rgba(20, 40, 80, 0.08);
+}
+
+/* Карточка генератора */
+.admin-panel > div[style*="background: var(--bg-elevated)"] {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--island-border) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.04) !important;
+}
+
+/* Поля ввода */
+.admin-panel input[type="text"] {
+  padding: 12px 16px !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--island-border) !important;
+  background: var(--bg-soft) !important;
+  color: var(--text) !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+.admin-panel input[type="text"]:focus {
+  outline: none !important;
+  border-color: #eab308 !important;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.2) !important;
+}
+
+/* Кнопка "Сгенерировать" */
+#adminGenBtn {
+  transition: opacity 0.2s, transform 0.15s !important;
+}
+#adminGenBtn:hover {
+  opacity: 0.9;
+}
+#adminGenBtn:active {
+  transform: scale(0.98);
+}
+
+/* Блок с результатом */
+#adminResult {
+  background: #1a1e14 !important;
+  border: 1px dashed #eab308 !important;
+  border-radius: 12px !important;
+}
+#adminKeyOutput {
+  padding: 12px 16px !important;
+  font-size: 14px !important;
+  border: 1px solid #eab308 !important;
+  background: #000 !important;
+  color: #fff !important;
+}
+/* ============================================================
+   ФИНАЛЬНАЯ ДОРАБОТКА МОДАЛКИ АКТИВАЦИИ (без рамок, тёмная тема)
+   ============================================================ */
+
+/* 1. Убираем старые рамки вокруг текста и заголовка в модалке */
+#payModal .onboard__box {
+  border: none !important; /* Убираем рамку у самого окна */
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.2) !important;
+}
+
+#payModal .onboard__title,
+#payModal .onboard__sub {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 2. Оформление карточек внутри модалки (Шаг 1 и Шаг 2) */
+#payModal .golden-pay-card {
+  background: #fffcf5 !important;
+  border: none !important; /* Убираем рамки у карточек */
+  border-radius: 20px !important;
+  padding: 20px !important;
+  box-shadow: 0 10px 25px -10px rgba(200, 160, 50, 0.1) !important;
+  text-align: center;
+}
+
+[data-theme="dark"] #payModal .golden-pay-card {
+  background: #29261e !important;
+  box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 3. Кнопка "Написать в Telegram" */
+#payModal .golden-phone-copy {
+  background: linear-gradient(135deg, #fff7e0, #ffedb0) !important;
+  border: none !important;
+  color: #765414 !important;
+  font-weight: 800 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 5px 15px -5px rgba(226, 185, 79, 0.3) !important;
+  padding: 14px 18px !important;
+  width: 100% !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+#payModal .golden-phone-copy:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -5px rgba(226, 185, 79, 0.5) !important;
+}
+
+[data-theme="dark"] #payModal .golden-phone-copy {
+  background: linear-gradient(135deg, #3a3425, #4a4028) !important;
+  color: #f0dca0 !important;
+  box-shadow: 0 5px 15px -5px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 4. Поле ввода ключа (Шаг 2) */
+#payModal #payKeyInput {
+  background: #ffffff !important;
+  border: 1px solid rgba(0,0,0,0.08) !important; /* Оставляем лёгкую рамку только для инпута, чтобы было видно границы */
+  border-radius: 14px !important;
+  padding: 16px !important;
+  font-size: 16px !important;
+  color: #3d2b0d !important;
+  width: 100% !important;
+  text-align: center !important;
+  font-family: monospace !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#payModal #payKeyInput:focus {
+  border-color: #eab308 !important;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.15) !important;
+}
+
+[data-theme="dark"] #payModal #payKeyInput {
+  background: #151410 !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #f5ecd5 !important;
+}
+[data-theme="dark"] #payModal #payKeyInput:focus {
+  border-color: #eab308 !important;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.15) !important;
+}
+
+/* 5. Кнопка "Активировать" */
+#payModal #payActivateBtn {
+  background: linear-gradient(135deg, #fce4a1, #d5a73e) !important;
+  color: #382807 !important;
+  border: none !important;
+  border-radius: 14px !important;
+  font-weight: 800 !important;
+  padding: 16px !important;
+  width: 100% !important;
+  font-size: 16px !important;
+  box-shadow: 0 8px 24px -5px rgba(213, 167, 62, 0.4) !important;
+  transition: transform 0.15s, box-shadow 0.15s;
+  margin-top: 16px !important;
+}
+
+#payModal #payActivateBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -5px rgba(213, 167, 62, 0.6) !important;
+}
+
+[data-theme="dark"] #payModal #payActivateBtn {
+  background: linear-gradient(135deg, #d5a73e, #b58624) !important;
+  color: #1a1305 !important;
+  box-shadow: 0 8px 24px -5px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 6. Текстовые подсказки внутри модалки */
+#payModal .golden-pay-hint {
+  font-size: 12px !important;
+  color: #95896f !important;
+  margin-top: 10px !important;
+  border: none !important;
+}
+
+[data-theme="dark"] #payModal .golden-pay-hint {
+  color: #a89a82 !important;
+}
+
+#payModal .golden-pay-label {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #887b61 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  margin-bottom: 12px !important;
+  border: none !important;
+}
+
+[data-theme="dark"] #payModal .golden-pay-label {
+  color: #a89a82 !important;
+}
+
+/* 7. Модалка успешной активации */
+#payModal #paySuccess {
+  border: none !important;
+  background: transparent !important;
+}
+#payModal #paySuccess b {
+  color: #3d2b0d !important;
+}
+[data-theme="dark"] #payModal #paySuccess b {
+  color: #f5ecd5 !important;
+}
+/* ============================================================
+   ФИКС КНОПОК АККАУНТА В ТЁМНОЙ ТЕМЕ
+   ============================================================ */
+
+/* Кнопка "Выйти из аккаунта" (и другие "тихие" кнопки) */
+[data-theme="dark"] .profile-account-btn--quiet {
+  color: var(--text-soft) !important;
+  background: rgba(30, 34, 24, 0.8) !important;
+  border-color: rgba(163, 230, 53, 0.15) !important;
+}
+
+[data-theme="dark"] .profile-account-btn--quiet:hover {
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.4) !important;
+  background: rgba(248, 113, 113, 0.1) !important;
+}
+
+/* Кнопка "Войти / восстановить профиль" */
+[data-theme="dark"] .profile-account-btn--primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)) !important;
+  color: #0d0f0c !important;
+  box-shadow: 0 8px 22px -12px var(--accent) !important;
+}
+
+/* Текст-подсказка над кнопками */
+[data-theme="dark"] .profile-account-actions__hint {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Если кнопка "Выйти" скрыта атрибутом hidden, она не должна показываться */
+.profile-account-btn[hidden] {
+  display: none !important;
+}
+/* ============================================================
+   НОВАЯ АДМИН-ПАНЕЛЬ (Чистая, без вкладок и рамок)
+   ============================================================ */
+
+.admin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.admin-panel__section {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+  border: none;
+}
+
+[data-theme="dark"] .admin-panel__section {
+  background: #1e1c16;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.admin-panel__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 8px 0;
+  letter-spacing: -0.3px;
+}
+
+.admin-panel__desc {
+  font-size: 13.5px;
+  color: var(--text-soft);
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.admin-panel__desc b {
+  color: var(--text);
+}
+
+.admin-panel__row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-panel__input {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #fdfaf5;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.admin-panel__input:focus {
+  outline: none;
+  border-color: #eab308;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.15);
+}
+
+[data-theme="dark"] .admin-panel__input {
+  background: #151410;
+  border-color: rgba(255,255,255,0.1);
+  color: #f5ecd5;
+}
+
+.admin-panel__btn {
+  width: 100%;
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fce4a1, #d5a73e);
+  color: #382807;
+  font-weight: 800;
+  font-size: 15px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -5px rgba(213, 167, 62, 0.4);
+  transition: transform 0.15s;
+}
+
+.admin-panel__btn:hover {
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .admin-panel__btn {
+  background: linear-gradient(135deg, #d5a73e, #b58624);
+  color: #1a1305;
+  box-shadow: 0 8px 24px -5px rgba(0, 0, 0, 0.3);
+}
+
+.admin-panel__result {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #1a1e14;
+  border: 1px dashed #eab308;
+}
+
+.admin-panel__result-text {
+  font-size: 13px;
+  color: #eab308;
+  margin: 0 0 10px 0;
+}
+
+.admin-panel__result-row {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-panel__output {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #eab308;
+  background: #000;
+  color: #fff;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.admin-panel__copy-btn {
+  padding: 10px 16px;
+  background: #eab308;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-panel__copy-btn:hover {
+  background: #facc15;
+}
+
+/* История */
+.admin-panel__history-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.admin-panel__history-head .admin-panel__title {
+  margin: 0;
+}
+
+.admin-panel__clear-btn {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.admin-panel__clear-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.admin-panel__history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-panel__empty {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.admin-panel__history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #fdfaf5;
+  border-radius: 12px;
+}
+
+[data-theme="dark"] .admin-panel__history-item {
+  background: #24221a;
+}
+
+.admin-panel__history-name {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.admin-panel__history-date {
+  font-size: 11px;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+
+.admin-panel__days {
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+.admin-panel__days--active {
+  color: #16a34a;
+}
+[data-theme="dark"] .admin-panel__days--active {
+  color: #4ade80;
+}
+
+.admin-panel__days--expired {
+  color: #ef4444;
+}
+[data-theme="dark"] .admin-panel__days--expired {
+  color: #f87171;
+}
+
+.admin-panel__history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-panel__history-key {
+  font-family: monospace;
+  color: #d97706;
+  font-size: 12px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-panel__copy-small {
+  background: #fce4a1;
+  color: #765414;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  transition: background 0.2s;
+}
+
+.admin-panel__copy-small:hover {
+  background: #ffedb0;
+}
+
+[data-theme="dark"] .admin-panel__copy-small {
+  background: #3a3425;
+  color: #f0dca0;
+}
+[data-theme="dark"] .admin-panel__copy-small:hover {
+  background: #4a4028;
+}
+
+@media (max-width: 600px) {
+  .admin-panel__row {
+    flex-direction: column;
+  }
+  .admin-panel__history-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .admin-panel__history-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .admin-panel__history-key {
+    max-width: 150px;
+  }
 }
