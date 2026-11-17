@@ -17838,3 +17838,82 @@ html.role-admin .nav-admin-link::after {
     max-width: 150px;
   }
 }
+/* Скрываем красную точку на вкладке Админ */
+.nav-admin-link span,
+.nav-admin-link::after,
+.nav-admin-link::before {
+  display: none !important;
+}
+/* ============================================================
+   АНИМАЦИЯ ОТКРЫТИЯ ВКЛАДКИ GOLDEN
+   ============================================================ */
+
+/* 1. Сама вкладка плавно проявляется */
+@keyframes goldenViewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+#view-premium.is-active {
+  animation: goldenViewFadeIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 2. Заголовок "Golden" появляется с золотым свечением */
+@keyframes goldenTitleGlow {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+    text-shadow: 0 0 0 rgba(255, 215, 0, 0);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+  }
+}
+
+#view-premium.is-active .golden-panel__title,
+#view-premium.is-active h2 {
+  animation: goldenTitleGlow 0.8s ease-out forwards;
+}
+
+/* 3. Карточки и блоки выезжают снизу по очереди */
+@keyframes goldenCardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#view-premium.is-active .flash-deck,
+#view-premium.is-active .quiz-start,
+#view-premium.is-active .golden-panel,
+#view-premium.is-active .premium-card,
+#view-premium.is-active .golden-stats-head,
+#view-premium.is-active .golden-cards__hint,
+#view-premium.is-active .golden-stats-controls {
+  opacity: 0;
+  animation: goldenCardSlideUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Задержки для эффекта "волны" */
+#view-premium.is-active .golden-stats-head { animation-delay: 0.1s; }
+#view-premium.is-active .golden-cards__hint { animation-delay: 0.2s; }
+#view-premium.is-active .golden-stats-controls { animation-delay: 0.3s; }
+#view-premium.is-active .flash-deck { animation-delay: 0.4s; }
+#view-premium.is-active .quiz-start { animation-delay: 0.4s; }
