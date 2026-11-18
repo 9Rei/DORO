@@ -5283,36 +5283,6 @@ body.island-search-open .island > .island-progress {
   .quick-btn__label { font-size: 10.5px; }
 }
 /* ============================================================
-   ПЛИТКА «ПОЛЬЗОВАТЕЛИ» — подсвечена как «нажатая»
-   ============================================================ */
-.profile-tile--new {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, rgba(255,255,255,0.7));
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
-    0 10px 24px -14px color-mix(in srgb, var(--accent) 50%, transparent);
-}
-.profile-tile--new .profile-tile__icon {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-/* Тёмная тема */
-[data-theme="dark"] .profile-tile--new {
-  background: rgba(163, 230, 53, 0.12);
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 1px rgba(163, 230, 53, 0.4),
-    0 0 22px -8px rgba(163, 230, 53, 0.5);
-}
-[data-theme="dark"] .profile-tile--new .profile-tile__icon {
-  background: var(--accent);
-  color: #0d0f0c;
-  border-color: var(--accent);
-}
-/* ============================================================
    КРУГЛЫЕ ДЕЙСТВИЯ НА КАРТОЧКЕ ПРОФИЛЯ
    ============================================================ */
 .profile-card__quick {
@@ -5432,88 +5402,7 @@ body.island-search-open .island > .island-progress {
 [data-theme="dark"] .notify-section + .notify-section {
   border-top-color: rgba(163, 230, 53, 0.16);
 }
-/* ============================================================
-   ТЁПЛАЯ СТРОКА НАД ПРОФИЛЕМ
-   ============================================================ */
-.profile-thanks {
-  position: relative;
-  margin: 0 0 6px;
-  padding: 18px 24px 18px 28px;
-  border-radius: 20px;
 
-  /* мягкий акцентный градиент, тише, чем у карточки */
-  background:
-    radial-gradient(ellipse 80% 120% at 0% 0%,
-      color-mix(in srgb, var(--accent) 9%, transparent) 0%,
-      transparent 55%),
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.6) 0%,
-      rgba(255, 255, 255, 0.35) 100%);
-  border: 1px solid color-mix(in srgb, var(--accent) 16%, rgba(255,255,255,0.7));
-
-  /* красивая типографика */
-  font-family: "Georgia", "Times New Roman", "Inter", serif;
-  font-size: 15.5px;
-  line-height: 1.6;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: 0.005em;
-  color: color-mix(in srgb, var(--text) 75%, var(--accent));
-  text-align: left;
-  text-wrap: pretty;
-
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.85) inset,
-    0 10px 26px -20px rgba(20, 40, 80, 0.18);
-}
-
-.profile-thanks::before {
-  content: "";
-  position: absolute;
-  left: 12px;
-  top: 18px;
-  bottom: 18px;
-  width: 2px;
-  border-radius: 999px;
-  background: linear-gradient(180deg,
-    var(--accent),
-    color-mix(in srgb, var(--accent) 30%, transparent));
-  opacity: 0.8;
-}
-
-/* Тёмная тема */
-[data-theme="dark"] .profile-thanks {
-  background:
-    radial-gradient(ellipse 80% 120% at 0% 0%,
-      rgba(163, 230, 53, 0.10) 0%,
-      transparent 55%),
-    linear-gradient(180deg,
-      rgba(20, 23, 15, 0.6) 0%,
-      rgba(20, 23, 15, 0.45) 100%);
-  border-color: rgba(163, 230, 53, 0.22);
-  color: color-mix(in srgb, var(--text) 80%, var(--accent));
-  box-shadow:
-    0 1px 0 rgba(163, 230, 53, 0.06) inset,
-    0 10px 26px -20px rgba(0, 0, 0, 0.55);
-}
-[data-theme="dark"] .profile-thanks::before {
-  background: linear-gradient(180deg,
-    var(--accent),
-    rgba(163, 230, 53, 0.3));
-}
-
-/* Мобилка */
-@media (max-width: 640px) {
-  .profile-thanks {
-    padding: 14px 18px 14px 20px;
-    font-size: 14.5px;
-    line-height: 1.55;
-    border-radius: 18px;
-  }
-  .profile-thanks::before { left: 9px; top: 14px; bottom: 14px; }
-}
 /* ============================================================
    ПРОФИЛЬ НА ПК: шире + всё в ряд
    ============================================================ */
@@ -17934,5 +17823,105 @@ html.role-admin .nav-admin-link {
   }
   html:not(.role-admin) .nav-island[data-view="admin"] {
     display: none !important;
+  }
+}
+/* ============================================================
+   КОМПАКТНЫЙ СЕРЫЙ СЧЕТЧИК ПОЛЬЗОВАТЕЛЕЙ
+   ============================================================ */
+
+.profile-thanks {
+  margin: 0 0 10px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-align: center;
+  font-family: 'Inter', sans-serif !important;
+  font-style: normal !important;
+}
+
+.profile-thanks::before {
+  display: none !important;
+}
+
+/* Контейнер счетчика */
+.profile-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  animation: counterAppear 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Строка с числом и словом */
+.profile-counter__row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+/* Число — серое, крупное, но не жирное */
+.profile-counter__num {
+  font-family: 'Inter', sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-soft, #6b7280) !important;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
+}
+
+/* Слово "человек" — мелкое, серое */
+.profile-counter__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-soft, #6b7280);
+  opacity: 0.7;
+  letter-spacing: 0.01em;
+}
+
+/* Таймер — совсем мелкий, серый */
+.profile-counter__timer {
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-soft, #6b7280);
+  opacity: 0.5;
+  letter-spacing: 0.02em;
+  margin-top: 1px;
+}
+
+/* Анимация появления */
+@keyframes counterAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+    filter: blur(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Тёмная тема — чуть светлее, но все еще серый */
+[data-theme="dark"] .profile-counter__num,
+[data-theme="dark"] .profile-counter__label,
+[data-theme="dark"] .profile-counter__timer {
+  color: var(--text-soft, #9ca3af) !important;
+}
+
+/* Адаптив: на мобилке чуть меньше */
+@media (max-width: 640px) {
+  .profile-counter__num {
+    font-size: 24px;
+  }
+  .profile-counter__label {
+    font-size: 11px;
+  }
+  .profile-counter__timer {
+    font-size: 10px;
   }
 }

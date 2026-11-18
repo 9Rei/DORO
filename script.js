@@ -1786,10 +1786,19 @@ async function syncProfileToCloud() {
     const statusDisplay = $('profileStatusDisplay');
     const groupDisplay = $('profileGroupDisplay');
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const quoteShort = document.querySelector('.profile-thanks__short');
     const quoteLong  = document.querySelector('.profile-thanks__long');
-    if (quoteShort) quoteShort.textContent = getProfileQuote(isDark ? 'dark' : 'light') + ' ';
     if (quoteLong)  quoteLong.textContent  = '';
+    // --- СЧЕТЧИК ПОЛЬЗОВАТЕЛЕЙ ВМЕСТО ЦИТАТЫ ---
+    const quoteShort = document.querySelector('.profile-thanks__short');
+    if (quoteShort && !quoteShort.dataset.lastCount) {
+      quoteShort.innerHTML = `
+        <div class="profile-counter">
+          <div class="profile-counter__num">—</div>
+          <div class="profile-counter__label">человек на сайте</div>
+          <div class="profile-counter__timer">загрузка...</div>
+        </div>
+      `;
+    }
 
     if (user && user.name) {
       const initials = getInitials(user.name);
@@ -2484,25 +2493,67 @@ async function syncProfileToCloud() {
   // ---------- ЗАГРУЗКА ЦИФРЫ ИЗ БАЗЫ (1 РАЗ В СУТКИ) ----------
   async function loadUsersCount() {
     const CACHE_KEY = 'doro.users.count';
-    const TTL = 24 * 60 * 60 * 1000;
+    const TTL = 24 * 60 * 60 * 1000; // 24 часа
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
 
+    // Если кэш свежий — просто обновляем счетчик наверху
     if (cached && Date.now() - cached.ts < TTL) {
-      setUsersHeroCountAnimated(cached.count);
+      updateProfileCounter(cached.count);
       return;
     }
 
     try {
       const cloud = window.doroCloudReady ? await window.doroCloudReady : null;
       if (!cloud || !cloud.countUsers) {
-        if (cached) setUsersHeroCountAnimated(cached.count);
+        if (cached) updateProfileCounter(cached.count);
         return;
       }
+      
       const count = await cloud.countUsers();
       localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), count }));
-      setUsersHeroCountAnimated(count);
+      updateProfileCounter(count);
     } catch (e) {
-      if (cached) setUsersHeroCountAnimated(cached.count);
+      if (cached) updateProfileCounter(cached.count);
+    }
+  }
+
+  // ---------- ОБНОВЛЕНИЕ СЧЕТЧИКА НАВЕРХУ ПРОФИЛЯ ----------
+  function updateProfileCounter(count) {
+    const quoteShort = document.querySelector('.profile-thanks__short');
+    if (!quoteShort) return;
+
+    const CACHE_KEY = 'doro.users.count';
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    
+    let timeLeftText = 'сейчас';
+    if (cached) {
+      const nextUpdate = cached.ts + 24 * 60 * 60 * 1000;
+      const diff = nextUpdate - Date.now();
+      if (diff > 0) {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        if (hours > 0) timeLeftText = `через ${hours} ч ${minutes} мин`;
+        else if (minutes > 0) timeLeftText = `через ${minutes} мин`;
+        else timeLeftText = 'меньше минуты';
+      }
+    }
+
+    // Если цифра изменилась — перерисовываем с анимацией
+    if (quoteShort.dataset.lastCount !== String(count)) {
+      quoteShort.innerHTML = `
+        <div class="profile-counter">
+          <div class="profile-counter__row">
+            <span class="profile-counter__num">${count}</span>
+            <span class="profile-counter__label">человек</span>
+          </div>
+          <div class="profile-counter__timer">${timeLeftText}</div>
+        </div>
+      `;
+      quoteShort.dataset.lastCount = String(count);
+    } else {
+      // Если цифра та же — просто обновляем таймер
+      const timerEl = quoteShort.querySelector('.profile-counter__timer');
+      if (timerEl) timerEl.textContent = timeLeftText;
     }
   }
   const tileUsersEl = document.getElementById('tileUsers');
@@ -6631,7 +6682,7 @@ async function bootAuth() {
           profileEffect: profile.profileEffect || 'default'
         };
         saveUser();
-
+        if (typeof loadUsersCount === 'function') loadUsersCount();
         // ВОССТАНАВЛИВАЕМ ПОДПИСКУ ИЗ БАЗЫ
         if (profile.premiumActive) {
           const premiumData = {
@@ -6655,7 +6706,12 @@ async function bootAuth() {
       // ============================================================
       // КОНЕЦ БЛОКА if (profile)
       // ============================================================
-
+  // Автообновление счетчика раз в сутки
+  setInterval(() => {
+    if (window.doroCloudReady) {
+      loadUsersCount();
+    }
+  }, 24 * 60 * 60 * 1000); // каждые 24 часа
     } catch (e) {
       console.warn('Ошибка загрузки профиля:', e);
     }
