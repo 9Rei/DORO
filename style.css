@@ -17917,3 +17917,22 @@ html.role-admin .nav-admin-link::after {
 #view-premium.is-active .golden-stats-controls { animation-delay: 0.3s; }
 #view-premium.is-active .flash-deck { animation-delay: 0.4s; }
 #view-premium.is-active .quiz-start { animation-delay: 0.4s; }
+/* Скрываем вкладку Админ по умолчанию для всех */
+.nav-admin-link {
+  display: none !important;
+}
+
+/* Показываем её ТОЛЬКО если на html есть класс role-admin (его ставит roles.js) */
+html.role-admin .nav-admin-link {
+  display: block !important;
+}
+
+/* На мобилке (меню-острова) — тоже показываем только админам */
+@media (max-width: 860px) {
+  html.role-admin .nav-island[data-view="admin"] {
+    display: flex !important;
+  }
+  html:not(.role-admin) .nav-island[data-view="admin"] {
+    display: none !important;
+  }
+}

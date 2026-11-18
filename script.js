@@ -1661,6 +1661,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navIslands.setAttribute('aria-hidden', 'true');
     navIslands.style.display = 'none';
     links.forEach((link, idx) => {
+
       const btn = document.createElement('a');
       btn.href = '#';
       btn.className = 'nav-island' + (idx === 0 ? ' nav-island--first' : '') + (link.classList.contains('active') ? ' active' : '');
