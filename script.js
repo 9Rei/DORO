@@ -6962,7 +6962,11 @@ window.showView = showView;
       setTimeout(() => goToStep(3), 800);
     });
   }
-
+// --- Кнопка "У меня есть код" (ручной переход на шаг 3) ---
+const goToCodeBtn = $('payGoToCode');
+if (goToCodeBtn) {
+  goToCodeBtn.addEventListener('click', () => goToStep(3));
+}
   // --- Кнопка ВК ---
   if (vkBtn) {
     vkBtn.addEventListener('click', async () => {

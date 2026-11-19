@@ -18503,3 +18503,32 @@ html.role-admin .nav-admin-link {
     padding: 14px;
   }
 }
+/* --- Кнопка "У меня есть код" (тихая, в стиле golden) --- */
+.golden-btn--quiet {
+  background: transparent;
+  color: #b45309;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  box-shadow: none;
+  font-weight: 600;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.golden-btn--quiet:hover {
+  background: rgba(245, 158, 11, 0.08);
+  box-shadow: 0 4px 12px -6px rgba(245, 158, 11, 0.25);
+  transform: none;
+}
+
+.golden-btn--quiet:active {
+  transform: scale(0.98);
+}
+
+[data-theme="dark"] .golden-btn--quiet {
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] .golden-btn--quiet:hover {
+  background: rgba(245, 158, 11, 0.12);
+}
