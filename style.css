@@ -17925,3 +17925,581 @@ html.role-admin .nav-admin-link {
     font-size: 10px;
   }
 }
+/* ============================================================
+   ОКНО ОПЛАТЫ GOLDEN (2 ШАГА)
+   ============================================================ */
+
+.golden-pay-card {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 18px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+
+[data-theme="dark"] .golden-pay-card {
+  background: rgba(20, 23, 15, 0.6);
+  border-color: rgba(163, 230, 53, 0.2);
+}
+
+.golden-pay-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  margin-bottom: 10px;
+}
+
+.golden-req-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .golden-req-row {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.golden-req-row:last-of-type {
+  border-bottom: none;
+}
+
+.golden-req-label {
+  font-size: 13px;
+  color: var(--text-soft);
+  font-weight: 500;
+}
+
+.golden-req-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.golden-req-value--accent {
+  color: #d97706;
+  font-size: 18px;
+}
+
+.golden-copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  font-family: inherit;
+}
+
+.golden-copy-btn:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.golden-copy-btn:active {
+  transform: scale(0.98);
+}
+
+.golden-message-preview {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
+  font-style: italic;
+}
+
+[data-theme="dark"] .golden-message-preview {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.golden-contact-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.golden-contact-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+  border: none;
+  color: #fff;
+}
+
+.golden-contact-btn--tg {
+  background: linear-gradient(135deg, #2AABEE, #229ED9);
+  box-shadow: 0 6px 16px -6px rgba(42, 171, 238, 0.5);
+}
+
+.golden-contact-btn--tg:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -6px rgba(42, 171, 238, 0.7);
+}
+
+.golden-contact-btn--vk {
+  background: linear-gradient(135deg, #0077FF, #005FCC);
+  box-shadow: 0 6px 16px -6px rgba(0, 119, 255, 0.5);
+}
+
+.golden-contact-btn--vk:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -6px rgba(0, 119, 255, 0.7);
+}
+
+.golden-contact-btn:active {
+  transform: scale(0.97);
+}
+
+/* Тёмная тема — карточки чуть темнее */
+[data-theme="dark"] .golden-req-value {
+  color: var(--text);
+}
+
+[data-theme="dark"] .golden-copy-btn {
+  border-color: rgba(163, 230, 53, 0.3);
+  background: rgba(163, 230, 53, 0.1);
+  color: #a3e635;
+}
+
+[data-theme="dark"] .golden-copy-btn:hover {
+  background: rgba(163, 230, 53, 0.2);
+}
+
+/* Мобилка */
+@media (max-width: 480px) {
+  .golden-contact-buttons {
+    grid-template-columns: 1fr;
+  }
+  .golden-req-value {
+    font-size: 15px;
+  }
+  .golden-req-value--accent {
+    font-size: 17px;
+  }
+}
+/* ============================================================
+   ОКНО ОПЛАТЫ GOLDEN (ПРЕМИАЛЬНЫЙ СТИЛЬ)
+   ============================================================ */
+
+/* --- Коробка --- */
+.golden-box {
+  background: linear-gradient(180deg, #fffdf5 0%, #fff8e7 100%) !important;
+  border: 1px solid rgba(212, 175, 55, 0.3) !important;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 30px 80px -20px rgba(180, 130, 20, 0.25),
+    0 0 0 1px rgba(212, 175, 55, 0.15) !important;
+}
+
+[data-theme="dark"] .golden-box {
+  background: linear-gradient(180deg, #1a1610 0%, #14110a 100%) !important;
+  border: 1px solid rgba(212, 175, 55, 0.3) !important;
+  box-shadow: 
+    0 1px 0 rgba(212, 175, 55, 0.1) inset,
+    0 30px 80px -20px rgba(0, 0, 0, 0.8),
+    0 0 60px -20px rgba(212, 175, 55, 0.3) !important;
+}
+
+/* --- Свечение (золотое) --- */
+.golden-glow {
+  background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.08) 40%, transparent 70%) !important;
+}
+
+[data-theme="dark"] .golden-glow {
+  background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0.08) 40%, transparent 70%) !important;
+}
+
+/* --- Аватар --- */
+.golden-avatar {
+  background: linear-gradient(135deg, #f5df9b, #c69a3b) !important;
+  box-shadow: 
+    0 0 0 6px rgba(255, 255, 255, 0.6),
+    0 16px 32px -14px rgba(180, 130, 20, 0.5),
+    0 0 40px -10px rgba(245, 158, 11, 0.4) !important;
+}
+
+[data-theme="dark"] .golden-avatar {
+  box-shadow: 
+    0 0 0 6px rgba(0, 0, 0, 0.5),
+    0 16px 32px -14px rgba(0, 0, 0, 0.7),
+    0 0 40px -10px rgba(245, 158, 11, 0.5) !important;
+}
+
+/* --- Шаг --- */
+.golden-step {
+  color: #b45309 !important;
+  background: rgba(245, 158, 11, 0.15) !important;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+[data-theme="dark"] .golden-step {
+  color: #fcd34d !important;
+  background: rgba(245, 158, 11, 0.2) !important;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* --- Заголовок --- */
+.golden-title {
+  color: #78350f !important;
+  text-shadow: 0 2px 12px rgba(245, 158, 11, 0.3) !important;
+}
+
+[data-theme="dark"] .golden-title {
+  color: #fde68a !important;
+  text-shadow: 0 2px 12px rgba(245, 158, 11, 0.4) !important;
+}
+
+/* --- Карточка --- */
+.golden-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 18px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 4px 16px -8px rgba(180, 130, 20, 0.15);
+}
+
+[data-theme="dark"] .golden-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(212, 175, 55, 0.2);
+  box-shadow: 0 4px 16px -8px rgba(0, 0, 0, 0.4);
+}
+
+.golden-card__label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #b45309;
+  margin-bottom: 10px;
+}
+
+[data-theme="dark"] .golden-card__label {
+  color: #fcd34d;
+}
+
+/* --- Реквизиты --- */
+.golden-req-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(212, 175, 55, 0.2);
+}
+
+.golden-req-row:last-of-type {
+  border-bottom: none;
+}
+
+.golden-req-label {
+  font-size: 13px;
+  color: #92400e;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .golden-req-label {
+  color: #d97706;
+}
+
+.golden-req-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #78350f;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="dark"] .golden-req-value {
+  color: #fde68a;
+}
+
+.golden-req-value--accent {
+  color: #d97706;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+[data-theme="dark"] .golden-req-value--accent {
+  color: #fbbf24;
+}
+
+/* --- Кнопка "Скопировать" --- */
+.golden-copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(245, 158, 11, 0.1));
+  color: #b45309;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  font-family: inherit;
+}
+
+.golden-copy-btn:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(245, 158, 11, 0.2));
+  box-shadow: 0 4px 12px -4px rgba(245, 158, 11, 0.3);
+}
+
+.golden-copy-btn:active {
+  transform: scale(0.98);
+}
+
+[data-theme="dark"] .golden-copy-btn {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .golden-copy-btn:hover {
+  background: rgba(245, 158, 11, 0.2);
+}
+
+/* --- Сообщение --- */
+.golden-message-preview {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #92400e;
+  padding: 10px 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border-radius: 10px;
+  font-style: italic;
+  border: 1px solid rgba(245, 158, 11, 0.1);
+}
+
+[data-theme="dark"] .golden-message-preview {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.15);
+}
+
+/* --- Кнопки связи --- */
+.golden-contact-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.golden-contact-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+  border: none;
+  color: #fff;
+}
+
+.golden-contact-btn--tg {
+  background: linear-gradient(135deg, #2AABEE, #229ED9);
+  box-shadow: 0 6px 16px -6px rgba(42, 171, 238, 0.5);
+}
+
+.golden-contact-btn--tg:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -6px rgba(42, 171, 238, 0.7);
+}
+
+.golden-contact-btn--vk {
+  background: linear-gradient(135deg, #0077FF, #005FCC);
+  box-shadow: 0 6px 16px -6px rgba(0, 119, 255, 0.5);
+}
+
+.golden-contact-btn--vk:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -6px rgba(0, 119, 255, 0.7);
+}
+
+.golden-contact-btn:active {
+  transform: scale(0.97);
+}
+
+/* --- Инпут для ключа --- */
+.golden-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  font-family: inherit;
+  font-size: 14px;
+  color: #78350f;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-top: 8px;
+}
+
+.golden-input:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+[data-theme="dark"] .golden-input {
+  background: rgba(0, 0, 0, 0.3);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* --- Главная кнопка --- */
+.golden-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -8px rgba(245, 158, 11, 0.5);
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+
+.golden-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px -8px rgba(245, 158, 11, 0.7);
+}
+
+.golden-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.golden-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* --- Кнопка "Назад/Отмена" --- */
+.golden-back {
+  display: block;
+  margin: 12px auto 0;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: #b45309;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.golden-back:hover {
+  opacity: 1;
+}
+
+[data-theme="dark"] .golden-back {
+  color: #fcd34d;
+}
+
+/* --- Ошибка --- */
+.golden-error {
+  color: #ef4444;
+  font-size: 12.5px;
+  text-align: center;
+  margin: 8px 0 0;
+}
+
+/* --- Успех --- */
+.golden-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 0 4px;
+  text-align: center;
+}
+
+.golden-success__icon {
+  font-size: 36px;
+  animation: successPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.golden-success__title {
+  font-size: 16px;
+  color: #78350f;
+}
+
+[data-theme="dark"] .golden-success__title {
+  color: #fde68a;
+}
+
+.golden-success__text {
+  font-size: 13px;
+  color: #92400e;
+  margin: 0;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .golden-success__text {
+  color: #d97706;
+}
+
+@keyframes successPop {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* --- Мобилка --- */
+@media (max-width: 480px) {
+  .golden-contact-buttons {
+    grid-template-columns: 1fr;
+  }
+  .golden-req-value {
+    font-size: 15px;
+  }
+  .golden-req-value--accent {
+    font-size: 18px;
+  }
+  .golden-btn {
+    padding: 14px;
+  }
+}

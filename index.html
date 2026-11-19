@@ -729,67 +729,117 @@
 <!-- ================= МОДАЛКА АКТИВАЦИИ GOLDEN (по ключу) ================= -->
 <div class="onboard" id="payModal" aria-hidden="true">
   <div class="onboard__backdrop"></div>
-  <div class="onboard__box" role="dialog" aria-modal="true" aria-labelledby="payTitle">
+  <div class="onboard__box golden-box" role="dialog" aria-modal="true" aria-labelledby="payTitle">
 
-    <div class="onboard__glow" aria-hidden="true"></div>
+    <div class="onboard__glow golden-glow" aria-hidden="true"></div>
 
     <div class="onboard__hero">
-      <div class="onboard__avatar" style="background: linear-gradient(135deg, #f5df9b, #c69a3b);">
-        <span style="font-size: 30px; color: #fff;">★</span>
+      <div class="onboard__avatar golden-avatar">
+        <span style="font-size: 30px; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">★</span>
       </div>
-      <span class="onboard__step">GOLDEN</span>
+      <span class="onboard__step golden-step" id="payStepLabel">Шаг 1 из 3</span>
     </div>
 
-    <h2 class="onboard__title" id="payTitle" style="font-size: 24px; margin-bottom: 4px;">
-      Активация Golden
-    </h2>
+    <!-- ================= ШАГ 1: ПЕРЕВОД ================= -->
+    <div class="onboard__step-panel is-active" data-pay-step="1">
+      <h2 class="onboard__title golden-title" style="font-size: 24px; margin-bottom: 4px;">Оплата Golden</h2>
+      <p class="onboard__sub" style="font-size: 13px; margin-bottom: 16px; color: #92400e;">
+        Переведите <b>79 рублей</b> на карту Сбербанка. После перевода нажмите «Я оплатил».
+      </p>
 
-    <p class="onboard__sub" style="font-size: 13px; margin-bottom: 16px;">
-      Чтобы получить доступ, напишите нам в Telegram и укажите свой ник на сайте.
-    </p>
+      <div class="golden-card">
+        <span class="golden-card__label">Реквизиты</span>
+        
+        <div class="golden-req-row">
+          <span class="golden-req-label">Сумма</span>
+          <span class="golden-req-value golden-req-value--accent">79 ₽</span>
+        </div>
+        
+        <div class="golden-req-row">
+          <span class="golden-req-label">Сбербанк</span>
+          <span class="golden-req-value" id="payPhoneNumber">8 962 798 70 15</span>
+        </div>
+        
+        <button type="button" class="golden-copy-btn" id="payCopyPhoneBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span>Скопировать номер</span>
+        </button>
+      </div>
 
-    <div class="golden-pay-card">
-      <span class="golden-pay-label">Шаг 1: Свяжитесь с нами</span>
-      
-      <!-- Кнопка с автоподстановкой текста -->
-      <button type="button" id="payContactBtn" class="golden-phone-copy" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width: 100%; border: none; cursor: pointer; margin-bottom: 10px;">
-        Написать в Telegram (авто) <span style="margin-left: 5px;" aria-hidden="true">↗</span>
+      <button type="button" class="golden-btn" id="payStep1Next" style="margin-top: 16px;">
+        Я оплатил(а) →
       </button>
-      
-      <!-- Ссылка на ваш ник вручную -->
-      <div style="font-size: 14px; color: #765414; font-weight: 600;">
-        Или напишите вручную: 
-        <a href="https://t.me/KAGOR_GG" target="_blank" rel="noopener" style="color: #d97706; text-decoration: underline;">
-          @KAGOR_GG
-        </a>
+
+      <button type="button" class="golden-back" data-pay-close>
+        Отмена
+      </button>
+    </div>
+
+    <!-- ================= ШАГ 2: СВЯЗЬ ================= -->
+    <div class="onboard__step-panel" data-pay-step="2">
+      <h2 class="onboard__title golden-title" style="font-size: 24px; margin-bottom: 4px;">Подтверждение</h2>
+      <p class="onboard__sub" style="font-size: 13px; margin-bottom: 16px; color: #92400e;">
+        Напишите нам в Telegram или ВКонтакте. Текст сообщения уже готов — просто отправьте его.
+      </p>
+
+      <div class="golden-card">
+        <span class="golden-card__label">Ваше сообщение</span>
+        <div class="golden-message-preview" id="payMessagePreview">
+          Привет! Я [Имя] ([Группа]). Оплатил(а) Golden на 1 месяц (79₽). Активируйте, пожалуйста.
+        </div>
       </div>
-      
-      <p class="golden-pay-hint">
-        Сообщение с вашим именем и группой сформируется автоматически.
-      </p>
+
+      <div class="golden-contact-buttons">
+        <button type="button" class="golden-contact-btn golden-contact-btn--tg" id="payContactTg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.46-1.901-.902-1.056-.692-1.653-1.123-2.678-1.799-1.185-.781-.417-1.21.258-1.911.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.329-.913.489-1.303.481-.429-.008-1.253-.241-1.866-.44-.752-.244-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635.099-.002.321.023.465.141.121.1.154.234.17.331.016.097.036.318.02.493z"/>
+          </svg>
+          <span>Telegram</span>
+        </button>
+
+        <button type="button" class="golden-contact-btn golden-contact-btn--vk" id="payContactVk">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M13.162 18.994c.609 0 .858-.406.851-.915-.031-1.917.714-2.949 2.059-1.604 1.488 1.488 1.796 2.519 3.603 2.519h3.2c.808 0 1.126-.26 1.126-.668 0-.863-1.421-2.386-2.625-3.504-1.686-1.565-1.765-1.602-.313-3.486 1.801-2.339 4.157-5.336 2.073-5.336h-3.981c-.772 0-.828.435-1.103 1.083-.995 2.347-2.886 5.387-3.604 4.922-.751-.485-.407-2.406-.35-5.261.015-.754.011-1.271-1.141-1.539-.629-.145-1.241-.205-1.809-.205-2.273 0-3.841.953-2.95 1.119 1.571.293 1.42 3.692 1.054 5.16-.638 2.556-3.036-2.024-4.035-4.305-.241-.548-.315-.974-1.175-.974h-3.255c-.492 0-.787.16-.787.516 0 .602 2.96 6.72 5.786 9.77 2.756 2.975 5.575 2.389 7.5 2.389z"/>
+          </svg>
+          <span>ВКонтакте</span>
+        </button>
+      </div>
+
+      <button type="button" class="golden-back" data-pay-close>
+        Закрыть
+      </button>
     </div>
 
-    <div class="golden-pay-card" style="margin-top: 10px;">
-      <span class="golden-pay-label">Шаг 2: Введите полученный код</span>
-      <input id="payKeyInput" class="onboard__input" type="text" placeholder="GOLD.xxxxx.xxxxx" autocomplete="off" spellcheck="false" style="margin-top: 8px;">
-    </div>
-
-    <button type="button" class="onboard__btn" id="payActivateBtn" style="margin-top: 16px;">
-      Активировать
-    </button>
-
-    <button type="button" class="auth-back" data-pay-close style="align-self: center; margin-top: 8px;">
-      Закрыть
-    </button>
-
-    <p id="payError" style="color: #ef4444; font-size: 12.5px; text-align: center; margin: 8px 0 0; display: none;"></p>
-
-    <div id="paySuccess" style="display: none; flex-direction: column; align-items: center; gap: 10px; padding: 16px 0 4px; text-align: center;">
-      <div style="font-size: 36px;">✓</div>
-      <b style="font-size: 16px; color: var(--text);">Golden активирован!</b>
-      <p style="font-size: 13px; color: var(--text-soft); margin: 0; line-height: 1.5;">
-        Все возможности подписки доступны.
+    <!-- ================= ШАГ 3: ВВОД КЛЮЧА ================= -->
+    <div class="onboard__step-panel" data-pay-step="3">
+      <h2 class="onboard__title golden-title" style="font-size: 24px; margin-bottom: 4px;">Активация</h2>
+      <p class="onboard__sub" style="font-size: 13px; margin-bottom: 16px; color: #92400e;">
+        Введите код, который вы получили после оплаты.
       </p>
+
+      <div class="golden-card">
+        <span class="golden-card__label">Код активации</span>
+        <input id="payKeyInput" class="golden-input" type="text" placeholder="GOLD.xxxxx.xxxxx" autocomplete="off" spellcheck="false">
+      </div>
+
+      <p id="payError" class="golden-error" style="display: none;"></p>
+
+      <button type="button" class="golden-btn" id="payActivateBtn" style="margin-top: 16px;">
+        Активировать
+      </button>
+
+      <button type="button" class="golden-back" id="payBackToContacts">
+        ← Назад
+      </button>
+
+      <div id="paySuccess" class="golden-success" style="display: none;">
+        <div class="golden-success__icon">✓</div>
+        <b class="golden-success__title">Golden активирован!</b>
+        <p class="golden-success__text">Все возможности подписки доступны.</p>
+      </div>
     </div>
 
   </div><!-- /.onboard__box -->

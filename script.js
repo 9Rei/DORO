@@ -6885,64 +6885,129 @@ window.showView = showView;
 }); // <--- ЗАКРЫВАЮЩАЯ СКОБКА ОТ DOMContentLoaded
 
 // ============================================================
-//  МОДАЛКА АКТИВАЦИИ GOLDEN (по ключу)
+//  МОДАЛКА АКТИВАЦИИ GOLDEN — 3 ШАГА
 // ============================================================
 (function initPayModal() {
   const $ = (id) => document.getElementById(id);
   const modal = $('payModal');
-  const keyInput = $('payKeyInput');
-  const activateBtn = $('payActivateBtn');
-  const errEl = $('payError');
-  const success = $('paySuccess');
-  
   if (!modal) return;
 
-  const contactBtn = document.getElementById('payContactBtn');
-  if (contactBtn) {
-    contactBtn.addEventListener('click', () => {
-      const me = JSON.parse(localStorage.getItem('doro.user') || '{}');
-      const name = me.name || 'Пользователь';
-      const group = me.group || 'без группы';
-      const text = `Привет! Я ${name} (${group}). Хочу активировать Golden на 1 месяц. Поможешь?)`;
-      const tgNick = 'KAGOR_GG'; 
-      const url = `https://t.me/${tgNick}?text=${encodeURIComponent(text)}`;
-      window.open(url, '_blank');
+  const stepLabel = $('payStepLabel');
+  const step1 = modal.querySelector('[data-pay-step="1"]');
+  const step2 = modal.querySelector('[data-pay-step="2"]');
+  const step3 = modal.querySelector('[data-pay-step="3"]');
+  const nextBtn = $('payStep1Next');
+  const copyBtn = $('payCopyPhoneBtn');
+  const tgBtn = $('payContactTg');
+  const vkBtn = $('payContactVk');
+  const msgPreview = $('payMessagePreview');
+  const activateBtn = $('payActivateBtn');
+  const keyInput = $('payKeyInput');
+  const errEl = $('payError');
+  const successEl = $('paySuccess');
+  const backBtn = $('payBackToContacts');
+
+  // --- Переключение шагов ---
+  function goToStep(n) {
+    step1.classList.toggle('is-active', n === 1);
+    step2.classList.toggle('is-active', n === 2);
+    step3.classList.toggle('is-active', n === 3);
+    stepLabel.textContent = `Шаг ${n} из 3`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Сбрасываем ошибки/успех при переходе
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    if (successEl) successEl.style.display = 'none';
+    if (activateBtn) { activateBtn.style.display = ''; activateBtn.disabled = false; activateBtn.textContent = 'Активировать'; }
+    if (keyInput) { keyInput.style.display = ''; keyInput.value = ''; }
+  }
+
+  // --- Копирование номера ---
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      const phone = '89627987015';
+      try {
+        await navigator.clipboard.writeText(phone);
+        const originalHTML = copyBtn.innerHTML;
+        copyBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>Скопировано!</span>
+        `;
+        setTimeout(() => { copyBtn.innerHTML = originalHTML; }, 2000);
+      } catch (e) {
+        alert('Не удалось скопировать. Номер: 8 962 798 70 15');
+      }
     });
   }
 
-  function showError(msg) {
-    if (errEl) { errEl.textContent = msg || ''; errEl.style.display = msg ? 'block' : 'none'; }
+  // --- Шаг 1 -> Шаг 2 ---
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => goToStep(2));
   }
 
-  function open() {
-    if (!window.doroPremium) return;
-    if (window.doroPremium.isPremiumActive()) {
-      alert('Golden уже активен');
-      return;
-    }
-
-    showError('');
-    if (success) success.style.display = 'none';
-    if (keyInput) keyInput.value = '';
-    if (activateBtn) {
-      activateBtn.style.display = '';
-      activateBtn.disabled = false;
-      activateBtn.textContent = 'Активировать';
-    }
-
-    modal.classList.add('is-open');
-    modal.setAttribute('aria-hidden', 'false');
+  // --- Шаг 2 -> Шаг 3 (после Telegram/ВК) ---
+  // Добавляем кнопку "У меня есть код" после кнопок связи
+  // (или можно сделать так, чтобы после нажатия на любую кнопку связи открывался шаг 3)
+  
+  // Сделаем проще: после нажатия на любую кнопку связи — переходим на шаг 3
+  if (tgBtn) {
+    tgBtn.addEventListener('click', () => {
+      const text = buildMessage();
+      const tgNick = 'KAGOR_GG';
+      const url = `https://t.me/${tgNick}?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+      // Через секунду переключаем на шаг 3
+      setTimeout(() => goToStep(3), 800);
+    });
   }
 
-  function close() {
-    modal.classList.remove('is-open');
-    modal.setAttribute('aria-hidden', 'true');
+  // --- Кнопка ВК ---
+  if (vkBtn) {
+    vkBtn.addEventListener('click', async () => {
+      const text = buildMessage();
+      const vkId = '718862595'; // <--- ЗАМЕНИТЕ НА СВОЙ ID ВК
+      
+      try {
+        await navigator.clipboard.writeText(text);
+        const originalHTML = vkBtn.innerHTML;
+        vkBtn.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>Текст скопирован!</span>
+        `;
+        setTimeout(() => { vkBtn.innerHTML = originalHTML; }, 2000);
+      } catch (e) {
+        console.warn('Не удалось скопировать текст:', e);
+      }
+      
+      // Вот здесь должна быть ссылка:
+      const url = `https://vk.com/im?sel=${vkId}`;
+      window.open(url, '_blank');
+      setTimeout(() => goToStep(3), 800);
+    });
   }
 
-  modal.querySelectorAll('[data-pay-close]').forEach(el => {
-    el.addEventListener('click', close);
-  });
+  // --- Кнопка "Назад" (с шага 3 на шаг 2) ---
+  if (backBtn) {
+    backBtn.addEventListener('click', () => goToStep(2));
+  }
 
+  // --- Формирование текста сообщения ---
+  function buildMessage() {
+    const me = JSON.parse(localStorage.getItem('doro.user') || '{}');
+    const name = me.name || 'Пользователь';
+    const group = me.group || 'без группы';
+    return `Привет! Я ${name} (${group}). Оплатил(а) Golden на 1 месяц (79₽). Поможешь?)`;
+  }
+
+  function updateMessagePreview() {
+    if (msgPreview) msgPreview.textContent = buildMessage();
+  }
+
+  // --- Активация ключа ---
   if (activateBtn) {
     activateBtn.addEventListener('click', async () => {
       const key = (keyInput.value || '').trim();
@@ -6958,7 +7023,8 @@ window.showView = showView;
       try {
         await window.doroPremium.activateKey(key);
         
-        if (success) success.style.display = 'flex';
+        // Успех
+        if (successEl) successEl.style.display = 'flex';
         if (activateBtn) activateBtn.style.display = 'none';
         if (keyInput) keyInput.style.display = 'none';
         
@@ -6974,5 +7040,30 @@ window.showView = showView;
     });
   }
 
+  function showError(msg) {
+    if (errEl) { errEl.textContent = msg || ''; errEl.style.display = msg ? 'block' : 'none'; }
+  }
+
+  // --- Открытие модалки ---
+  function open() {
+    goToStep(1);
+    updateMessagePreview();
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('onboard-open');
+  }
+
+  // --- Закрытие модалки ---
+  function close() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('onboard-open');
+  }
+
+  modal.querySelectorAll('[data-pay-close]').forEach(el => {
+    el.addEventListener('click', close);
+  });
+
+  // --- Внешний вызов ---
   window.__openPayModal = open;
 })();
