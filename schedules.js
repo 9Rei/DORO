@@ -560,5 +560,32 @@ window.SCHEDULES = {
       { time: "8:00–10:25",  title: "Гигиена", subjectKey: "hygiene" },
       { time: "10:40–13:05", title: "Безопасность жизнедеятельности", subjectKey: "bjd" }
     ]
+  },
+    // ---------- ЛД2529 ----------
+  // Якорь чётности: 11.11.2026 — «первая» (нечётная) неделя.
+  // История медицины (Вт, 15:30–17:00) — только в 1-ю неделю → week: "odd".
+  "ЛД2529": {
+    _weekAnchor: "2026-11-11",
+
+    "ПН": [
+      { time: "8:00–9:30",   title: "Биоэтика", subjectKey: "bioethics" },
+      { time: "9:40–11:10",  title: "ОМиПК",    subjectKey: "omipk" }
+    ],
+    "ВТ": [
+      { time: "8:00–10:25",  title: "Микробиология, вирусология", subjectKey: "microbio" },
+      { time: "12:10–13:40", title: "Элективные дисциплины по физической культуре и спорту", subjectKey: "physical_edu" },
+      { time: "15:30–17:00", title: "История медицины", subjectKey: "history", week: "odd" }
+    ],
+    "СР": [
+      { time: "8:00–10:25",  title: "Гистология, эмбриология, цитология", subjectKey: "histology" }
+    ],
+    "ЧТ": [
+      { time: "8:00–10:25",  title: "Гигиена", subjectKey: "hygiene" },
+      { time: "10:40–13:05", title: "Безопасность жизнедеятельности", subjectKey: "bjd" }
+    ],
+    "ПТ": [
+      { time: "8:00–10:25",  title: "Биохимия", subjectKey: "biochem" },
+      { time: "10:40–13:05", title: "Нормальная физиология", subjectKey: "physio" }
+    ]
   }
 };
