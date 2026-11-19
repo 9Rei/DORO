@@ -18531,4 +18531,426 @@ html.role-admin .nav-admin-link {
 
 [data-theme="dark"] .golden-btn--quiet:hover {
   background: rgba(245, 158, 11, 0.12);
+}/* ============================================================
+   МОДАЛКА-НАПОМИНАНИЕ ПРИ ВХОДЕ В РАЗДЕЛ
+   ============================================================ */
+
+/* --- 1. Базовая обёртка (фиксация, скрытие, центрирование) --- */
+.topic-reminder {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  perspective: 1000px;
+}
+
+.topic-reminder.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.topic-reminder__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .topic-reminder__backdrop {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+/* --- 2. Сама карточка --- */
+.topic-reminder__box {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 48px 32px 26px;
+  border-radius: 32px;
+  background:
+    linear-gradient(165deg,
+      rgba(255, 255, 255, 0.99) 0%,
+      rgba(250, 249, 255, 0.97) 55%,
+      rgba(255, 247, 252, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 40px 80px -24px rgba(99, 102, 241, 0.28),
+    0 20px 40px -16px rgba(244, 114, 182, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.5);
+  transform: translateY(20px) scale(0.92);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  text-align: center;
+  isolation: isolate;
+}
+
+.topic-reminder.is-open .topic-reminder__box {
+  transform: translateY(0) scale(1);
+}
+
+[data-theme="dark"] .topic-reminder__box {
+  background:
+    linear-gradient(165deg,
+      rgba(30, 27, 60, 0.98) 0%,
+      rgba(26, 22, 48, 0.98) 55%,
+      rgba(40, 24, 48, 0.98) 100%);
+  border-color: rgba(139, 92, 246, 0.22);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 40px 80px -24px rgba(0, 0, 0, 0.85),
+    0 20px 40px -16px rgba(168, 85, 247, 0.25),
+    0 0 0 1px rgba(139, 92, 246, 0.12);
+}
+
+/* --- 3. Плавающие цветные пятна --- */
+.topic-reminder__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(44px);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.topic-reminder__blob--1 {
+  width: 220px;
+  height: 220px;
+  top: -90px;
+  left: -70px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.55), transparent 70%);
+  animation: blobFloat1 9s ease-in-out infinite;
+}
+
+.topic-reminder__blob--2 {
+  width: 200px;
+  height: 200px;
+  bottom: -80px;
+  right: -70px;
+  background: radial-gradient(circle, rgba(244, 114, 182, 0.5), transparent 70%);
+  animation: blobFloat2 10s ease-in-out infinite;
+}
+
+.topic-reminder__blob--3 {
+  width: 160px;
+  height: 160px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.3), transparent 70%);
+  animation: blobPulse 6s ease-in-out infinite;
+}
+
+[data-theme="dark"] .topic-reminder__blob--1 {
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.7), transparent 70%);
+}
+[data-theme="dark"] .topic-reminder__blob--2 {
+  background: radial-gradient(circle, rgba(244, 114, 182, 0.55), transparent 70%);
+}
+[data-theme="dark"] .topic-reminder__blob--3 {
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.45), transparent 70%);
+}
+
+@keyframes blobFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(24px, 18px) scale(1.12); }
+}
+
+@keyframes blobFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-22px, -18px) scale(1.15); }
+}
+
+@keyframes blobPulse {
+  0%, 100% { opacity: 0.35; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 0.6;  transform: translate(-50%, -50%) scale(1.25); }
+}
+
+/* --- 4. Кнопка «Крестик» --- */
+.topic-reminder__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.65);
+  color: #64748b;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+  backdrop-filter: blur(8px);
+}
+
+.topic-reminder__close:hover {
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  transform: rotate(90deg);
+}
+
+[data-theme="dark"] .topic-reminder__close {
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}
+[data-theme="dark"] .topic-reminder__close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+}
+
+/* --- 6. Сам заголовок --- */
+.topic-reminder__title {
+  position: relative;
+  z-index: 1;
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: -0.022em;
+  margin: 0;
+  background: linear-gradient(135deg, #1e1b4b 0%, #7c3aed 55%, #db2777 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: fadeUp 0.55s ease 0.3s both;
+}
+
+[data-theme="dark"] .topic-reminder__title {
+  background: linear-gradient(135deg, #f1f5f9 0%, #c4b5fd 55%, #f9a8d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* --- 7. Описание --- */
+.topic-reminder__text {
+  position: relative;
+  z-index: 2;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: #475569;
+  margin: 0 0 26px;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  animation: fadeUp 0.55s ease 0.42s both;
+}
+
+[data-theme="dark"] .topic-reminder__text {
+  color: #cbd5e1;
+}
+
+/* --- 8. Кнопки --- */
+.topic-reminder__actions {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeUp 0.55s ease 0.54s both;
+}
+
+.topic-reminder__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 15px 20px;
+  border-radius: 18px;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s, background 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Блик на главной кнопке */
+.topic-reminder__btn--primary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.7s ease;
+}
+.topic-reminder__btn--primary:hover::before { left: 100%; }
+
+.topic-reminder__btn--primary {
+  background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%);
+  color: #fff;
+  box-shadow:
+    0 12px 28px -10px rgba(124, 58, 237, 0.6),
+    0 4px 12px -4px rgba(219, 39, 119, 0.35);
+}
+
+.topic-reminder__btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 34px -10px rgba(124, 58, 237, 0.8),
+    0 6px 16px -4px rgba(219, 39, 119, 0.5);
+}
+
+.topic-reminder__btn--primary:active {
+  transform: scale(0.98);
+}
+
+.topic-reminder__btn--primary svg {
+  transition: transform 0.25s ease;
+}
+.topic-reminder__btn--primary:hover svg {
+  transform: translate(2px, -2px);
+}
+
+.topic-reminder__btn--quiet {
+  background: rgba(255, 255, 255, 0.55);
+  color: #64748b;
+  font-weight: 600;
+  font-size: 13.5px;
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.topic-reminder__btn--quiet:hover {
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+}
+
+[data-theme="dark"] .topic-reminder__btn--quiet {
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .topic-reminder__btn--quiet:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+}
+
+/* --- 9. Анимация появления элементов --- */
+@keyframes fadeUp {
+  0%   { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* --- 10. Мобильная адаптация --- */
+@media (max-width: 480px) {
+  .topic-reminder__box {
+    padding: 40px 22px 20px;
+    border-radius: 28px;
+  }
+}
+/* Пульсация сияния у текста (еле заметная) */
+@keyframes titleGlow {
+  0%, 100% { filter: drop-shadow(0 4px 12px rgba(139, 92, 246, 0.25)); }
+  50%      { filter: drop-shadow(0 6px 20px rgba(219, 39, 119, 0.45)); }
+}
+
+@keyframes lineExpand {
+  0%   { width: 0; opacity: 0; }
+  100% { width: 60px; opacity: 1; }
+}
+/* ==== Плитки-бейджи в углу ==== */
+.topic-reminder__chips {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+  animation: fadeUp 0.5s ease 0.15s both;
+}
+
+.topic-reminder__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  /* Делаем их максимально легкими и прозрачными */
+  background: rgba(15, 23, 42, 0.04);
+  color: #64748b;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="dark"] .topic-reminder__chip {
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Если хотите, чтобы "doro" было чуть темнее, а "Гистология" чуть фиолетовее */
+.topic-reminder__chip--doro {
+  color: #475569;
+  font-weight: 800;
+}
+[data-theme="dark"] .topic-reminder__chip--doro {
+  color: #e2e8f0;
+}
+
+.topic-reminder__chip--subject {
+  color: #7c3aed;
+  background: rgba(139, 92, 246, 0.06);
+  border-color: rgba(139, 92, 246, 0.15);
+}
+[data-theme="dark"] .topic-reminder__chip--subject {
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+/* ==== Обертка заголовка ==== */
+.topic-reminder__title-wrap {
+  position: relative;
+  z-index: 2;
+  margin: 32px auto 20px; /* Сдвигаем вниз, чтобы бейджи не наезжали */
+  max-width: 340px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ==== Заголовок ==== */
+.topic-reminder__title {
+  position: relative;
+  z-index: 1;
+  font-size: 28px; /* Увеличили размер */
+  font-weight: 900; /* Сделали максимально жирным */
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  margin: 0;
+  
+  background: linear-gradient(135deg, #2e1065 0%, #8b5cf6 50%, #db2777 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  
+  filter: drop-shadow(0 0 24px rgba(139, 92, 246, 0.45)) drop-shadow(0 8px 20px rgba(219, 39, 119, 0.25));
+  
+  animation: fadeUp 0.55s ease 0.3s both;
+}
+
+[data-theme="dark"] .topic-reminder__title {
+  background: linear-gradient(135deg, #ffffff 0%, #c4b5fd 50%, #f9a8d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 28px rgba(196, 181, 253, 0.45)) drop-shadow(0 8px 20px rgba(244, 114, 182, 0.3));
 }

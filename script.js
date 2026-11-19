@@ -3142,6 +3142,11 @@ async function syncProfileToCloud() {
   async function openTopic(key, topicNum = null) {
     const subject = subjects[key];
     if (!subject) return;
+
+    // ↓↓↓ НАПОМИНАНИЕ ПРИ ВХОДЕ В РАЗДЕЛ (гистология → Moodle) ↓↓↓
+    if (window.maybeShowTopicReminder) {
+      window.maybeShowTopicReminder(key);
+    }
     const valid = sortTopics(subject.topics.filter(t => t.title !== 'Раздел в разработке'));
     if (!valid.length) return;
     const viewFiles = $('view-files');
@@ -6873,7 +6878,61 @@ const TopicLoader = (function () {
     },
   };
 })();
+// ============================================================
+//  МОДАЛКА-НАПОМИНАНИЕ ПРИ ВХОДЕ В РАЗДЕЛ
+//  Пока — только гистология. Не чаще 1 раза за сессию.
+// ============================================================
+(function initTopicReminder() {
+  const modal = document.getElementById('topicReminder');
+  if (!modal) return;
 
+  const backdrop = document.getElementById('topicReminderBackdrop');
+  const closeBtn = document.getElementById('topicReminderClose');
+  const laterBtn = document.getElementById('topicReminderLater');
+  const goBtn    = document.getElementById('topicReminderGo');
+
+  const STORAGE_KEY = 'doro.reminder.histology.seen';
+  // Подставь сюда тот subjectKey/название, по которому у тебя
+  // открывается раздел гистологии. Если у тебя в разделах
+  // используется другой идентификатор — замени 'histology'.
+  const TRIGGER_KEY = 'histology';
+
+  function open() {
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('onboard-open');
+  }
+
+  function close(markSeen = true) {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('onboard-open');
+    if (markSeen) {
+      try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+    }
+  }
+
+  if (closeBtn) closeBtn.addEventListener('click', () => close());
+  if (laterBtn) laterBtn.addEventListener('click', () => close());
+  if (backdrop) backdrop.addEventListener('click', () => close());
+  if (goBtn) goBtn.addEventListener('click', () => close());
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) close();
+  });
+
+  // Публичный хук: вызывать при открытии раздела
+  window.maybeShowTopicReminder = function (subjectKeyOrTitle) {
+    const val = String(subjectKeyOrTitle || '').toLowerCase();
+    if (!val.includes(TRIGGER_KEY)) return;
+
+    let seen = false;
+    try { seen = sessionStorage.getItem(STORAGE_KEY) === '1'; } catch (e) {}
+    if (seen) return;
+
+    open();
+  };
+})();
 // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------
 renderProfile();
 showView('home');

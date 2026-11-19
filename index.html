@@ -848,6 +848,52 @@
 
   </div><!-- /.onboard__box -->
 </div><!-- /#payModal -->
+<div class="topic-reminder" id="topicReminder" aria-hidden="true">
+  <div class="topic-reminder__backdrop" id="topicReminderBackdrop"></div>
+  <div class="topic-reminder__box" role="dialog" aria-modal="true" aria-labelledby="topicReminderTitle">
+
+    <div class="topic-reminder__blob topic-reminder__blob--1" aria-hidden="true"></div>
+    <div class="topic-reminder__blob topic-reminder__blob--2" aria-hidden="true"></div>
+    <div class="topic-reminder__blob topic-reminder__blob--3" aria-hidden="true"></div>
+
+    <button type="button" class="topic-reminder__close" id="topicReminderClose" aria-label="Закрыть">×</button>
+
+    <!-- Плитки-бейджи в углу -->
+    <div class="topic-reminder__chips">
+      <span class="topic-reminder__chip topic-reminder__chip--doro">doro</span>
+      <span class="topic-reminder__chip topic-reminder__chip--subject">Гистология</span>
+    </div>
+
+    <button type="button" class="topic-reminder__close" id="topicReminderClose" aria-label="Закрыть">×</button>
+
+    <div class="topic-reminder__title-wrap">
+      <h2 class="topic-reminder__title" id="topicReminderTitle">
+        Тесты по гистологии<br>ждут выполнения
+      </h2>
+    </div>
+
+    <p class="topic-reminder__text">
+      Твой итоговый рейтинг складывается в том числе из этих тестов.
+    </p>
+
+    <div class="topic-reminder__actions">
+      <a href="https://do.asmu.ru/course/view.php?id=2216#:~:text=%D0%93%D0%B8%D1%81%D1%82%D0%BE%D0%BB%D0%BE%D0%B3%D0%B8%D1%8F%2C%D1%8D%D0%BC%D0%B1%D1%80%D0%B8%D0%BE%D0%BB%D0%BE%D0%B3%D0%B8%D1%8F%2C%20%D1%86%D0%B8%D1%82%D0%BE%D0%BB%D0%BE%D0%B3%D0%B8%D1%8F%20(31.05.01%20%2D%20%C2%AB%D0%9B%D0%B5%D1%87%D0%B5%D0%B1%D0%BD%D0%BE%D0%B5%20%D0%B4%D0%B5%D0%BB%D0%BE%C2%BB%20)%2C%201%2D2%20%D0%BA%D1%83%D1%80%D1%81"
+         target="_blank" rel="noopener"
+         class="topic-reminder__btn topic-reminder__btn--primary" id="topicReminderGo">
+        <span>Перейти в Moodle</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="7" y1="17" x2="17" y2="7"></line>
+          <polyline points="7 7 17 7 17 17"></polyline>
+        </svg>
+      </a>
+      <button type="button" class="topic-reminder__btn topic-reminder__btn--quiet"
+              id="topicReminderLater">
+        Закрыть
+      </button>
+    </div>
+  </div>
+</div>
 <!-- ================= МОДАЛКА ПРЕЗЕНТАЦИИ GOLDEN ================= -->
 <div class="support-modal" id="supportModal" aria-hidden="true">
   <div class="support-modal__backdrop" id="supportModalBackdrop"></div>
