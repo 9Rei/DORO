@@ -856,15 +856,10 @@
     <div class="topic-reminder__blob topic-reminder__blob--2" aria-hidden="true"></div>
     <div class="topic-reminder__blob topic-reminder__blob--3" aria-hidden="true"></div>
 
-    <button type="button" class="topic-reminder__close" id="topicReminderClose" aria-label="Закрыть">×</button>
-
-    <!-- Плитки-бейджи в углу -->
-    <div class="topic-reminder__chips">
-      <span class="topic-reminder__chip topic-reminder__chip--doro">doro</span>
-      <span class="topic-reminder__chip topic-reminder__chip--subject">Гистология</span>
-    </div>
-
-    <button type="button" class="topic-reminder__close" id="topicReminderClose" aria-label="Закрыть">×</button>
+<div class="topic-reminder__chips">
+  <span class="topic-reminder__chip">doro</span>
+  <span class="topic-reminder__chip">Гистология</span>
+</div>
 
     <div class="topic-reminder__title-wrap">
       <h2 class="topic-reminder__title" id="topicReminderTitle">
@@ -887,10 +882,14 @@
           <polyline points="7 7 17 7 17 17"></polyline>
         </svg>
       </a>
-      <button type="button" class="topic-reminder__btn topic-reminder__btn--quiet"
-              id="topicReminderLater">
-        Закрыть
-      </button>
+<div class="topic-reminder__split">
+  <button type="button" class="topic-reminder__btn topic-reminder__btn--quiet" id="topicReminderDone">
+    Уже решил
+  </button>
+  <button type="button" class="topic-reminder__btn topic-reminder__btn--quiet" id="topicReminderLater">
+    Позже
+  </button>
+</div>
     </div>
   </div>
 </div>

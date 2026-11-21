@@ -152,7 +152,7 @@ window.subjects = {
     num: "04", title: "Микробиология",
     author: "Сюзи Петросян",
     topics: [
-      { num: "12", title: "Коллоквиум по разделу: Инфекция и иммунитет", steps: ["Прочитать файлик коллоквиума"], date: "2026-11-23", file: "content/microbio/12.md" },
+      { num: "12", title: "Коллоквиум по разделу: Инфекция и иммунитет", steps: ["Прочитать файлик коллоквиума"], date: "2026-11-23", file: "content/microbio/12.md", shortFile: "content/microbio/12К.md", tabs: ["theory", "short"]},
       { num: "11", title: "Иммунобиологические препараты", steps: ["Прочитать файлик", "Выполнить тест"], date: "2026-11-16", file: "content/microbio/11.md" },
       { num: "10", title: "Клеточный иммунный ответ. Реакции иммунного лизиса. Реакция связывания комплемента (РСК). Иммуноферментный анализ", steps: ["Прочитать файлик", "Выполнить тест"], date: "2026-11-09", file: "content/microbio/10.md" },
       { num: "09", title: "Реакция преципитации, ее варианты. Реакция флокуляции, нейтрализации токсина антитоксином, иммунофлюоресценции. Собственно иммунологический метод диагностики", steps: ["Прочитать файлик", "Выполнить тест"], date: "2026-11-01", file: "content/microbio/09.md" },
@@ -3278,7 +3278,8 @@ async function syncProfileToCloud() {
           tests: 'Тесты',
           preparations: 'Препараты',
           questions: 'Вопросы',
-          problems: 'Задачи'
+          problems: 'Задачи',
+          short: 'Кратко'
         };
         readerTabs.innerHTML = tabConfigForRender.map((tab, i) => `
           <button type="button" class="reader__tab${i === 0 ? ' is-active' : ''}" data-tab="${tab}">${TAB_LABELS[tab] || tab}</button>
@@ -5664,6 +5665,10 @@ if (tabConfig.includes('preparations')) {
     if (tabConfig.includes('problems')) result.problems = three.problems;
     if (tabConfig.includes('tests') && three.tests) result.tests = three.tests;
     if (tabConfig.includes('theory') && !three.questions && !three.problems) result.theory = raw;
+  // Заглушка для вкладки "short" (краткий текст загрузится отдельно)
+  if (tabConfig.includes('short')) {
+    result.short = 'SHORT_LOADER';
+  }
   }
   return result;
 }
@@ -5674,7 +5679,30 @@ if (tabConfig.includes('preparations')) {
   moveTabIndicator();
   // НЕ снимаем .is-loaded — иначе контент будет «пропадать» при переключении
   contentEl.classList.toggle('reader-tab-tests', tab === 'tests');
-if (tab === 'preparations') {
+  if (tab === 'short') {
+  // Загружаем краткий файл
+  const topic = window.currentTopicMeta;
+  if (!topic || !topic.shortFile) {
+    contentEl.innerHTML = '<p class="reader__empty">Краткая версия пока не добавлена.</p>';
+    return;
+  }
+  contentEl.innerHTML = '<p class="reader__empty">Загрузка краткой версии…</p>';
+  window.doroContent.loadTopicContent({
+    ...topic,
+    file: topic.shortFile,
+    subjectKey: window.currentSubjectKey
+  }).then(rawShort => {
+    renderHtmlInChunks(contentEl, renderTopicContent(rawShort), {
+      onDone: () => {
+        contentEl.classList.add('is-loaded');
+        document.dispatchEvent(new CustomEvent('doro:topic-rendered'));
+      }
+    });
+  }).catch(e => {
+    contentEl.innerHTML = '<p class="reader__empty">Не удалось загрузить краткую версию.</p>';
+  });
+}
+else if (tab === 'preparations') {
   contentEl.innerHTML = renderPreparations(sections.preparations || [], sections.tasksPdf || []);
 } else if (tab === 'questions') {
     const raw = sections.questions || '';
@@ -6888,15 +6916,49 @@ const TopicLoader = (function () {
   if (!modal) return;
 
   const backdrop = document.getElementById('topicReminderBackdrop');
-  const closeBtn = document.getElementById('topicReminderClose');
+  const doneBtn  = document.getElementById('topicReminderDone');
   const laterBtn = document.getElementById('topicReminderLater');
   const goBtn    = document.getElementById('topicReminderGo');
 
-  const STORAGE_KEY = 'doro.reminder.histology.seen';
-  // Подставь сюда тот subjectKey/название, по которому у тебя
-  // открывается раздел гистологии. Если у тебя в разделах
-  // используется другой идентификатор — замени 'histology'.
+  // Ключи в localStorage (не sessionStorage — иначе «уже решил» и «позже» не переживут перезагрузку)
+  const KEY_DONE   = 'doro.reminder.histology.done';   // дата 'YYYY-MM-DD', когда нажали «Уже решил»
+  const KEY_SNOOZE = 'doro.reminder.histology.snooze'; // timestamp, до какого момента скрыто
+  const SNOOZE_MS  = 60 * 60 * 1000;                   // 1 час
   const TRIGGER_KEY = 'histology';
+
+  // День недели гисты: 5 = пятница. Если у вас в другой день — поменяйте.
+  const CLASS_DAY = 5;
+  // За сколько дней до пары показывать: 1 = за день (в четверг)
+  const DAYS_BEFORE = 1;
+
+  function ymd(d) {
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
+  }
+
+  // Ближайшая дата пары (пятница) в формате YYYY-MM-DD
+  function nextClassDate() {
+    const now = new Date();
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    let diff = (CLASS_DAY - d.getDay() + 7) % 7;
+    if (diff === 0 && now.getHours() >= 13) diff = 7; // после пары считаем «следующая»
+    d.setDate(d.getDate() + diff);
+    return ymd(d);
+  }
+
+  // Дата, в которую надо показать окно (за DAYS_BEFORE дней до пары)
+  function reminderDate() {
+    const now = new Date();
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    // Сначала находим дату пары
+    let diff = (CLASS_DAY - d.getDay() + 7) % 7;
+    if (diff === 0 && now.getHours() >= 13) diff = 7;
+    d.setDate(d.getDate() + diff - DAYS_BEFORE);
+    return ymd(d);
+  }
 
   function open() {
     modal.classList.add('is-open');
@@ -6904,34 +6966,86 @@ const TopicLoader = (function () {
     document.body.classList.add('onboard-open');
   }
 
-  function close(markSeen = true) {
+  function close() {
     modal.classList.remove('is-open');
     modal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('onboard-open');
-    if (markSeen) {
-      try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
-    }
   }
 
-  if (closeBtn) closeBtn.addEventListener('click', () => close());
-  if (laterBtn) laterBtn.addEventListener('click', () => close());
-  if (backdrop) backdrop.addEventListener('click', () => close());
-  if (goBtn) goBtn.addEventListener('click', () => close());
+  function shouldShow() {
+    // 1. Уже нажимал «Уже решил» для ближайшей пары — не показываем
+    const doneFor = localStorage.getItem(KEY_DONE);
+    if (doneFor === nextClassDate()) return false;
+
+    // 2. Стоит отложка (нажал «Позже») — ждём
+    const snoozeUntil = Number(localStorage.getItem(KEY_SNOOZE) || 0);
+    if (snoozeUntil && Date.now() < snoozeUntil) return false;
+
+    // 3. Сегодня ли день напоминания?
+    const today = ymd(new Date());
+    if (today !== reminderDate()) return false;
+
+    return true;
+  }
+
+  // «Уже решил» — запоминаем, для какой пары решил
+  if (doneBtn) {
+    doneBtn.addEventListener('click', () => {
+      localStorage.setItem(KEY_DONE, nextClassDate());
+      localStorage.removeItem(KEY_SNOOZE);
+      close();
+    });
+  }
+
+  // «Позже» — скрываем на час
+  if (laterBtn) {
+    laterBtn.addEventListener('click', () => {
+      localStorage.setItem(KEY_SNOOZE, String(Date.now() + SNOOZE_MS));
+      close();
+      scheduleRecheck(SNOOZE_MS);
+    });
+  }
+
+  if (goBtn)    goBtn.addEventListener('click', close);
+  if (backdrop) backdrop.addEventListener('click', close);
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modal.classList.contains('is-open')) close();
   });
 
-  // Публичный хук: вызывать при открытии раздела
+  // Перепроверка после «Позже»
+  let recheckTimer = null;
+  function scheduleRecheck(ms) {
+    clearTimeout(recheckTimer);
+    recheckTimer = setTimeout(() => {
+      if (shouldShow()) open();
+    }, ms);
+  }
+
+  // При загрузке страницы
+  function init() {
+    const snoozeUntil = Number(localStorage.getItem(KEY_SNOOZE) || 0);
+    if (snoozeUntil && Date.now() < snoozeUntil) {
+      scheduleRecheck(snoozeUntil - Date.now());
+      return;
+    }
+    setTimeout(() => { if (shouldShow()) open(); }, 800);
+  }
+
+  init();
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && shouldShow()) {
+      if (!modal.classList.contains('is-open')) open();
+    }
+  });
+
+  // Публичный хук оставляем — если где-то в коде вызывается window.maybeShowTopicReminder('histology'),
+  // то окно откроется (но с учётом логики shouldShow)
   window.maybeShowTopicReminder = function (subjectKeyOrTitle) {
     const val = String(subjectKeyOrTitle || '').toLowerCase();
     if (!val.includes(TRIGGER_KEY)) return;
-
-    let seen = false;
-    try { seen = sessionStorage.getItem(STORAGE_KEY) === '1'; } catch (e) {}
-    if (seen) return;
-
-    open();
+    if (shouldShow()) open();
   };
 })();
 // ---------- ФИНАЛЬНЫЙ РЕНДЕР ----------

@@ -18864,56 +18864,6 @@ html.role-admin .nav-admin-link {
   0%   { width: 0; opacity: 0; }
   100% { width: 60px; opacity: 1; }
 }
-/* ==== Плитки-бейджи в углу ==== */
-.topic-reminder__chips {
-  position: absolute;
-  top: 18px;
-  left: 18px;
-  z-index: 3;
-  display: flex;
-  gap: 6px;
-  animation: fadeUp 0.5s ease 0.15s both;
-}
-
-.topic-reminder__chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  /* Делаем их максимально легкими и прозрачными */
-  background: rgba(15, 23, 42, 0.04);
-  color: #64748b;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-}
-
-[data-theme="dark"] .topic-reminder__chip {
-  background: rgba(255, 255, 255, 0.05);
-  color: #94a3b8;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-/* Если хотите, чтобы "doro" было чуть темнее, а "Гистология" чуть фиолетовее */
-.topic-reminder__chip--doro {
-  color: #475569;
-  font-weight: 800;
-}
-[data-theme="dark"] .topic-reminder__chip--doro {
-  color: #e2e8f0;
-}
-
-.topic-reminder__chip--subject {
-  color: #7c3aed;
-  background: rgba(139, 92, 246, 0.06);
-  border-color: rgba(139, 92, 246, 0.15);
-}
-[data-theme="dark"] .topic-reminder__chip--subject {
-  color: #c4b5fd;
-  background: rgba(139, 92, 246, 0.1);
-  border-color: rgba(139, 92, 246, 0.2);
-}
 
 /* ==== Обертка заголовка ==== */
 .topic-reminder__title-wrap {
@@ -18953,4 +18903,112 @@ html.role-admin .nav-admin-link {
   background-clip: text;
   color: transparent;
   filter: drop-shadow(0 0 28px rgba(196, 181, 253, 0.45)) drop-shadow(0 8px 20px rgba(244, 114, 182, 0.3));
+}
+/* Разделённые кнопки снизу */
+.topic-reminder__split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.topic-reminder__split .topic-reminder__btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.topic-reminder__split .topic-reminder__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+/* Если раньше был стиль для topic-reminder__close в правом верхнем углу — можно удалить */
+.topic-reminder__chips {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.topic-reminder__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: #5b6577;                       /* один цвет текста для обоих */
+  background: rgba(255, 255, 255, 0.55); /* одна прозрачность для обоих */
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 999px;                  /* максимальное скругление */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* На всякий случай — если где-то остались старые модификаторы,
+   они больше не перекрашивают чипсы в разные цвета */
+.topic-reminder__chip--doro,
+.topic-reminder__chip--subject {
+  color: inherit;
+  background: inherit;
+}
+
+/* Убираем любые псевдоэлементы-иконки/смайлики, если они были */
+.topic-reminder__chip::before,
+.topic-reminder__chip::after {
+  content: none !important;
+  display: none !important;
+}
+[data-theme="dark"] .topic-reminder__chip {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+/* ============================================================
+   ПЕРЕКЛЮЧАТЕЛЬ "КРАТКО / ПОЛНЫЙ ТЕКСТ" В ТЕМЕ
+   ============================================================ */
+.reader-mode-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 12px 0 16px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .reader-mode-toggle {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.reader-mode-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reader-mode-btn.is-active {
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .reader-mode-btn.is-active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
