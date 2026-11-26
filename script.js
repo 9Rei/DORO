@@ -173,6 +173,22 @@ window.subjects = {
 };
 
 // ============================================================
+// ГЛОБАЛЬНАЯ СТАТИСТИКА ДЛЯ ШАПКИ
+// ============================================================
+
+// 1. Считаем общее количество тем локально
+function countTotalTopics() {
+  if (!window.subjects) return 0;
+  let total = 0;
+  for (const key in window.subjects) {
+    if (window.subjects[key].topics) {
+      total += window.subjects[key].topics.length;
+    }
+  }
+  return total;
+}
+
+// ============================================================
 //  ЕДИНЫЙ СПИСОК СТАТУСОВ + УТИЛИТЫ ГРУППЫ
 // ============================================================
 const USER_STATUSES = [
@@ -1540,8 +1556,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem(THEME_KEY, theme);
     updateGreetingByTheme(theme);
-    const q = document.querySelector('.profile-thanks__short');
-    if (q) q.textContent = getProfileQuote(theme === 'dark' ? 'dark' : 'light') + ' ';
   }
   function syncThemeSeg() {
     const mode = getThemeMode();
@@ -1791,19 +1805,6 @@ async function syncProfileToCloud() {
     const statusDisplay = $('profileStatusDisplay');
     const groupDisplay = $('profileGroupDisplay');
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const quoteLong  = document.querySelector('.profile-thanks__long');
-    if (quoteLong)  quoteLong.textContent  = '';
-    // --- СЧЕТЧИК ПОЛЬЗОВАТЕЛЕЙ ВМЕСТО ЦИТАТЫ ---
-    const quoteShort = document.querySelector('.profile-thanks__short');
-    if (quoteShort && !quoteShort.dataset.lastCount) {
-      quoteShort.innerHTML = `
-        <div class="profile-counter">
-          <div class="profile-counter__num">—</div>
-          <div class="profile-counter__label">человек на сайте</div>
-          <div class="profile-counter__timer">загрузка...</div>
-        </div>
-      `;
-    }
 
     if (user && user.name) {
       const initials = getInitials(user.name);
@@ -2499,6 +2500,11 @@ async function syncProfileToCloud() {
   async function loadUsersCount() {
     const CACHE_KEY = 'doro.users.count';
     const TTL = 24 * 60 * 60 * 1000; // 24 часа
+    
+    // ВРЕМЕННАЯ СТРОКА: удаляем старый кэш с часами
+    localStorage.removeItem('doro.users.count');
+    // ------------------------------------------------
+
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
 
     // Если кэш свежий — просто обновляем счетчик наверху
@@ -2522,43 +2528,51 @@ async function syncProfileToCloud() {
     }
   }
 
-  // ---------- ОБНОВЛЕНИЕ СЧЕТЧИКА НАВЕРХУ ПРОФИЛЯ ----------
-  function updateProfileCounter(count) {
-    const quoteShort = document.querySelector('.profile-thanks__short');
-    if (!quoteShort) return;
-
-    const CACHE_KEY = 'doro.users.count';
-    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+  // ---------- ОБНОВЛЕНИЕ СТАТИСТИКИ В ПРОФИЛЕ ----------
+  async function updateProfileCounter(count) {
+    const elUsers = document.getElementById('statUsers');
+    const elGolden = document.getElementById('statGolden');
+    const elTopics = document.getElementById('statTopics');
+    const elUpdate = document.getElementById('statUpdate');
     
-    let timeLeftText = 'сейчас';
-    if (cached) {
-      const nextUpdate = cached.ts + 24 * 60 * 60 * 1000;
-      const diff = nextUpdate - Date.now();
-      if (diff > 0) {
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        if (hours > 0) timeLeftText = `через ${hours} ч ${minutes} мин`;
-        else if (minutes > 0) timeLeftText = `через ${minutes} мин`;
-        else timeLeftText = 'меньше минуты';
+    if (!elUsers) return;
+
+    // Считаем темы
+    let totalTopics = 0;
+    if (window.subjects) {
+      for (const key in window.subjects) {
+        if (window.subjects[key].topics) {
+          totalTopics += window.subjects[key].topics.length;
+        }
       }
     }
 
-    // Если цифра изменилась — перерисовываем с анимацией
-    if (quoteShort.dataset.lastCount !== String(count)) {
-      quoteShort.innerHTML = `
-        <div class="profile-counter">
-          <div class="profile-counter__row">
-            <span class="profile-counter__num">${count}</span>
-            <span class="profile-counter__label">человек</span>
-          </div>
-          <div class="profile-counter__timer">${timeLeftText}</div>
-        </div>
-      `;
-      quoteShort.dataset.lastCount = String(count);
-    } else {
-      // Если цифра та же — просто обновляем таймер
-      const timerEl = quoteShort.querySelector('.profile-counter__timer');
-      if (timerEl) timerEl.textContent = timeLeftText;
+    // Дата
+    let updateText = 'сегодня';
+    try {
+      const CACHE_KEY = 'doro.users.count';
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (cached && cached.ts) {
+        const date = new Date(cached.ts);
+        updateText = date.toLocaleString('ru-RU', { day: 'numeric', month: 'short' });
+      }
+    } catch (e) {}
+
+    // ВСТАВЛЯЕМ ВСЁ В ОДНОМ МЕСТЕ
+    elUsers.innerHTML = `Люди: <span class="stat-num">${count}</span>`;
+    elTopics.innerHTML = `Темы: <span class="stat-num">${totalTopics}</span>`;
+    elUpdate.innerHTML = `Обновлено: <span class="stat-date">${updateText}</span>`;
+
+    // Golden
+    try {
+      if (window.doroCloud && window.doroCloud.getStats) {
+        const stats = await window.doroCloud.getStats();
+        if (stats) {
+          elGolden.innerHTML = `Golden: <span class="stat-num">${stats.golden}</span>`;
+        }
+      }
+    } catch (e) {
+      elGolden.innerHTML = `Golden: <span class="stat-num">—</span>`;
     }
   }
   const tileUsersEl = document.getElementById('tileUsers');
@@ -7249,3 +7263,59 @@ if (goToCodeBtn) {
   // --- Внешний вызов ---
   window.__openPayModal = open;
 })();
+// ============================================================
+// ГЛОБАЛЬНАЯ СТАТИСТИКА ДЛЯ ПРОФИЛЯ
+// ============================================================
+
+// 1. Считаем общее количество тем локально (из объекта window.subjects)
+function countTotalTopics() {
+  if (!window.subjects) return 0;
+  let total = 0;
+  for (const key in window.subjects) {
+    if (window.subjects[key].topics) {
+      total += window.subjects[key].topics.length;
+    }
+  }
+  return total;
+}
+
+// 2. Функция обновления плашки
+async function updateProfileStats() {
+  const elUsers = document.getElementById('statUsers');
+  const elGolden = document.getElementById('statGolden');
+  const elTopics = document.getElementById('statTopics');
+  const elUpdate = document.getElementById('statUpdate');
+
+  // Темы
+  const localTopicsCount = countTotalTopics();
+  if (elTopics) elTopics.textContent = `Темы: ${localTopicsCount}`;
+
+  // Время
+  const now = new Date().toLocaleString('ru-RU', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+  });
+  if (elUpdate) elUpdate.textContent = `Обновлено: ${now}`;
+
+  // Firebase
+  if (window.doroCloud && window.doroCloud.getStats) {
+    try {
+      if (elUsers) elUsers.textContent = `Люди: ...`;
+      if (elGolden) elGolden.textContent = `Golden: ...`;
+
+      const cloudStats = await window.doroCloud.getStats();
+      if (cloudStats) {
+        if (elUsers) elUsers.textContent = `Люди: ${cloudStats.users}`;
+        if (elGolden) elGolden.textContent = `Golden: ${cloudStats.golden}`;
+      }
+    } catch (e) {
+      console.warn("Не удалось получить данные из Firebase", e);
+      if (elUsers) elUsers.textContent = `Люди: —`;
+      if (elGolden) elGolden.textContent = `Golden: —`;
+    }
+  }
+}
+
+// Запускаем, когда Firebase готов
+window.addEventListener('doro:cloud-ready', updateProfileStats);
+// На случай, если Firebase загрузился раньше
+setTimeout(updateProfileStats, 1500);

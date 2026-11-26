@@ -105,6 +105,28 @@ function createCloudApi(initialUser) {
       return snapshot.data().count;
     },
 
+    // НОВЫЙ МЕТОД: Собирает статистику для профиля
+    async getStats() {
+      try {
+        // 1. Считаем всех юзеров
+        const usersSnap = await getCountFromServer(collection(db, 'users'));
+        const totalUsers = usersSnap.data().count;
+
+        // 2. Считаем Golden (у кого premiumActive === true)
+        const goldenQuery = query(collection(db, 'users'), where('premiumActive', '==', true));
+        const goldenSnap = await getCountFromServer(goldenQuery);
+        const goldenUsers = goldenSnap.data().count;
+
+        return {
+          users: totalUsers,
+          golden: goldenUsers
+        };
+      } catch (error) {
+        console.error('[firebase] Ошибка загрузки статистики:', error);
+        return null;
+      }
+    },
+
     async saveProfile(data) {
       if (!currentUid()) throw new Error('Нет пользователя');
       

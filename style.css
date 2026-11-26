@@ -19012,3 +19012,132 @@ html.role-admin .nav-admin-link {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
+/* =========================================
+   СТАТИСТИКА В ПРОФИЛЕ (ВСЁ СЕРОЕ)
+   ========================================= */
+
+/* Контейнер */
+.profile-global-stats {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 0 auto 24px auto !important;
+  padding: 0 10px !important;
+}
+
+/* Сама плашка (капсула) */
+.profile-stat-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 18px !important;
+  
+  /* Стеклянный эффект */
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  border-radius: 999px !important; /* Обтекаемая форма */
+  
+  /* Тени */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  
+  /* Шрифт и цвет (ВСЁ СЕРОЕ) */
+  font-family: 'Inter', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #64748b !important; /* Мягкий серый */
+  white-space: nowrap !important;
+  cursor: default !important;
+}
+
+/* Легкий подъем при наведении */
+.profile-stat-pill:hover {
+  background: rgba(255, 255, 255, 0.7) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Убираем любые выделения цветом внутри (если скрипт вдруг вставит span или b) */
+.profile-stat-pill b, 
+.profile-stat-pill span,
+.profile-stat-pill .stat-num,
+.profile-stat-pill .stat-date {
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  color: inherit !important; /* Всё наследует серый */
+  letter-spacing: normal !important;
+}
+
+/* --- Тёмная тема --- */
+[data-theme="dark"] .profile-stat-pill,
+body.dark .profile-stat-pill {
+  background: rgba(30, 41, 59, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #94a3b8 !important; /* Светло-серый */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="dark"] .profile-stat-pill:hover,
+body.dark .profile-stat-pill:hover {
+  background: rgba(30, 41, 59, 0.7) !important;
+}
+
+[data-theme="dark"] .profile-stat-pill b, 
+[data-theme="dark"] .profile-stat-pill span,
+[data-theme="dark"] .profile-stat-pill .stat-num,
+[data-theme="dark"] .profile-stat-pill .stat-date,
+body.dark .profile-stat-pill b, 
+body.dark .profile-stat-pill span,
+body.dark .profile-stat-pill .stat-num,
+body.dark .profile-stat-pill .stat-date {
+  color: inherit !important; /* Наследует светло-серый */
+}
+
+/* --- Мобильная адаптация (в одну строку) --- */
+@media (max-width: 600px) {
+  .profile-global-stats {
+    flex-wrap: nowrap !important; /* Запрещаем перенос */
+    gap: 6px !important;
+    padding: 0 4px !important;
+    width: 100% !important;
+  }
+  
+  .profile-stat-pill {
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+    gap: 4px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .profile-stat-pill {
+    font-size: 10px !important;
+    padding: 5px 8px !important;
+  }
+}
+
+/* Прячем старый мусор */
+.profile-counter, 
+.profile-thanks,
+.profile-thanks__short {
+  display: none !important;
+}
+/* --- Мобильная адаптация (нормальный перенос) --- */
+@media (max-width: 600px) {
+  .profile-global-stats {
+    flex-wrap: wrap !important; /* Разрешаем перенос */
+    gap: 8px !important; /* Отступы между плашками */
+    padding: 0 10px !important;
+    width: 100% !important; /* Растягиваем контейнер */
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .profile-stat-pill {
+    font-size: 12px !important;
+    padding: 8px 14px !important;
+    gap: 6px !important;
+  }
+}
