@@ -134,7 +134,7 @@ window.subjects = {
     num: "03", title: "Гистология",
     author: "Мария Прокопьева",
     tabs: ["theory", "preparations"],
-    topics: [
+    topics: [{ num: "31", title: "Морфологическая характеристика органов мужской половой системы", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-28", file: "content/histology/ГИСТА_31.md", pdf: "content/histology/31П.pdf" },
       { num: "30", title: "Морфологическая характеристика органов выделительной системы. Морфологическая характеристика почек", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-21", file: "content/histology/ГИСТА_30.md", pdf: "content/histology/30П.pdf" },
       { num: "29", title: "Морфологическая характеристика органов эндокринной системы", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-16", file: "content/histology/ГИСТА_29.md", pdf: "content/histology/29П.pdf" },
       { num: "28", title: "Коллоквиум по разделу: Органы пищеварительной системы, органы дыхания, кожа и ее производные. Диагностика препаратов.", steps: ["Прочитать файлик", "Решить тест"], date: "2026-11-07", file: "content/histology/ГИСТА_28.md", pdf: "content/histology/28П.pdf", tasksPdf: ["content/histology/ЗАДАЧИ_28.pdf", "content/histology/КРАТКИЙ_28.pdf"] },
